@@ -159,12 +159,12 @@ module amr_parameters
   real(dp)::ind_rsink=4.0d0   ! Number of cells defining the radius of the sphere where AGN feedback is active
   real(dp)::ir_eff=0.75       ! efficiency of the IR feedback (only when ir_feedback=.true.)
   real(dp)::sf_trelax=0.0D0   ! Relaxation time for star formation (cosmo=.false. only)
-  real(dp)::sf_tdiss=0.0D0    ! Dissipation timescale for subgrid turbulence in units of turbulent crossing time
   integer::sf_model=3         ! Virial star formation model
   integer::nlevel_collapse=3  ! Number of levels to follow initial dark matter collapse (cosmo=.true. only)
   real(dp)::mass_star_max=120.0D0 ! Maximum mass of a star in solar mass
   real(dp)::mass_sne_min=10.0D0   ! Minimum mass of a single supernova in solar mass
   logical::momentum_feedback=.false. ! Use supernovae momentum feedback if cooling radius not resolved
+
 
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
@@ -181,6 +181,7 @@ module amr_parameters
   logical ::convert_birth_times=.false. ! Convert stellar birthtimes: conformal -> proper
   logical ::ir_feedback=.false. ! Activate ir feedback from accreting sinks
   logical ::sf_virial=.false.   ! Activate SF Virial criterion
+  logical ::sf_save_sigma2=.false. ! Save the turbulent velocities when using SF_TURB_MODEL != SGS
   logical ::sf_log_properties=.false. ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.      ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false. ! Advect compressive and solenoidal turbulence terms separately
