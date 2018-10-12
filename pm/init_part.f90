@@ -353,7 +353,7 @@ contains
           if(i3_min<1.or.i3_max>n3(ilevel))error=.true.
        end if
        if(error) then
-          write(*,*)'Some grid are outside initial conditions sub-volume'
+          write(*,*)'Some grid are outside initial conditions sub-volume (pm)'
           write(*,*)'for ilevel=',ilevel
           write(*,*)i1_min,i1_max
           write(*,*)i2_min,i2_max

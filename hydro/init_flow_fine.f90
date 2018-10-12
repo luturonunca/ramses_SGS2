@@ -128,11 +128,26 @@ subroutine init_flow_fine(ilevel)
         end do
      end do
      error=.false.
-     if(i1_min<1.or.i1_max>n1(ilevel))error=.true.
-     if(i2_min<1.or.i2_max>n2(ilevel))error=.true.
-     if(i3_min<1.or.i3_max>n3(ilevel))error=.true.
+     if(i1_min<1.or.i1_max>n1(ilevel)) then
+        error=.true.
+        write(*,*)'aqui'
+        write(*,*)i1_min,1
+        write(*,*)i1_max,n1(ilevel)
+     end if
+     if(i2_min<1.or.i2_max>n2(ilevel)) then
+        error=.true.
+        write(*,*)'aqui'
+        write(*,*)i2_min,1
+        write(*,*)i2_max,n2(ilevel)
+     end if
+     if(i3_min<1.or.i3_max>(n3(ilevel)+2)) then 
+        error=.true.
+        write(*,*)'aqui'
+        write(*,*)i3_min,1
+        write(*,*)i3_max,n3(ilevel)
+     end if
      if(error) then
-        write(*,*)'Some grid are outside initial conditions sub-volume'
+        write(*,*)'Some grid are outside initial conditions sub-volume (hydro)'
         write(*,*)'for ilevel=',ilevel
         write(*,*)i1_min,i1_max
         write(*,*)i2_min,i2_max
