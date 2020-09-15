@@ -35,7 +35,7 @@ subroutine star_formation(ilevel)
   real(dp)::d,x,y,z,u,v,w,e,tg,zg
   real(dp)::mstar,dstar,tstar,nISM,nCOM,phi_t,phi_x,theta,sigs,scrit,b_turb,zeta
   real(dp)::T2,nH,T_poly,cs2,cs2_poly,trel,t_dyn,t_ff,tdec,uvar
-  real(dp)::ul,ur,fl,fr,trgv,alpha0
+  real(dp)::ul,ur,fl,fr,trgv,alpha0,lamjt
   real(dp)::sigma2,sigma2_comp,sigma2_sole,lapld,flong,ftot,pcomp=0.3
   real(dp)::divv,divv2,curlv,curlva,curlvb,curlvc,curlv2
   real(dp)::birth_epoch,factG,M2
@@ -47,7 +47,7 @@ subroutine star_formation(ilevel)
   real(dp),parameter::pi=0.5*twopi
   real(dp),dimension(1:3)::skip_loc
   real(dp)::dx,dx_loc,scale,vol_loc,dx_min,vol_min,d1,d2,d3,d4,d5,d6
-  real(dp)::mdebris
+  real(dp)::mdebris,dx_com
   real(dp),dimension(1:nvector)::sfr_ff
   integer ,dimension(1:ncpu,1:IRandNumSize)::allseed
   integer ,dimension(1:nvector),save::ind_grid,ind_cell,ind_cell2,nstar
@@ -307,6 +307,23 @@ subroutine star_formation(ilevel)
 
                  ! Density criterion
                  if(d<=d0) ok(i)=.false.
+#if LAMBDAJEANSCHECK==YES
+                 ! Calculate "turbulent" Jeans length in cell units, lamjt 
+                 ! (see e.g. Chandrasekhar 51, Bonazzola et al 87, Federrath & Klessen 2012 eq 36)
+                 ! trace of gradient velocity tensor
+                 !trgv = sigma2/dx_loc**2
+                 !trgv = sigma2
+                 !lamjt = (pi*trgv + sqrt(pi*pi*trgv*trgv + 36.0*pi*cs2*factG*d*dx_loc**2))/(6.0*factG*d*dx_loc**2)
+                 !if(ok(i)) then
+                 !   if(lamjt<1d2) then
+                 !      write(*,*)'jeans mass = ', lamjt, 'factG = ', factG, 'd',d, 'dx**2 ',dx_com**2 
+                 !   endif
+                 !endif 
+                 !if (lamjt > 1d0) then ! Jeans length resolved: gas is stable 
+                 !   ok(i) = .false.
+                 !endif
+                 ! else Jeans length not resolved --> form stars to lower density and stabilise gas
+#endif
                  if(ok(i)) then
                     SELECT CASE (sf_model)
                        ! Classical density threshold
@@ -641,6 +658,10 @@ subroutine star_formation(ilevel)
                  write(ilun,'(E24.12)',advance='no') uvar
               enddo
               write(ilun,'(I10)',advance='no') typep(ind_part(i))%tag
+#if LAMBDAJEANSCHECK==YES
+              !write(ilun,'(I10)',advance='no') ' '
+              !write(ilun,'(I10)',advance='no') lamjt 
+#endif
               write(ilun,'(A1)') ' '
            endif
 

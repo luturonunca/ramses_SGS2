@@ -7,9 +7,9 @@ subroutine thermal_feedback(ilevel)
   use pm_commons
   use amr_commons
   use hydro_commons
-  use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
+  include 'mpif.h'
   integer::info2,dummy_io
 #endif
   integer::ilevel
@@ -19,7 +19,7 @@ subroutine thermal_feedback(ilevel)
   ! This routine is called every fine time step.
   !------------------------------------------------------------------------
   integer::igrid,jgrid,ipart,jpart,next_part,ivar
-  integer::ig,ip,npart1,npart2,icpu,ilun,idim
+  integer::ig,ip,npart1,npart2,icpu,ilun=0,idim
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
@@ -29,14 +29,13 @@ subroutine thermal_feedback(ilevel)
   if(sf_log_properties) then
      call title(ifout-1,nchar)
      if(IOGROUPSIZEREP>0) then
-        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
         filedirini='output_'//TRIM(nchar)//'/'
         filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
      else
         filedir='output_'//TRIM(nchar)//'/'
      endif
      filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
-     ilun=myid+103
+     ilun=myid+10
      call title(myid,nchar)
      fileloc=TRIM(filename)//TRIM(nchar)
      ! Wait for the token
@@ -66,7 +65,6 @@ subroutine thermal_feedback(ilevel)
               write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
            endif
         enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
         write(ilun,'(A1)') ' '
      else
         open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
@@ -96,7 +94,7 @@ subroutine thermal_feedback(ilevel)
            do jpart=1,npart1
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
-              if ( is_star(typep(ipart)) ) then
+              if(idp(ipart).gt.0.and.tp(ipart).ne.0)then
                  npart2=npart2+1
               endif
               ipart=next_part  ! Go to next particle
@@ -113,7 +111,7 @@ subroutine thermal_feedback(ilevel)
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ! Select only star particles
-              if ( is_star(typep(ipart)) ) then
+              if(idp(ipart).gt.0.and.tp(ipart).ne.0)then
                  if(ig==0)then
                     ig=1
                     ind_grid(ig)=igrid
@@ -163,7 +161,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! dumps mass, momentum and energy in the nearest grid cell using array
   ! unew.
   !-----------------------------------------------------------------------
-  integer::i,j,idim,nx_loc,ivar,ilun
+  integer::i,j,idim,nx_loc,ivar,ilun=0
   real(kind=8)::RandNum
   real(dp)::SN_BOOST,mstar,dx_min,vol_min
   real(dp)::t0,ESN,mejecta,zloss,e,uvar
@@ -188,7 +186,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer::irad
 #endif
 
-  if(sf_log_properties) ilun=myid+103
+  if(sf_log_properties) ilun=myid+10
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -401,7 +399,6 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  endif
                  write(ilun,'(E24.12)',advance='no') uvar/unew(indp(j),1)
               enddo
-              write(ilun,'(I10)',advance='no') typep(ind_part(i))%tag
               write(ilun,'(A1)') ' '
            endif
         endif
@@ -472,9 +469,9 @@ subroutine kinetic_feedback
   use amr_commons
   use pm_commons
   use hydro_commons
-  use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
+  include 'mpif.h'
   integer::info
   integer,dimension(1:ncpu)::nSN_icpu_all
   real(dp),dimension(:),allocatable::mSN_all,sSN_all,ZSN_all
@@ -551,7 +548,7 @@ subroutine kinetic_feedback
            do jpart=1,npart1
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
-              if ( is_debris(typep(ipart)) .and. tp(ipart).lt.(current_time-t0) ) then
+              if(idp(ipart).le.0.and. tp(ipart).lt.(current_time-t0))then
                  npart2=npart2+1
               endif
               ipart=next_part  ! Go to next particle
@@ -611,7 +608,7 @@ subroutine kinetic_feedback
            do jpart=1,npart1
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
-              if ( is_debris(typep(ipart)) .and. tp(ipart).lt.(current_time-t0) ) then
+              if(idp(ipart).le.0.and. tp(ipart).lt.(current_time-t0))then
                  iSN=iSN+1
                  xSN(iSN,1)=xp(ipart,1)
                  xSN(iSN,2)=xp(ipart,2)
@@ -686,9 +683,9 @@ subroutine average_SN(xSN,vol_gas,dq,ekBlast,ind_blast,nSN)
   use pm_commons
   use amr_commons
   use hydro_commons
-  use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
+  include 'mpif.h'
   integer::info
 #endif
   !------------------------------------------------------------------------
@@ -850,8 +847,10 @@ subroutine Sedov_blast(xSN,vSN,mSN,sSN,ZSN,indSN,vol_gas,dq,ekBlast,nSN)
   use pm_commons
   use amr_commons
   use hydro_commons
-  use mpi_mod
   implicit none
+#ifndef WITHOUTMPI
+  include 'mpif.h'
+#endif
   !------------------------------------------------------------------------
   ! This routine merges SN using the FOF algorithm.
   !------------------------------------------------------------------------

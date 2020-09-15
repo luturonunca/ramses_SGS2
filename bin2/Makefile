@@ -20,7 +20,7 @@ GITREMOTE = $(shell git config --get branch.$(GITBRANCH).remote)
 GITREPO = $(shell git config --get remote.$(GITREMOTE).url)
 BUILDDATE = $(shell date +"%D-%T")
 DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) -DNVAR=$(NVAR) \
-          -DSOLVER$(SOLVER) -DSF_TURB_MODEL=SGS
+          -DSOLVER$(SOLVER) -DSF_TURB_MODEL=SGS -DQUADHILBERT -LAMBDAJEANSCHECK=NO
 ifeq ($(GRACKLE),1)
 DEFINES += -Dgrackle
 endif
