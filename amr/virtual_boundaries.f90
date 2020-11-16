@@ -681,7 +681,7 @@ subroutine make_virtual_reverse_dp(xx,ilevel)
 
 #endif
 
-111 format('   Entering make_virtual_reverse for level ',I2)
+111 format('   Entering make_virtual_reverse for level 1 ',I2)
 
 end subroutine make_virtual_reverse_dp
 !################################################################
@@ -844,7 +844,7 @@ subroutine make_virtual_reverse_int(xx,ilevel)
 
 #endif
 
-111 format('   Entering make_virtual_reverse for level ',I2)
+111 format('   Entering make_virtual_reverse for level 2',I2)
 
 end subroutine make_virtual_reverse_int
 !################################################################

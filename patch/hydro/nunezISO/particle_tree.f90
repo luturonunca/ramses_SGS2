@@ -315,7 +315,7 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   do idim=1,ndim
      do j=1,np
         i=floor((xp(ind_part(j),idim)/scale+skip_loc(idim)-x0(ind_grid_part(j),idim))/dx/2.0D0)
-        if(i<0.or.i>2)error=.true.
+        !if(i<0.or.i>2)error=.true.
         i=MAX(i,0)
         i=MIN(i,2)
         ind_son(j)=ind_son(j)+i*3**(idim-1)

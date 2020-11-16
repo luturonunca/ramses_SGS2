@@ -64,6 +64,7 @@ subroutine refine_coarse
   if(.not. ok_free)then
      write(*,*)'No more free memory'
      write(*,*)'Increase ngridmax'
+     write(*,*)ncreate,numbf,"caso2"
 #ifndef WITHOUTMPI
      call MPI_ABORT(MPI_COMM_WORLD,1,info)
 #else
@@ -429,6 +430,7 @@ subroutine refine_fine(ilevel)
            if(ncreate_tmp>=numbf) then
               write(*,*)'No more free memory'
               write(*,*)'Increase ngridmax'
+              write(*,*)ncreate_tmp,numbf,"caso1"
 #ifndef WITHOUTMPI
               call MPI_ABORT(MPI_COMM_WORLD,1,info)
 #else
