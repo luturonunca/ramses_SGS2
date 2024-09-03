@@ -8,9 +8,9 @@ NPRE = 8
 NVAR = 9 
 NENER = 0
 SOLVER = hydro
-PATCH = ../patch/hydro/nunez
+PATCH = ../patch/hydro/MeanBondi
 GRACKLE = 0
-EXEC = ramses_SGS
+EXEC = ramses_AGN
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
 OLD_MPI_SUPPORT = 0 # if you have openmpi < 2
 #############################################################################

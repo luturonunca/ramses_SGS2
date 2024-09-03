@@ -1415,6 +1415,10 @@ contains
                    levelp(ipart)  = levelmin
                    if(star) then
                       tp(ipart)    = tt(i)
+                      ! active stars
+                      if(tp(ipart).gt.-t_sne.and.tp(ipart).lt.0)then
+                        idp(ipart)=-idp(ipart)
+                      endif
                       ! Particle metallicity
                       if(metal) then
                          zp(ipart)  = zz(i)
