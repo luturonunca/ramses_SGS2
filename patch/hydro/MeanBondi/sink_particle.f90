@@ -492,7 +492,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 #if NENER>0
   integer::irad
 #endif
-  real(dp)::d,e,v2,c2,r2
+  real(dp)::d,e,v2,c2,r2,q_acc
   real(dp)::scale,weight,dx_cloud,vol_cloud
   real(dp)::sigmav2,v2rel
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
@@ -572,7 +572,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            v2rel=MIN((vv(1)-vsink(isink,1))**2+(vv(2)-vsink(isink,2))**2+(vv(3)-vsink(isink,3))**2,sigmav2)
            !r2sink(isink) = (factG * msink(isink)/v2rel)**2
            !dmgas(j)=dmgas(j)+d*(d/(c2+v2rel)**1.5)*vol(j,ind)
-           dmgas(j)=dmgas(j)+d*(d/(c2+v2rel)**1.5)
+           q_acc=d/(c2+v2rel)**1.5
 
            ! Get cloud particle CIC weight
            weight=vol_cloud*vol(j,ind)
@@ -582,7 +582,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            wden(isink)=wden(isink)+weight*d
            wmom(isink,1:ndim)=wmom(isink,1:ndim)+weight*d*vv(1:ndim)
            weth(isink)=weth(isink)+weight*d*e
-           wdmg(isink)=wdmg(isink)+weight*dmgas(j)
+           wdmg(isink)=wdmg(isink)+weight*q_acc
 
         endif
      end do
@@ -1069,6 +1069,7 @@ subroutine compute_accretion_rate(write_sinks)
      c2=MAX((gamma-1.0)*ethermal,smallc**2)*boost**(-2./3.)
      c2sink(isink)=c2
      vrel2=SUM((velocity(1:ndim)-vsink(isink,1:ndim))**2)
+     accretion_rate=accretion_rate/(density*volume+tiny(0.0_dp))
      if(bondi_use_vrel)then
         v_bondi=sqrt(c2+vrel2)
      else
@@ -1092,7 +1093,7 @@ subroutine compute_accretion_rate(write_sinks)
      !write(*,*)dMEDoverdt(isink),msink(isink),scale_t
 
      alpha=max((density/(1/scale_nH))**2,1d0)
-     dMBHoverdt(isink)=alpha * 4.*3.1415926 *accretion_rate*(factG*msink(isink))**2/volume/density
+     dMBHoverdt(isink)=alpha * 4.*3.1415926 *accretion_rate*(factG*msink(isink))**2
      !write(*,*)',dMBHoverdt(isink),alpha,accretion_rate,factG,msink(isink), volume,density'
      !write(*,*)'dMBH = ',dMBHoverdt(isink),alpha,accretion_rate,factG,msink(isink), volume,density
      ! Compute final sink accretion rate

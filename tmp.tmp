@@ -1,0 +1,306 @@
+
+subroutine collect_acczone_avg(ilevel)
+  use pm_commons
+  use amr_commons
+  use poisson_commons
+  use mpi_mod
+  implicit none
+#ifndef WITHOUTMPI
+  integer::info
+#endif
+  !-----------------------------------------------------------------------------
+  ! This routine is used to collect all relevant information to compute the
+  ! the accretion rates. The information is collected level-by-level when
+  ! going down in the call tree (leafs at the bottom), while accretion is
+  ! performed on the way up.
+  ! - first, the volume of each particle is computed. The volume is reduced if
+  ! sinks are overlapping.
+  ! - then a loop over all particles of ilevel (vectorized) is used to compute
+  ! the volume-weighted quantities.
+  !-----------------------------------------------------------------------------
+
+  integer::ilevel
+  integer::igrid,jgrid,ipart,jpart,next_part
+  integer::ig,ip,npart1,npart2,icpu,isink
+  integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
+
+  if(ilevel<levelmin)return
+  if(verbose)write(*,111)ilevel
+
+  ! Compute (volume weighted) averages over accretion zone
+  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wdmg=0d0
+
+  ! Loop over cpus
+  do icpu=1,ncpu
+     igrid=headl(icpu,ilevel)
+     ig=0
+     ip=0
+     ! Loop over grids
+     do jgrid=1,numbl(icpu,ilevel)
+        npart1=numbp(igrid)  ! Number of particles in the grid
+        npart2=0
+
+        ! Count sink and cloud particles
+        if(npart1>0)then
+           ipart=headp(igrid)
+           ! Loop over particles
+           do jpart=1,npart1
+              ! Save next particle   <--- Very important !!!
+              next_part=nextp(ipart)
+              if( is_cloud(typep(ipart)) ) then
+                 npart2=npart2+1
+              endif
+              ipart=next_part  ! Go to next particle
+           end do
+        endif
+
+        ! Gather sink and cloud particles
+        if(npart2>0)then
+           ig=ig+1
+           ind_grid(ig)=igrid
+           ipart=headp(igrid)
+           ! Loop over particles
+           do jpart=1,npart1
+              ! Save next particle   <--- Very important !!!
+              next_part=nextp(ipart)
+              ! Select only sink particles
+              if( is_cloud(typep(ipart)) ) then
+                 if(ig==0)then
+                    ig=1
+                    ind_grid(ig)=igrid
+                 end if
+                 ip=ip+1
+                 ind_part(ip)=ipart
+                 ind_grid_part(ip)=ig
+              endif
+              if(ip==nvector)then
+                 call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+                 ip=0
+                 ig=0
+              end if
+              ipart=next_part  ! Go to next particle
+           end do
+           ! End loop over particles
+        end if
+        igrid=next(igrid)   ! Go to next grid
+     end do
+
+     ! End loop over grids
+     if(ip>0)then
+        call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+     end if
+  end do
+  ! End loop over cpus
+
+  if(nsink>0)then
+#ifndef WITHOUTMPI
+     call MPI_ALLREDUCE(wden,wden_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     call MPI_ALLREDUCE(wvol,wvol_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     call MPI_ALLREDUCE(weth,weth_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     call MPI_ALLREDUCE(wmom,wmom_new,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     call MPI_ALLREDUCE(wdmg,wdmg_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+#else
+     wden_new=wden
+     wvol_new=wvol
+     weth_new=weth
+     wmom_new=wmom
+     wdmg_new=wdmg
+#endif
+  endif
+
+  do isink=1,nsink
+     weighted_density(isink,ilevel)=wden_new(isink)
+     weighted_volume(isink,ilevel)=wvol_new(isink)
+     weighted_momentum(isink,ilevel,1:ndim)=wmom_new(isink,1:ndim)
+     weighted_ethermal(isink,ilevel)=weth_new(isink)
+     weighted_dmg(isink,ilevel)=wdmg_new(isink)
+  end do
+
+111 format('   Entering collect_acczone_avg for level ',I2)
+
+end subroutine collect_acczone_avg
+
+subroutine compute_accretion_rate(write_sinks)
+  use pm_commons
+  use amr_commons
+  use hydro_commons
+  use mpi_mod
+  implicit none
+  logical::write_sinks
+
+  !-----------------------------------------------------------------------------
+  ! This routine computes the accretion rate onto the sink particles based
+  ! on the information collected in collect accretion.
+  ! It also creates output for the sink particle positions
+  !-----------------------------------------------------------------------------
+
+  integer::i,nx_loc,isink
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
+  real(dp)::factG,d_star,boost,alpha
+  real(dp)::r2,vrel2,c2,density,volume,ethermal,dx_min,scale,mgas,rho_inf,v_bondi
+  real(dp)::r2_smbh,rho_inf_smbh,accretion_rate,c2mean
+  real(dp),dimension(1:ndim)::velocity
+  real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
+  real(dp)::T2_gas,delta_mass_min
+
+  ! Gravitational constant
+  factG=1d0
+  if(cosmo)factG=3d0/8d0/3.1415926*omega_m*aexp
+
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  scale_m=scale_d*scale_l**ndim
+  nx_loc=(icoarse_max-icoarse_min+1)
+  scale=boxlen/dble(nx_loc)
+  dx_min=scale*0.5D0**nlevelmax/aexp
+  d_star=n_star/scale_nH
+
+  ! Compute sink particle accretion rate by averaging contributions from all levels
+  do isink=1,nsink
+
+     dMsink_overdt(isink)=0.0
+     dMsmbh_overdt(isink)=0.0
+     dMBHoverdt(isink)=0.0
+     dMBHoverdt_smbh(isink)=0.0
+     dMEDoverdt(isink)=0.0
+     dMEDoverdt_smbh(isink)=0.0
+     accretion_rate=0d0
+
+     ! Compute sink sphere average quantities
+     density=0.d0; volume=0.d0; velocity=0.d0; ethermal=0d0
+     do i=levelmin,nlevelmax
+        density=density+weighted_density(isink,i)
+        ethermal=ethermal+weighted_ethermal(isink,i)
+        velocity(1:ndim)=velocity(1:ndim)+weighted_momentum(isink,i,1:ndim)
+        accretion_rate=accretion_rate+weighted_dmg(isink,i)
+        volume=volume+weighted_volume(isink,i)
+     end do
+     mgas=density
+     density=density/(volume+tiny(0.0_dp))
+     if (volume<=0. .or. density<=0.)then
+        if(myid==1)print*,'something might be going wrong here...',volume,density,isink,idsink(isink),xsink(isink,1:ndim)
+        cycle
+     endif
+     ! Compute Bondi-Hoyle accretion rate in code units
+     if (star.and.acc_sink_boost.lt.0.0)then
+        boost=max((density/(boost_threshold_density/scale_nH))**2,1.0_dp)
+     else
+        boost=abs(acc_sink_boost)
+     end if
+
+     velocity(1:ndim)=velocity(1:ndim)/(density*volume+tiny(0.0_dp))
+     ethermal=ethermal/(density*volume+tiny(0.0_dp))
+     c2=MAX((gamma-1.0)*ethermal,smallc**2)*boost**(-2./3.)
+     c2sink(isink)=c2
+     vrel2=SUM((velocity(1:ndim)-vsink(isink,1:ndim))**2)
+     if(bondi_use_vrel)then
+        v_bondi=sqrt(c2+vrel2)
+     else
+        v_bondi=sqrt(c2)
+     endif
+
+     ! Bondi radius
+     r2=(factG*msink(isink)/v_bondi**2)**2
+
+     ! Extrapolate to rho_inf
+     rho_inf=density/(bondi_alpha(ir_cloud*0.5*dx_min/(r2+tiny(0.0_dp))**0.5))
+     alpha = bondi_alpha(ir_cloud*0.5*dx_min/(r2+tiny(0.0_dp))**0.5)
+     ! Compute Bondi-Hoyle accretion rate in code units
+     dMBHoverdt(isink)=4.*3.1415926*rho_inf*r2*v_bondi
+     !write(*,*)"dMBHoverdt(isink)=4.*3.1415926*density*r2*v_bondi/alpha"
+     !write(*,*)dMBHoverdt(isink),density,r2,v_bondi,alpha
+
+     ! Compute Eddington accretion rate in code units
+     dMEDoverdt(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
+     !write(*,*)"dMEDoverdt(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t"
+     !write(*,*)dMEDoverdt(isink),msink(isink),scale_t
+
+     alpha=max((density/(1/scale_nH))**2,1d0)
+     dMBHoverdt(isink)=alpha * 4.*3.1415926 *accretion_rate*(factG*msink(isink))**2/volume/density
+     !write(*,*)',dMBHoverdt(isink),alpha,accretion_rate,factG,msink(isink), volume,density'
+     !write(*,*)'dMBH = ',dMBHoverdt(isink),alpha,accretion_rate,factG,msink(isink), volume,density
+     ! Compute final sink accretion rate
+     if(bondi_accretion)dMsink_overdt(isink)=dMBHoverdt(isink)
+     if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt(isink))
+
+     if(smbh.and.mass_smbh_seed>0.0)then
+        r2_smbh=(factG*msmbh(isink)/v_bondi**2)**2
+        rho_inf_smbh=density/(bondi_alpha(ir_cloud*0.5*dx_min/(r2_smbh+tiny(0.0_dp))**0.5))
+        dMBHoverdt_smbh(isink)=4.*3.1415926*rho_inf_smbh*r2_smbh*v_bondi
+        dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
+        if(bondi_accretion)dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
+        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
+        dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
+     end if
+
+     ! Store average quantities for diagnostics
+     eps_sink(isink)=ethermal
+     rho_gas(isink)=density
+     volume_gas(isink)=volume
+     vel_gas(isink,1:ndim)=velocity(1:ndim)
+
+     if (agn.and.dMsink_overdt(isink)>0.0)then
+        ! Check whether we should have AGN feedback
+        if(T2_min<=0.0)then ! If zero or less, we always deposit feedback
+           ok_blast_agn(isink)=.true.
+        else ! Checking temperature of surrounding gas
+           ok_blast_agn(isink)=.false.
+           T2_gas=ethermal*scale_T2 ! in Kelvin
+           delta_mass_min = mgas*(T2_min-T2_gas)/(T2_AGN-T2_min)
+           if((T2_gas.ge.T2_min).or.(delta_mass(isink).ge.mgas*(T2_min-T2_gas)/(T2_AGN-T2_min)))then
+              ok_blast_agn(isink)=.true.
+           end if
+        end if
+     end if
+
+     if(msink(isink).ge.max_mass_nsc*2e33/scale_m.and.mass_smbh_seed>0.0)dMsink_overdt(isink)=0.0
+
+  end do
+
+  if (write_sinks)then
+     call print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
+  end if
+
+contains
+  ! Routine to return alpha, defined as rho/rho_inf, for a critical
+  ! Bondi accretion solution. The argument is x = r / r_Bondi.
+  ! This is from Krumholz et al. (AJC)
+  REAL(dp) function bondi_alpha(x)
+    implicit none
+    REAL(dp) x
+    REAL(dp), PARAMETER :: XMIN=0.01, xMAX=2.0
+    INTEGER, PARAMETER :: NTABLE=51
+    REAL(dp) lambda_c, xtable, xtablep1, alpha_exp
+    integer idx
+    !     Table of alpha values. These correspond to x values that run from
+    !     0.01 to 2.0 with uniform logarithmic spacing. The reason for
+    !     this choice of range is that the asymptotic expressions are
+    !     accurate to better than 2% outside this range.
+    REAL(dp), PARAMETER, DIMENSION(NTABLE) :: alphatable = (/ &
+         820.254, 701.882, 600.752, 514.341, 440.497, 377.381, 323.427, &
+         277.295, 237.845, 204.1, 175.23, 150.524, 129.377, 111.27, 95.7613, &
+         82.4745, 71.0869, 61.3237, 52.9498, 45.7644, 39.5963, 34.2989, &
+         29.7471, 25.8338, 22.4676, 19.5705, 17.0755, 14.9254, 13.0714, &
+         11.4717, 10.0903, 8.89675, 7.86467, 6.97159, 6.19825, 5.52812, &
+         4.94699, 4.44279, 4.00497, 3.6246, 3.29395, 3.00637, 2.75612, &
+         2.53827, 2.34854, 2.18322, 2.03912, 1.91344, 1.80378, 1.70804, &
+         1.62439 /)
+    !     Define a constant that appears in these formulae
+    lambda_c    = 0.25 * exp(1.5)
+    !     Deal with the off-the-table cases
+    if (x .le. XMIN) then
+       bondi_alpha = lambda_c / sqrt(2. * x**ndim)
+    else if (x .ge. XMAX) then
+       bondi_alpha = exp(1./x)
+    else
+       !     We are on the table
+       idx = floor ((NTABLE-1) * log(x/XMIN) / log(XMAX/XMIN))
+       xtable = exp(log(XMIN) + idx*log(XMAX/XMIN)/(NTABLE-1))
+       xtablep1 = exp(log(XMIN) + (idx+1)*log(XMAX/XMIN)/(NTABLE-1))
+       alpha_exp = log(x/xtable) / log(xtablep1/xtable)
+       !     Note the extra +1s below because of fortran 1 offset arrays
+       bondi_alpha = alphatable(idx+1) * (alphatable(idx+2)/alphatable(idx+1))**alpha_exp
+    end if
+  end function bondi_alpha
+
+end subroutine compute_accretion_rate
