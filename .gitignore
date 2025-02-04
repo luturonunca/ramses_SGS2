@@ -1,6 +1,8 @@
 *.o
 *.i
 *.mod
-ramses1d
-ramses2d
-ramses3d
+*.swo
+*.swp
+ramses*1d
+ramses*2d
+ramses*3d
