@@ -379,7 +379,7 @@ subroutine collect_acczone_avg(ilevel)
   if(verbose)write(*,111)ilevel
 
   ! Compute (volume weighted) averages over accretion zone
-  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0.d0; wfvol = 0.d0
+  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wdmg=0d0
 
   ! Loop over cpus
   do icpu=1,ncpu
@@ -412,7 +412,7 @@ subroutine collect_acczone_avg(ilevel)
            ipart=headp(igrid)
            ! Loop over particles
            do jpart=1,npart1
-              ! Save next particle   <--- Very important !!!
+              ! Save next    <--- Very important !!!
               next_part=nextp(ipart)
               ! Select only sink particles
               if( is_cloud(typep(ipart)) ) then
@@ -449,15 +449,13 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wvol,wvol_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(weth,weth_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(wmom,wmom_new,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-     call MPI_ALLREDUCE(wfrac, wfrac_new, nsinkmax, MPI_DOUBLE_PRECISION,MPI_SUM, MPI_COMM_WORLD, info)
-     call MPI_ALLREDUCE(wfvol, wfvol_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wdmg,wdmg_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
 #else
      wden_new=wden
      wvol_new=wvol
      weth_new=weth
      wmom_new=wmom
-     wfrac_new=wfrac
-     wfvol_new=wfvol
+     wdmg_new=wdmg
 #endif
   endif
 
@@ -466,9 +464,7 @@ subroutine collect_acczone_avg(ilevel)
      weighted_volume(isink,ilevel)=wvol_new(isink)
      weighted_momentum(isink,ilevel,1:ndim)=wmom_new(isink,1:ndim)
      weighted_ethermal(isink,ilevel)=weth_new(isink)
-     ! Now do the fraction arrays
-     weighted_fraction(isink, ilevel)       = wfrac_new(isink)
-     weighted_fraction_weight(isink, ilevel)= wfvol_new(isink)
+     weighted_dmg     (isink,ilevel)=wdmg_new(isink)
   end do
 
 111 format('   Entering collect_acczone_avg for level ',I2)
@@ -496,8 +492,10 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 #if NENER>0
   integer::irad
 #endif
-  real(dp)::d,e,v2,cs2,fraction
+  real(dp)::d,e,v2
   real(dp)::scale,weight,dx_cloud,vol_cloud
+  real(dp)::sigmav2
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
@@ -513,6 +511,10 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   scale=boxlen/dble(nx_loc)
   dx_cloud=(0.5D0**nlevelmax)*scale/aexp/2.0 ! factor of 2 hard-coded
   vol_cloud=dx_cloud**ndim
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  ! From km/s to user units: assume a 10 km/s vel disp in the ISM
+  sigmav2=(sigmav_max*1d5/scale_v)**2d0
 
   ! Copy cloud particle coordinates
   do idim=1,ndim
@@ -553,26 +555,23 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            e=e/d ! Specific energy
            v2=sum(vv**2)
            e=e-0.5d0*v2 ! Remove kinetic energy
-           ! compute approximate sound speed^2:
-           cs2 = (gamma - 1.0d0) * e
-           if (cs2 < smallc**2) cs2 = smallc**2   ! floor it if needed
-           
+           c2=MAX(gamma*(gamma-1.0)*e,smallc**2)
+
            ! Get sink index
            isink=-idp(ind_part(j))
+            
+           v2rel=MIN((vv(1)-vsink(isink,1))**2+(vv(2)-vsink(isink,2))**2+(vv(3)-vsink(isink,3))**2,sigmav2)
 
-           ! Get cloud particle CIC weight
+           dmgas(j)=dmgas(j)+d*(d/(c2+v2rel)**1.5)*vol(j,ind)
+           ! Get cloud particle C weight
            weight=vol_cloud*vol(j,ind)
-           ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2)
-           fraction = d / ( (cs2 + v2)**1.5d0 )
-
-           wfrac(isink) = wfrac(isink) + weight * fraction
-           wfvol(isink) = wfvol(isink) + weight
 
            ! Compute sink average quantities
            wvol(isink)=wvol(isink)+weight
            wden(isink)=wden(isink)+weight*d
            wmom(isink,1:ndim)=wmom(isink,1:ndim)+weight*d*vv(1:ndim)
            weth(isink)=weth(isink)+weight*d*e
+           wdmg(isink)=wdmg(isink)+weight*dmgas(j)
 
         endif
      end do
@@ -1002,9 +1001,8 @@ subroutine compute_accretion_rate(write_sinks)
 
   integer::i,nx_loc,isink
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
-  real(dp)::factG,d_star,boost
+  real(dp)::factG,d_star,boost,alpha
   real(dp)::r2,vrel2,c2,density,volume,ethermal,dx_min,scale,mgas,rho_inf,v_bondi
-  real(dp)::frac_sum, weight_sum, frac_mean
   real(dp)::r2_smbh,rho_inf_smbh
   real(dp),dimension(1:ndim)::velocity
   real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
@@ -1029,19 +1027,18 @@ subroutine compute_accretion_rate(write_sinks)
      dMsmbh_overdt(isink)=0.0
      dMBHoverdt(isink)=0.0
      dMBHoverdt_smbh(isink)=0.0
-     dMBHoverdt_fraction_smbh(isink)=0.0
      dMEDoverdt(isink)=0.0
      dMEDoverdt_smbh(isink)=0.0
+     accretion_rate=0d0
 
      ! Compute sink sphere average quantities
-     density=0.d0; volume=0.d0; velocity=0.d0; ethermal=0d0; frac_sum=0d0; weight_sum=0d0
+     density=0.d0; volume=0.d0; velocity=0.d0; ethermal=0d0
      do i=levelmin,nlevelmax
         density=density+weighted_density(isink,i)
         ethermal=ethermal+weighted_ethermal(isink,i)
         velocity(1:ndim)=velocity(1:ndim)+weighted_momentum(isink,i,1:ndim)
+        accretion_rate=accretion_rate+weighted_dmg(isink,i)
         volume=volume+weighted_volume(isink,i)
-        frac_sum   = frac_sum   + weighted_fraction(isink, i)
-        weight_sum = weight_sum + weighted_fraction_weight(isink, i)
      end do
      mgas=density
      density=density/(volume+tiny(0.0_dp))
@@ -1075,32 +1072,25 @@ subroutine compute_accretion_rate(write_sinks)
 
      ! Compute Bondi-Hoyle accretion rate in code units
      dMBHoverdt(isink)=4.*3.1415926*rho_inf*r2*v_bondi
-     ! define MeanBondi rate
-     if(weight_sum > 0.d0) then
-         frac_mean = frac_sum / weight_sum
-     else
-         frac_mean = 0.d0
-     end if
-     dMBHoverdt_fraction(isink) = 4.d0 * 3.1415926d0 * (factG * msink(isink))**2 *frac_mean
+
      ! Compute Eddington accretion rate in code units
      dMEDoverdt(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
+     ! attentino HARDNUMBER
+     !alpha=max((density/(d_boost/scale_nH))**boost_acc,1d0)
+     alpha=max((density/(1/scale_nH))**2,1d0)
+     dMBHoverdt(isink)=alpha * 4.*3.1415926 *accretion_rate*(factG*msink(isink))**2/volume/density
 
      ! Compute final sink accretion rate
      if(bondi_accretion)dMsink_overdt(isink)=dMBHoverdt(isink)
-     if(mean_bondi)dMsink_overdt(isink)=dMBHoverdt_fraction(isink)
      if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt(isink))
-     if(eddington_limit.and.mean_bondi)dMsink_overdt(isink)=min(dMBHoverdt_fraction(isink),dMEDoverdt(isink))
 
      if(smbh.and.mass_smbh_seed>0.0)then
         r2_smbh=(factG*msmbh(isink)/v_bondi**2)**2
         rho_inf_smbh=density/(bondi_alpha(ir_cloud*0.5*dx_min/(r2_smbh+tiny(0.0_dp))**0.5))
         dMBHoverdt_smbh(isink)=4.*3.1415926*rho_inf_smbh*r2_smbh*v_bondi
-        dMBHoverdt_fraction_smbh(isink)= 4.d0* 3.1415926d0 * (factG * msmbh(isink))**2 *frac_mean
         dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
         if(bondi_accretion)dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
-        if(mean_bondi)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
-        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt_smbh(isink),dMEDoverdt_smbh(isink))
-        if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt_fraction_smbh(isink),dMEDoverdt_smbh(isink))
+        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
      end if
 
@@ -1215,18 +1205,16 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
         call quick_sort_dp(xmsink(1),idsink_sort(1),nsink)
         write(*,*)'Number of sink = ',nsink
         write(*,'(" ============================================================================================")')
-        write(*,'(" Id     Mass(Msol) Bondi MeanBondi Edd (Msol/yr)  BH: Mass(Msol)  Bondi MeanBondi Edd (Msol/yr)   x              y              z")')
+        write(*,'(" Id     Mass(Msol) Bondi(Msol/yr)   Edd(Msol/yr)  BH: Mass(Msol)  Bondi(Msol/yr)  Edd(Msol/yr)    x              y              z")')
         write(*,'(" ============================================================================================")')
         do i=nsink,max(nsink-30,1),-1
            isink=idsink_sort(i)
-           write(*,'(I3,14(1X,1PE14.7))')idsink(isink) &
+           write(*,'(I3,12(1X,1PE14.7))')idsink(isink) &
                 & ,msink(isink)*scale_m/2d33 &
                 & ,dMBHoverdt(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
-                & ,dMBHoverdt_fraction(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,dMEDoverdt(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,msmbh(isink)*scale_m/2d33 &
                 & ,dMBHoverdt_smbh(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
-                & ,dMBHoverdt_fraction_smbh(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,dMEDoverdt_smbh(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,xsink(isink,1:ndim),delta_mass(isink)*scale_m/2d33
         end do
@@ -1735,10 +1723,9 @@ subroutine update_sink(ilevel)
   logical::iyoung,jyoung,overlap,merge_flag
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dteff,dx_loc,scale,dx_min
-  real(dp)::t_larson1,rr,rmax,rmax2,factG,v1_v2,mcom,fsink_norm
+  real(dp)::t_larson1,rr,rmax,rmax2,factG,v1_v2,mcom
   real(dp),dimension(1:ndim)::xcom,vcom,lcom,r_rel
   logical,dimension(1:ndim)::period
-  real(dp),dimension(1:nsink,1:ndim)::xsinkold, fsinkold
 
 #if NDIM==3
 
@@ -1857,16 +1844,6 @@ subroutine update_sink(ilevel)
      end if
   end do
 
-  ! Store old xsink and fsink for the gradient descent timestep
-  xsinkold=0.0
-  fsinkold=0.0
-  do isink=1,nsink
-     if(msink(isink)>0.0)then
-        fsinkold(isink,1:ndim)=fsink(isink,1:ndim)
-        xsinkold(isink,1:ndim)=xsink(isink,1:ndim)
-     endif
-  enddo
-  
   ! Updating sink positions
 
   fsink=0.
@@ -1910,33 +1887,6 @@ subroutine update_sink(ilevel)
 
         ! and this is the drift (only for the global sink variable)
         xsink(isink,1:ndim)=xsink(isink,1:ndim)+vsink(isink,1:ndim)*dtnew(ilevel)
-
-        ! Gradient descent - Barzilai&Borwein-like
-        if (sink_descent) then
-           xsink_graddescent(1:nsink,1:ndim)=0.0
-           fsink_norm=NORM2(fsink(isink,1:ndim))
-           gamma_grad_descent = 0.0d0
-           graddescent_over_dt = 0.0d0
-           if (.not. new_born(isink))then
-              do idim=1,ndim
-                 gamma_grad_descent = gamma_grad_descent + (xsink(isink,idim)-xsinkold(isink,idim))*(fsink(isink,idim)-fsinkold(isink,idim))
-              enddo
-              if(gamma_grad_descent>0)then
-                 gamma_grad_descent = fudge_graddescent*dtnew(ilevel)*SQRT(ABS(gamma_grad_descent)/(NORM2(fsink(isink,1:ndim)-fsinkold(isink,1:ndim)))**2)
-                 ! Require thatthe sink cannot move more than half a grid
-                 if(gamma_grad_descent*fsink_norm>dx_min/2.0) then
-                    xsink_graddescent(isink,1:ndim) = fsink(isink,1:ndim) * dx_min/2.0/fsink_norm
-                 else
-                    xsink_graddescent(isink,1:ndim) = fsink(isink,1:ndim) * gamma_grad_descent
-                 endif
-                 ! Uopdate the sink position
-                 xsink(isink,1:ndim)=xsink(isink,1:ndim)+ xsink_graddescent(isink,1:ndim)
-                 ! Store the descent velocity for the time-stepping
-                 graddescent_over_dt(isink) = NORM2(xsink_graddescent(isink,1:ndim))/dtnew(ilevel)
-              endif
-           endif
-        endif
-        
         new_born(isink)=.false.
      end if
   end do
@@ -2458,11 +2408,10 @@ subroutine read_sink_params()
   namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,merging_timescale,&
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,create_sinks,&
        mass_sink_seed,mass_smbh_seed,&
-       eddington_limit,acc_sink_boost,mass_merger_vel_check,mean_bondi,&
+       eddington_limit,acc_sink_boost,mass_merger_vel_check,&
        clump_core,verbose_AGN,T2_AGN,T2_min,cone_opening,mass_halo_AGN,mass_clump_AGN,&
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
-       epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
-       agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent
+       epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)

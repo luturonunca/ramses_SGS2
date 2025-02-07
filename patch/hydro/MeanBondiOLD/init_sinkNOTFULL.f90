@@ -29,9 +29,6 @@ subroutine init_sink
   allocate(msmbh(1:nsinkmax))
   allocate(xsink(1:nsinkmax,1:ndim))
   xsink=boxlen/2.
-  allocate(xsink_graddescent(1:nsinkmax,1:ndim))
-  allocate(graddescent_over_dt(1:nsinkmax))
-  xsink_graddescent=0d0; graddescent_over_dt=0d0
   allocate(vsink(1:nsinkmax,1:ndim))
   allocate(lsink(1:nsinkmax,1:ndim))
   allocate(delta_mass(1:nsinkmax))
@@ -46,21 +43,22 @@ subroutine init_sink
   msum_overlap=0.0
   allocate(rho_sink_tff(levelmin:nlevelmax))
 
+  ! MeanBondi variables 
+  allocate(wdmg(1:nsinkmax))
+  allocate(wdmg_new(1:nsinkmax))
+  allocate(weighted_dmg(1:nsinkmax,1:nlevelmax))
+  wdmg=0;wdmg_new=0
   ! Temporary sink variables
   allocate(wden(1:nsinkmax))
   allocate(wmom(1:nsinkmax,1:ndim))
   allocate(weth(1:nsinkmax))
   allocate(wvol(1:nsinkmax))
   allocate(wdiv(1:nsinkmax))
-  allocate(wfrac(1:nsinkmax))
-  allocate(wfvol(1:nsinkmax))
   allocate(wden_new(1:nsinkmax))
   allocate(wmom_new(1:nsinkmax,1:ndim))
   allocate(weth_new(1:nsinkmax))
   allocate(wvol_new(1:nsinkmax))
   allocate(wdiv_new(1:nsinkmax))
-  allocate(wfrac_new(1:nsinkmax))
-  allocate(wfvol_new(1:nsinkmax))
   allocate(msink_new(1:nsinkmax))
   allocate(msmbh_new(1:nsinkmax))
   allocate(msmbh_all(1:nsinkmax))
@@ -82,10 +80,8 @@ subroutine init_sink
   sink_jump=0.d0
   allocate(dMsink_overdt(1:nsinkmax))
   allocate(dMBHoverdt(1:nsinkmax))
-  allocate(dMBHoverdt_fraction(1:nsinkmax))
   allocate(dMsmbh_overdt(1:nsinkmax))
   allocate(dMBHoverdt_smbh(1:nsinkmax))
-  allocate(dMBHoverdt_fraction_smbh(1:nsinkmax))
   allocate(eps_sink(1:nsinkmax))
   eps_sink=0.d0
   allocate(volume_gas(1:nsinkmax))
@@ -103,10 +99,6 @@ subroutine init_sink
   weighted_ethermal = 0.d0
   allocate(weighted_momentum(1:nsinkmax,1:nlevelmax,1:ndim))
   weighted_momentum = 0.d0
-  allocate(weighted_fraction(1:nsinkmax,1:nlevelmax))
-  weighted_fraction = 0.d0
-  allocate(weighted_fraction_weight(1:nsinkmax,1:nlevelmax))  
-  weighted_fraction_weight = 0.d0
   allocate(weighted_divergence(1:nsinkmax,1:nlevelmax))
   weighted_divergence = 0.d0
   allocate(oksink_new(1:nsinkmax))

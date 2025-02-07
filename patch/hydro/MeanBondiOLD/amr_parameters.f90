@@ -88,7 +88,7 @@ module amr_parameters
   integer::nbinodes=3         ! Max number of internal nodes
   integer::nbileafnodes=2     ! Max number of leaf (terminal) nodes
   real(dp)::bisec_tol=0.05d0  ! Tolerance for bisection load balancing
-
+  real(dp)::sigmav_max=10d15  ! Maximum relative velocity in the Bondi accretion rate in kpc
   ! Step parameters
   integer::nrestart=0         ! New run or backup file number
   integer::nrestart_quad=0    ! Restart with double precision Hilbert keys

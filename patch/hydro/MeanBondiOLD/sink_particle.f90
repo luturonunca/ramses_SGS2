@@ -379,7 +379,7 @@ subroutine collect_acczone_avg(ilevel)
   if(verbose)write(*,111)ilevel
 
   ! Compute (volume weighted) averages over accretion zone
-  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0.d0; wfvol = 0.d0
+  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wdmg=0d0
 
   ! Loop over cpus
   do icpu=1,ncpu
@@ -449,15 +449,13 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wvol,wvol_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(weth,weth_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(wmom,wmom_new,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-     call MPI_ALLREDUCE(wfrac, wfrac_new, nsinkmax, MPI_DOUBLE_PRECISION,MPI_SUM, MPI_COMM_WORLD, info)
-     call MPI_ALLREDUCE(wfvol, wfvol_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wdmg,wdmg_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
 #else
      wden_new=wden
      wvol_new=wvol
      weth_new=weth
      wmom_new=wmom
-     wfrac_new=wfrac
-     wfvol_new=wfvol
+     wdmg_new=wdmg
 #endif
   endif
 
@@ -466,9 +464,7 @@ subroutine collect_acczone_avg(ilevel)
      weighted_volume(isink,ilevel)=wvol_new(isink)
      weighted_momentum(isink,ilevel,1:ndim)=wmom_new(isink,1:ndim)
      weighted_ethermal(isink,ilevel)=weth_new(isink)
-     ! Now do the fraction arrays
-     weighted_fraction(isink, ilevel)       = wfrac_new(isink)
-     weighted_fraction_weight(isink, ilevel)= wfvol_new(isink)
+     weighted_dmg(isink,ilevel)=wdmg_new(isink)
   end do
 
 111 format('   Entering collect_acczone_avg for level ',I2)
@@ -496,8 +492,10 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 #if NENER>0
   integer::irad
 #endif
-  real(dp)::d,e,v2,cs2,fraction
+  real(dp)::d,e,v2,c2,r2,q_acc
   real(dp)::scale,weight,dx_cloud,vol_cloud
+  real(dp)::sigmav2,v2rel
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
@@ -506,13 +504,22 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer ,dimension(1:nvector,1:twotondim),save::indp
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
   real(dp),dimension(1:nvector,1:twotondim)::vol
+  real(dp),dimension(1:nvector,1:ndim)::vgas_arr
+  real(dp),dimension(1:nvector)::dgas,c2_gas,dmgas
   logical, dimension(1:nvector,1:twotondim)::ok
-
+  real(dp)::factG 
+  ! Gravitational constant
+  factG=1d0
+  if(cosmo)factG=3d0/8d0/3.1415926*omega_m*aexp
   ! Compute volume of each cloud particle
   nx_loc=(icoarse_max-icoarse_min+1)
   scale=boxlen/dble(nx_loc)
   dx_cloud=(0.5D0**nlevelmax)*scale/aexp/2.0 ! factor of 2 hard-coded
   vol_cloud=dx_cloud**ndim
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  ! From km/s to user units: assume a 10 km/s vel disp in the ISM
+  sigmav2=(sigmav_max*1d5/scale_v)**2d0
 
   ! Copy cloud particle coordinates
   do idim=1,ndim
@@ -523,7 +530,13 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 
   ! Compute cloud particle CIC weights at the current level
   call cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ilevel)
+  ! Gather gas density
 
+  vgas_arr(1:np,1)=0.0D0
+  vgas_arr(1:np,2)=0.0D0
+  vgas_arr(1:np,3)=0.0D0
+  c2_gas(1:np)=0.0D0
+  dmgas(1:np)=0.0D0
   do ind=1,twotondim
      do j=1,np
         if(ok(j,ind))then
@@ -553,26 +566,23 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            e=e/d ! Specific energy
            v2=sum(vv**2)
            e=e-0.5d0*v2 ! Remove kinetic energy
-           ! compute approximate sound speed^2:
-           cs2 = (gamma - 1.0d0) * e
-           if (cs2 < smallc**2) cs2 = smallc**2   ! floor it if needed
-           
+           c2=MAX(gamma*(gamma-1.0)*e,smallc**2)
            ! Get sink index
            isink=-idp(ind_part(j))
+           v2rel=MIN((vv(1)-vsink(isink,1))**2+(vv(2)-vsink(isink,2))**2+(vv(3)-vsink(isink,3))**2,sigmav2)
+           !r2sink(isink) = (factG * msink(isink)/v2rel)**2
+           !dmgas(j)=dmgas(j)+d*(d/(c2+v2rel)**1.5)*vol(j,ind)
+           q_acc=d/(c2+v2rel)**1.5
 
            ! Get cloud particle CIC weight
            weight=vol_cloud*vol(j,ind)
-           ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2)
-           fraction = d / ( (cs2 + v2)**1.5d0 )
-
-           wfrac(isink) = wfrac(isink) + weight * fraction
-           wfvol(isink) = wfvol(isink) + weight
 
            ! Compute sink average quantities
            wvol(isink)=wvol(isink)+weight
            wden(isink)=wden(isink)+weight*d
            wmom(isink,1:ndim)=wmom(isink,1:ndim)+weight*d*vv(1:ndim)
            weth(isink)=weth(isink)+weight*d*e
+           wdmg(isink)=wdmg(isink)+weight*q_acc
 
         endif
      end do
@@ -1002,10 +1012,9 @@ subroutine compute_accretion_rate(write_sinks)
 
   integer::i,nx_loc,isink
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
-  real(dp)::factG,d_star,boost
+  real(dp)::factG,d_star,boost,alpha
   real(dp)::r2,vrel2,c2,density,volume,ethermal,dx_min,scale,mgas,rho_inf,v_bondi
-  real(dp)::frac_sum, weight_sum, frac_mean
-  real(dp)::r2_smbh,rho_inf_smbh
+  real(dp)::r2_smbh,rho_inf_smbh,accretion_rate,c2mean
   real(dp),dimension(1:ndim)::velocity
   real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
   real(dp)::T2_gas,delta_mass_min
@@ -1029,19 +1038,18 @@ subroutine compute_accretion_rate(write_sinks)
      dMsmbh_overdt(isink)=0.0
      dMBHoverdt(isink)=0.0
      dMBHoverdt_smbh(isink)=0.0
-     dMBHoverdt_fraction_smbh(isink)=0.0
      dMEDoverdt(isink)=0.0
      dMEDoverdt_smbh(isink)=0.0
+     accretion_rate=0d0
 
      ! Compute sink sphere average quantities
-     density=0.d0; volume=0.d0; velocity=0.d0; ethermal=0d0; frac_sum=0d0; weight_sum=0d0
+     density=0.d0; volume=0.d0; velocity=0.d0; ethermal=0d0
      do i=levelmin,nlevelmax
         density=density+weighted_density(isink,i)
         ethermal=ethermal+weighted_ethermal(isink,i)
         velocity(1:ndim)=velocity(1:ndim)+weighted_momentum(isink,i,1:ndim)
+        accretion_rate=accretion_rate+weighted_dmg(isink,i)
         volume=volume+weighted_volume(isink,i)
-        frac_sum   = frac_sum   + weighted_fraction(isink, i)
-        weight_sum = weight_sum + weighted_fraction_weight(isink, i)
      end do
      mgas=density
      density=density/(volume+tiny(0.0_dp))
@@ -1061,6 +1069,7 @@ subroutine compute_accretion_rate(write_sinks)
      c2=MAX((gamma-1.0)*ethermal,smallc**2)*boost**(-2./3.)
      c2sink(isink)=c2
      vrel2=SUM((velocity(1:ndim)-vsink(isink,1:ndim))**2)
+     accretion_rate=accretion_rate/(density*volume+tiny(0.0_dp))
      if(bondi_use_vrel)then
         v_bondi=sqrt(c2+vrel2)
      else
@@ -1072,35 +1081,32 @@ subroutine compute_accretion_rate(write_sinks)
 
      ! Extrapolate to rho_inf
      rho_inf=density/(bondi_alpha(ir_cloud*0.5*dx_min/(r2+tiny(0.0_dp))**0.5))
-
+     alpha = bondi_alpha(ir_cloud*0.5*dx_min/(r2+tiny(0.0_dp))**0.5)
      ! Compute Bondi-Hoyle accretion rate in code units
      dMBHoverdt(isink)=4.*3.1415926*rho_inf*r2*v_bondi
-     ! define MeanBondi rate
-     if(weight_sum > 0.d0) then
-         frac_mean = frac_sum / weight_sum
-     else
-         frac_mean = 0.d0
-     end if
-     dMBHoverdt_fraction(isink) = 4.d0 * 3.1415926d0 * (factG * msink(isink))**2 *frac_mean
+     !write(*,*)"dMBHoverdt(isink)=4.*3.1415926*density*r2*v_bondi/alpha"
+     !write(*,*)dMBHoverdt(isink),density,r2,v_bondi,alpha
+
      ! Compute Eddington accretion rate in code units
      dMEDoverdt(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
+     !write(*,*)"dMEDoverdt(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t"
+     !write(*,*)dMEDoverdt(isink),msink(isink),scale_t
 
+     alpha=max((density/(1/scale_nH))**2,1d0)
+     dMBHoverdt(isink)=alpha * 4.*3.1415926 *accretion_rate*(factG*msink(isink))**2
+     !write(*,*)',dMBHoverdt(isink),alpha,accretion_rate,factG,msink(isink), volume,density'
+     !write(*,*)'dMBH = ',dMBHoverdt(isink),alpha,accretion_rate,factG,msink(isink), volume,density
      ! Compute final sink accretion rate
      if(bondi_accretion)dMsink_overdt(isink)=dMBHoverdt(isink)
-     if(mean_bondi)dMsink_overdt(isink)=dMBHoverdt_fraction(isink)
      if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt(isink))
-     if(eddington_limit.and.mean_bondi)dMsink_overdt(isink)=min(dMBHoverdt_fraction(isink),dMEDoverdt(isink))
 
      if(smbh.and.mass_smbh_seed>0.0)then
         r2_smbh=(factG*msmbh(isink)/v_bondi**2)**2
         rho_inf_smbh=density/(bondi_alpha(ir_cloud*0.5*dx_min/(r2_smbh+tiny(0.0_dp))**0.5))
         dMBHoverdt_smbh(isink)=4.*3.1415926*rho_inf_smbh*r2_smbh*v_bondi
-        dMBHoverdt_fraction_smbh(isink)= 4.d0* 3.1415926d0 * (factG * msmbh(isink))**2 *frac_mean
         dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
         if(bondi_accretion)dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
-        if(mean_bondi)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
-        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt_smbh(isink),dMEDoverdt_smbh(isink))
-        if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt_fraction_smbh(isink),dMEDoverdt_smbh(isink))
+        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
      end if
 
@@ -1215,18 +1221,16 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
         call quick_sort_dp(xmsink(1),idsink_sort(1),nsink)
         write(*,*)'Number of sink = ',nsink
         write(*,'(" ============================================================================================")')
-        write(*,'(" Id     Mass(Msol) Bondi MeanBondi Edd (Msol/yr)  BH: Mass(Msol)  Bondi MeanBondi Edd (Msol/yr)   x              y              z")')
+        write(*,'(" Id     Mass(Msol) Bondi(Msol/yr)   Edd(Msol/yr)  BH: Mass(Msol)  Bondi(Msol/yr)  Edd(Msol/yr)    x              y              z")')
         write(*,'(" ============================================================================================")')
         do i=nsink,max(nsink-30,1),-1
            isink=idsink_sort(i)
-           write(*,'(I3,14(1X,1PE14.7))')idsink(isink) &
+           write(*,'(I3,12(1X,1PE14.7))')idsink(isink) &
                 & ,msink(isink)*scale_m/2d33 &
                 & ,dMBHoverdt(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
-                & ,dMBHoverdt_fraction(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,dMEDoverdt(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,msmbh(isink)*scale_m/2d33 &
                 & ,dMBHoverdt_smbh(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
-                & ,dMBHoverdt_fraction_smbh(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,dMEDoverdt_smbh(isink)*scale_m/scale_t/(2d33/(365.*24.*3600.)) &
                 & ,xsink(isink,1:ndim),delta_mass(isink)*scale_m/2d33
         end do
@@ -2051,6 +2055,10 @@ subroutine upd_cloud(ind_part,np)
   do j=1,np
      if ( is_cloud(typep(ind_part(j))) .and. mp(ind_part(j))>0.0d0 ) then
         isink = -idp(ind_part(j))
+        if (ncloud_sink_massive <= 0) then
+           write(*,*) "Error: ncloud_sink_massive is zero or negative!"
+           stop
+        end if
         mp(ind_part(j)) = msink(isink)/dble(ncloud_sink_massive)
      end if
   end do
@@ -2068,6 +2076,10 @@ subroutine upd_cloud(ind_part,np)
      do j=1,np
         if ( is_cloud(typep(ind_part(j))) ) then
            isink = -idp(ind_part(j))
+           if (isink < 1 .or. isink > nsink) then
+                    write(*,*) 'Error1: isink out of range:', isink, ' for particle ', ind_part(j)
+                    stop
+           end if
            new_vp(j,idim) = vsink(isink,idim)
         end if
      end do
@@ -2095,6 +2107,10 @@ subroutine upd_cloud(ind_part,np)
      do j=1,np
         if ( is_cloud(typep(ind_part(j))) ) then
            isink = -idp(ind_part(j))
+           if (isink < 1 .or. isink > nsink) then
+                    write(*,*) 'Error2: isink out of range:', isink, ' for particle ', ind_part(j)
+                    stop
+           end if
            lev = level_p(j)
            new_xp(j,idim) = new_xp(j,idim) + sink_jump(isink,idim,lev)
         endif
@@ -2106,6 +2122,13 @@ subroutine upd_cloud(ind_part,np)
      do j=1,np
         xp(ind_part(j),idim) = new_xp(j,idim)
      end do
+  end do
+  ! Immediately check for NaNs in xp after updating
+  do j = 1, np
+    if (any(isnan(xp(ind_part(j), :)))) then
+      write(*,*) "NaN detected in xp after upd_cloud, particle =", ind_part(j)
+      stop
+    end if
   end do
 
 end subroutine upd_cloud
@@ -2458,7 +2481,7 @@ subroutine read_sink_params()
   namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,merging_timescale,&
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,create_sinks,&
        mass_sink_seed,mass_smbh_seed,&
-       eddington_limit,acc_sink_boost,mass_merger_vel_check,mean_bondi,&
+       eddington_limit,acc_sink_boost,mass_merger_vel_check,&
        clump_core,verbose_AGN,T2_AGN,T2_min,cone_opening,mass_halo_AGN,mass_clump_AGN,&
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
