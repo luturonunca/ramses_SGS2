@@ -1099,8 +1099,8 @@ subroutine compute_accretion_rate(write_sinks)
         dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
         if(bondi_accretion)dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
         if(mean_bondi)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
-        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt_smbh(isink),dMEDoverdt_smbh(isink))
-        if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt_fraction_smbh(isink),dMEDoverdt_smbh(isink))
+        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
+        if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
      end if
 
