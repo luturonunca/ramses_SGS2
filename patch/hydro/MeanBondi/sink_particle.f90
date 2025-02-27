@@ -374,13 +374,35 @@ subroutine collect_acczone_avg(ilevel)
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,npart2,icpu,isink
   integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
+  real(dp)::dx,dx_loc,dx_min,factG,mass,nx_loc,scale
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  ! Conversion factor from user units to cgs units
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+
+
+  ! Gravitational constant
+  factG=1d0
+  if(cosmo)factG=3d0/8d0/3.1415926*omega_m*aexp
+
+  ! Mesh spacing in that level
+  dx=0.5D0**ilevel
+  nx_loc=(icoarse_max-icoarse_min+1)
+  scale=boxlen/dble(nx_loc)
+  dx_loc=dx*scale
+  dx_min=scale*0.5D0**nlevelmax/aexp
 
   if(ilevel<levelmin)return
   if(verbose)write(*,111)ilevel
-
+  !write(*,*) 'wden bounds:', lbound(wden), ubound(wden)
+  !write(*,*) 'wvol bounds:', lbound(wvol), ubound(wvol)
+  !write(*,*) 'wfrac bounds:', lbound(wfrac), ubound(wfrac)
+  !write(*,*) 'wfvol bounds:', lbound(wfvol), ubound(wfvol)
+  !write(*,*) 'wv2 bounds:', lbound(wv2), ubound(wv2)
+  !write(*,*) 'wc2 bounds:', lbound(wc2), ubound(wc2)
+  !write(*,*) 'nsink = ', nsink, ' nsinkmax = ', nsinkmax
   ! Compute (volume weighted) averages over accretion zone
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0.d0; wfvol = 0.d0
-
+  wc2=0d0; wv2=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -425,7 +447,7 @@ subroutine collect_acczone_avg(ilevel)
                  ind_grid_part(ip)=ig
               endif
               if(ip==nvector)then
-                 call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+                 call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,1)
                  ip=0
                  ig=0
               end if
@@ -438,7 +460,7 @@ subroutine collect_acczone_avg(ilevel)
 
      ! End loop over grids
      if(ip>0)then
-        call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+        call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,1)
      end if
   end do
   ! End loop over cpus
@@ -451,6 +473,8 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wmom,wmom_new,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(wfrac, wfrac_new, nsinkmax, MPI_DOUBLE_PRECISION,MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wfvol, wfvol_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wv2, wv2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wc2, wc2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
 #else
      wden_new=wden
      wvol_new=wvol
@@ -458,9 +482,82 @@ subroutine collect_acczone_avg(ilevel)
      wmom_new=wmom
      wfrac_new=wfrac
      wfvol_new=wfvol
+     wv2_new=wv2
+     wc2_new=wc2
 #endif
   endif
+  if (use_bondi_exp_weight) then
+        ! Loop over cpus
+          do icpu=1,ncpu
+             igrid=headl(icpu,ilevel)
+             ig=0
+             ip=0
+             ! Loop over grids
+             do jgrid=1,numbl(icpu,ilevel)
+                npart1=numbp(igrid)  ! Number of particles in the grid
+                npart2=0
 
+                ! Count sink and cloud particles
+                if(npart1>0)then
+                   ipart=headp(igrid)
+                   ! Loop over particles
+                   do jpart=1,npart1
+                      ! Save next particle   <--- Very important !!!
+                      next_part=nextp(ipart)
+                      if( is_cloud(typep(ipart)) ) then
+                         npart2=npart2+1
+                      endif
+                      ipart=next_part  ! Go to next particle
+                   end do
+                endif
+
+                ! Gather sink and cloud particles
+                if(npart2>0)then
+                   ig=ig+1
+                   ind_grid(ig)=igrid
+                   ipart=headp(igrid)
+                   ! Loop over particles
+                   do jpart=1,npart1
+                      ! Save next particle   <--- Very important !!!
+                      next_part=nextp(ipart)
+                      ! Select only sink particles
+                      if( is_cloud(typep(ipart)) ) then
+                         if(ig==0)then
+                            ig=1
+                            ind_grid(ig)=igrid
+                         end if
+                         ip=ip+1
+                         ind_part(ip)=ipart
+                         ind_grid_part(ip)=ig
+                      endif
+                      if(ip==nvector)then
+                         call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,2)
+                         ip=0
+                         ig=0
+                      end if
+                      ipart=next_part  ! Go to next particle
+                   end do
+                   ! End loop over particles
+                end if
+                igrid=next(igrid)   ! Go to next grid
+             end do
+
+             ! End loop over grids
+             if(ip>0)then
+                call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,2)
+             end if
+          end do
+          ! End loop over cpus
+          if(nsink>0)then
+#ifndef WITHOUTMPI
+             call MPI_ALLREDUCE(wfrac, wfrac_new, nsinkmax, MPI_DOUBLE_PRECISION,MPI_SUM, MPI_COMM_WORLD, info)
+             call MPI_ALLREDUCE(wfvol, wfvol_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+#else
+             wfrac_new=wfrac
+             wfvol_new=wfvol
+#endif
+          endif
+  endif
   do isink=1,nsink
      weighted_density(isink,ilevel)=wden_new(isink)
      weighted_volume(isink,ilevel)=wvol_new(isink)
@@ -469,6 +566,17 @@ subroutine collect_acczone_avg(ilevel)
      ! Now do the fraction arrays
      weighted_fraction(isink, ilevel)       = wfrac_new(isink)
      weighted_fraction_weight(isink, ilevel)= wfvol_new(isink)
+     mass       = max(wden_new(isink), tiny(0.0_dp))
+     v2sink(isink) = wv2_new(isink)/mass
+     c2sink(isink) = wc2_new(isink)/mass
+     ! Compute your exponential radius:
+     r2sink(isink) = (factG * msink(isink) / (v2sink(isink) + c2sink(isink)))**2
+     write(*,*) 'Computed r2sink for sink ', isink, ' = ', r2sink(isink)
+     ! Optionally clamp:
+     r2sink(isink) = max(r2sink(isink), (dx_min/4.0)**2)
+     r2sink(isink) = min(r2sink(isink), (2.0*dx_min)**2)
+     write(*,*) 'Clamped r2sink for sink ', isink, ' = ', r2sink(isink)
+
   end do
 
 111 format('   Entering collect_acczone_avg for level ',I2)
@@ -478,7 +586,7 @@ end subroutine collect_acczone_avg
 !###############################################################################
 !###############################################################################
 !###############################################################################
-subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
+subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,mode)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -489,15 +597,14 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! no CIC averaging over quantities anymore as average over whole sink
   ! accretion zone is computed
   !-----------------------------------------------------------------------------
-
-  integer::ng,np,ilevel
+  integer::ng,np,ilevel,mode
   integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
   integer::j,nx_loc,isink,idim,ind
 #if NENER>0
   integer::irad
 #endif
-  real(dp)::d,e,v2,cs2,fraction
-  real(dp)::scale,weight,dx_cloud,vol_cloud
+  real(dp)::d,e,v2,cs2,fraction,r2
+  real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2
@@ -507,7 +614,6 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
   real(dp),dimension(1:nvector,1:twotondim)::vol
   logical, dimension(1:nvector,1:twotondim)::ok
-
   ! Compute volume of each cloud particle
   nx_loc=(icoarse_max-icoarse_min+1)
   scale=boxlen/dble(nx_loc)
@@ -523,7 +629,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
 
   ! Compute cloud particle CIC weights at the current level
   call cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ilevel)
-
+  write(*,*) 'xp bounds:', lbound(xp), ubound(xp)
+  write(*,*) 'xsink bounds:', lbound(xsink), ubound(xsink)
   do ind=1,twotondim
      do j=1,np
         if(ok(j,ind))then
@@ -559,20 +666,46 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            
            ! Get sink index
            isink=-idp(ind_part(j))
+           if (isink < 1 .or. isink > nsinkmax) then
+              write(*,*) 'Error: isink out of bounds:', isink, 'for particle index:',ind_part(j)
+              stop
+           endif
 
            ! Get cloud particle CIC weight
            weight=vol_cloud*vol(j,ind)
-           ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2)
-           fraction = d / ( (cs2 + v2)**1.5d0 )
+           if (mode ==1) then
+              if (.not. use_bondi_exp_weight) then
+                 fraction = d / ( (cs2 + v2)**1.5d0 )
+                 wfrac(isink) = wfrac(isink) + weight * fraction
+                 wfvol(isink) = wfvol(isink) + weight
+              endif
+              ! Compute sink average quantities
+              wvol(isink)=wvol(isink)+weight
+              wden(isink)=wden(isink)+weight*d
+              wmom(isink,1:ndim)=wmom(isink,1:ndim)+weight*d*vv(1:ndim)
+              weth(isink)=weth(isink)+weight*d*e
+              wv2(isink)=wv2(isink) + (d * v2 * weight)
+              wc2(isink)=wc2(isink) + (d * cs2 * weight)
+           endif
+           if (mode == 2) then
+              ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2)
+              fraction = d / ( (cs2 + v2)**1.5d0 )
+              r2=0d0
+              do idim = 1, ndim
+                 r2 = r2 + ( xp(ind_part(j),idim) - xsink(isink, idim) )**2
+              end do
+              !if (ind_part(j).le.lbound(xp).or.ind_part(j).gt.ubound(xp)) then
+              if ( ind_part(j) <= lbound(xp, 1) .or. ind_part(j) > ubound(xp, 1)) then
+                 write(*,*) 'Error: ind_part(',j,') out of bounds:', ind_part(j)
+                 stop
+              endif
+              weight_exp = exp( -r2 / r2sink(isink) )  ! r2sink already known from pass1
+              fraction   = fraction * weight_exp
 
-           wfrac(isink) = wfrac(isink) + weight * fraction
-           wfvol(isink) = wfvol(isink) + weight
-
-           ! Compute sink average quantities
-           wvol(isink)=wvol(isink)+weight
-           wden(isink)=wden(isink)+weight*d
-           wmom(isink,1:ndim)=wmom(isink,1:ndim)+weight*d*vv(1:ndim)
-           weth(isink)=weth(isink)+weight*d*e
+              ! Accumulate
+              wfrac(isink) = wfrac(isink) + weight * fraction
+              wfvol(isink) = wfvol(isink) + weight
+           endif
 
         endif
      end do
@@ -1059,7 +1192,9 @@ subroutine compute_accretion_rate(write_sinks)
      velocity(1:ndim)=velocity(1:ndim)/(density*volume+tiny(0.0_dp))
      ethermal=ethermal/(density*volume+tiny(0.0_dp))
      c2=MAX((gamma-1.0)*ethermal,smallc**2)*boost**(-2./3.)
-     c2sink(isink)=c2
+     if (.not.use_bondi_exp_weight) then
+       c2sink(isink)=c2 ! is already calculated
+     endif
      vrel2=SUM((velocity(1:ndim)-vsink(isink,1:ndim))**2)
      if(bondi_use_vrel)then
         v_bondi=sqrt(c2+vrel2)
@@ -2458,7 +2593,7 @@ subroutine read_sink_params()
   namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,merging_timescale,&
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,create_sinks,&
        mass_sink_seed,mass_smbh_seed,&
-       eddington_limit,acc_sink_boost,mass_merger_vel_check,mean_bondi,&
+       eddington_limit,acc_sink_boost,mass_merger_vel_check,mean_bondi,use_bondi_exp_weight,&
        clump_core,verbose_AGN,T2_AGN,T2_min,cone_opening,mass_halo_AGN,mass_clump_AGN,&
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&

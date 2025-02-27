@@ -33,6 +33,7 @@ module pm_parameters
 
   logical::eddington_limit=.false.           ! Switch for Eddington limit for the smbh case
   logical::mean_bondi=.false.           ! Switch for Eddington limit for the smbh case
+  logical::use_bondi_exp_weight=.false.           ! Switch for Eddington limit for the smbh case
   logical::clump_core=.false.                ! Trims the clump (for star formation)
   logical::verbose_AGN=.false.               ! Controls print verbosity for the SMBH case
   real(dp)::acc_sink_boost=1.0               ! Boost coefficient for accretion
