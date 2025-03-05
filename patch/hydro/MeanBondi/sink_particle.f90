@@ -393,16 +393,16 @@ subroutine collect_acczone_avg(ilevel)
 
   if(ilevel<levelmin)return
   if(verbose)write(*,111)ilevel
-  !write(*,*) 'wden bounds:', lbound(wden), ubound(wden)
-  !write(*,*) 'wvol bounds:', lbound(wvol), ubound(wvol)
-  !write(*,*) 'wfrac bounds:', lbound(wfrac), ubound(wfrac)
-  !write(*,*) 'wfvol bounds:', lbound(wfvol), ubound(wfvol)
-  !write(*,*) 'wv2 bounds:', lbound(wv2), ubound(wv2)
-  !write(*,*) 'wc2 bounds:', lbound(wc2), ubound(wc2)
-  !write(*,*) 'nsink = ', nsink, ' nsinkmax = ', nsinkmax
+  write(*,*) 'wden bounds:', lbound(wden), ubound(wden)
+  write(*,*) 'wvol bounds:', lbound(wvol), ubound(wvol)
+  write(*,*) 'wfrac bounds:', lbound(wfrac), ubound(wfrac)
+  write(*,*) 'wfvol bounds:', lbound(wfvol), ubound(wfvol)
+  write(*,*) 'wv2 bounds:', lbound(wv2), ubound(wv2)
+  write(*,*) 'wc2 bounds:', lbound(wc2), ubound(wc2)
+  write(*,*) 'nsink = ', nsink, ' nsinkmax = ', nsinkmax
   ! Compute (volume weighted) averages over accretion zone
-  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0.d0; wfvol = 0.d0
-  wc2=0d0; wv2=0d0
+  wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0d0; wfvol = 0d0
+  wc2=0d0; wv2=0d0; r2sink=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -487,6 +487,8 @@ subroutine collect_acczone_avg(ilevel)
 #endif
   endif
   if (use_bondi_exp_weight) then
+        write(*,*) 'frac bounds:', lbound(wfrac), ubound(wfrac)
+        write(*,*) 'r2sink bounds:', lbound(r2sink), ubound(r2sink)
         ! Loop over cpus
           do icpu=1,ncpu
              igrid=headl(icpu,ilevel)

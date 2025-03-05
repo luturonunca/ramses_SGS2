@@ -54,6 +54,7 @@ subroutine init_sink
   allocate(wdiv(1:nsinkmax))
   allocate(wfrac(1:nsinkmax))
   allocate(wfvol(1:nsinkmax))
+  allocate(r2sink(1:nsinkmax))
   allocate(wv2(1:nsinkmax))
   allocate(wc2(1:nsinkmax))
   allocate(wden_new(1:nsinkmax))
