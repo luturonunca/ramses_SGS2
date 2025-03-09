@@ -22,6 +22,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wfrac, wfvol, wfrac_new, wfvol_new
   real(dp),allocatable,dimension(:)    ::wv2, wc2, wv2_new, wc2_new
   real(dp),allocatable,dimension(:)    ::v2sink, c2sink, r2sink
+  real(dp),allocatable,dimension(:)    ::wsigma2, sigma2sink,wsigma2_new
   real(dp),allocatable,dimension(:,:)  ::wmom,wmom_new
   real(dp),allocatable,dimension(:,:)  ::vsink,vsink_new,vsink_all
   real(dp),allocatable,dimension(:,:)  ::fsink,fsink_new,fsink_all
