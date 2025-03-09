@@ -100,6 +100,7 @@ subroutine init_sink
   allocate(rho_gas(1:nsinkmax))
   rho_gas=0.d0
   allocate(c2sink(1:nsinkmax))
+  allocate(v2sink(1:nsinkmax))
   allocate(weighted_density(1:nsinkmax,1:nlevelmax))
   weighted_density = 0.d0
   allocate(weighted_volume(1:nsinkmax,1:nlevelmax))

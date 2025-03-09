@@ -393,13 +393,13 @@ subroutine collect_acczone_avg(ilevel)
 
   if(ilevel<levelmin)return
   if(verbose)write(*,111)ilevel
-  write(*,*) 'wden bounds:', lbound(wden), ubound(wden)
-  write(*,*) 'wvol bounds:', lbound(wvol), ubound(wvol)
-  write(*,*) 'wfrac bounds:', lbound(wfrac), ubound(wfrac)
-  write(*,*) 'wfvol bounds:', lbound(wfvol), ubound(wfvol)
-  write(*,*) 'wv2 bounds:', lbound(wv2), ubound(wv2)
-  write(*,*) 'wc2 bounds:', lbound(wc2), ubound(wc2)
-  write(*,*) 'nsink = ', nsink, ' nsinkmax = ', nsinkmax
+  !write(*,*) 'wden bounds:', lbound(wden), ubound(wden)
+  !write(*,*) 'wvol bounds:', lbound(wvol), ubound(wvol)
+  !write(*,*) 'wfrac bounds:', lbound(wfrac), ubound(wfrac)
+  !write(*,*) 'wfvol bounds:', lbound(wfvol), ubound(wfvol)
+  !write(*,*) 'wv2 bounds:', lbound(wv2), ubound(wv2)
+  !write(*,*) 'wc2 bounds:', lbound(wc2), ubound(wc2)
+  !write(*,*) 'nsink = ', nsink, ' nsinkmax = ', nsinkmax
   ! Compute (volume weighted) averages over accretion zone
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0d0; wfvol = 0d0
   wc2=0d0; wv2=0d0; r2sink=0d0
@@ -486,11 +486,28 @@ subroutine collect_acczone_avg(ilevel)
      wc2_new=wc2
 #endif
   endif
+  
+  do isink=1,nsink
+     weighted_density(isink,ilevel)=wden_new(isink)
+     weighted_volume(isink,ilevel)=wvol_new(isink)
+     weighted_momentum(isink,ilevel,1:ndim)=wmom_new(isink,1:ndim)
+     weighted_ethermal(isink,ilevel)=weth_new(isink)
+     ! Now do the fraction arrays
+     mass       = max(wden_new(isink), tiny(0.0_dp))
+     v2sink(isink) = wv2_new(isink)/mass
+     c2sink(isink) = wc2_new(isink)/mass
+     ! Compute your exponential radius:
+     r2sink(isink) = (factG * msink(isink) / (v2sink(isink) + c2sink(isink)))**2
+ 
+     ! Optionally clamp:
+     r2sink(isink) = max(r2sink(isink), (dx_min/4.0)**2)
+     r2sink(isink) = min(r2sink(isink), (2.0*dx_min)**2)
+
+  end do
+  
   if (use_bondi_exp_weight) then
-        write(*,*) 'frac bounds:', lbound(wfrac), ubound(wfrac)
-        write(*,*) 'r2sink bounds:', lbound(r2sink), ubound(r2sink)
         ! Loop over cpus
-          do icpu=1,ncpu
+        do icpu=1,ncpu
              igrid=headl(icpu,ilevel)
              ig=0
              ip=0
@@ -548,9 +565,9 @@ subroutine collect_acczone_avg(ilevel)
              if(ip>0)then
                 call collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,2)
              end if
-          end do
-          ! End loop over cpus
-          if(nsink>0)then
+        end do
+        ! End loop over cpus
+        if(nsink>0)then
 #ifndef WITHOUTMPI
              call MPI_ALLREDUCE(wfrac, wfrac_new, nsinkmax, MPI_DOUBLE_PRECISION,MPI_SUM, MPI_COMM_WORLD, info)
              call MPI_ALLREDUCE(wfvol, wfvol_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
@@ -558,28 +575,13 @@ subroutine collect_acczone_avg(ilevel)
              wfrac_new=wfrac
              wfvol_new=wfvol
 #endif
-          endif
+        endif
+        do isink=1,nsink
+           ! Now do the fraction arrays
+           weighted_fraction(isink, ilevel)       = wfrac_new(isink)
+           weighted_fraction_weight(isink, ilevel)= wfvol_new(isink)
+        end do
   endif
-  do isink=1,nsink
-     weighted_density(isink,ilevel)=wden_new(isink)
-     weighted_volume(isink,ilevel)=wvol_new(isink)
-     weighted_momentum(isink,ilevel,1:ndim)=wmom_new(isink,1:ndim)
-     weighted_ethermal(isink,ilevel)=weth_new(isink)
-     ! Now do the fraction arrays
-     weighted_fraction(isink, ilevel)       = wfrac_new(isink)
-     weighted_fraction_weight(isink, ilevel)= wfvol_new(isink)
-     mass       = max(wden_new(isink), tiny(0.0_dp))
-     v2sink(isink) = wv2_new(isink)/mass
-     c2sink(isink) = wc2_new(isink)/mass
-     ! Compute your exponential radius:
-     r2sink(isink) = (factG * msink(isink) / (v2sink(isink) + c2sink(isink)))**2
-     write(*,*) 'Computed r2sink for sink ', isink, ' = ', r2sink(isink)
-     ! Optionally clamp:
-     r2sink(isink) = max(r2sink(isink), (dx_min/4.0)**2)
-     r2sink(isink) = min(r2sink(isink), (2.0*dx_min)**2)
-     write(*,*) 'Clamped r2sink for sink ', isink, ' = ', r2sink(isink)
-
-  end do
 
 111 format('   Entering collect_acczone_avg for level ',I2)
 
@@ -631,12 +633,9 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 
   ! Compute cloud particle CIC weights at the current level
   call cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ilevel)
-  write(*,*) 'xp bounds:', lbound(xp), ubound(xp)
-  write(*,*) 'xsink bounds:', lbound(xsink), ubound(xsink)
   do ind=1,twotondim
      do j=1,np
         if(ok(j,ind))then
-
            ! Convert uold to primitive variables
            d=max(uold(indp(j,ind),1),smallr)
            vv(1)=uold(indp(j,ind),2)/d
@@ -677,6 +676,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
            weight=vol_cloud*vol(j,ind)
            if (mode ==1) then
               if (.not. use_bondi_exp_weight) then
+     
                  fraction = d / ( (cs2 + v2)**1.5d0 )
                  wfrac(isink) = wfrac(isink) + weight * fraction
                  wfvol(isink) = wfvol(isink) + weight
@@ -1219,6 +1219,7 @@ subroutine compute_accretion_rate(write_sinks)
          frac_mean = 0.d0
      end if
      dMBHoverdt_fraction(isink) = 4.d0 * 3.1415926d0 * (factG * msink(isink))**2 *frac_mean
+     !write(*,*)'dMBHoverdt_fraction => ',dMBHoverdt_fraction(isink),isink,factG, msink(isink),frac_mean 
      ! Compute Eddington accretion rate in code units
      dMEDoverdt(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
 
