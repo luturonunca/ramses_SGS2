@@ -660,13 +660,18 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 #endif
            e=e/d ! Specific energy
            v2=sum(vv**2)
+           ! Get2 sink index
+           isink=-idp(ind_part(j))
+           if (bondi_use_vrel) then
+              v2 = sum((vv - vsink(isink,1:ndim))**2)
+           else
+              v2 = sum(vv**2)
+           endif
            e=e-0.5d0*v2 ! Remove kinetic energy
            ! compute approximate sound speed^2:
            cs2 = (gamma - 1.0d0) * e
            if (cs2 < smallc**2) cs2 = smallc**2   ! floor it if needed
            
-           ! Get sink index
-           isink=-idp(ind_part(j))
            if (isink < 1 .or. isink > nsinkmax) then
               write(*,*) 'Error: isink out of bounds:', isink, 'for particle index:',ind_part(j)
               stop
