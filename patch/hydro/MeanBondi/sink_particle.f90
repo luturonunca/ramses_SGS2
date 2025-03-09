@@ -690,7 +690,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               wc2(isink)=wc2(isink) + (d * cs2 * weight)
            endif
            if (mode == 2) then
-              ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2)
+              ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2) this
               fraction = d / ( (cs2 + v2)**1.5d0 )
               r2=0d0
               do idim = 1, ndim
