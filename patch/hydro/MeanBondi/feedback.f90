@@ -1218,7 +1218,7 @@ subroutine mechanical_feedback_cell
 #endif
 
 #ifndef WITHOUTMPI
-  ttsta = MPI_WTIME(info)
+  ttsta = MPI_WTIME()
 #endif
 
   ! Conversion factor from user units to cgs units
@@ -1619,7 +1619,7 @@ subroutine mechanical_feedback_cell
 
 
 #ifndef WITHOUTMPI
-  ttend = MPI_WTIME(info)
+  ttend = MPI_WTIME()
   if(myid.eq.1)then
      write(*,*) 'Time elapsed in mechanical_feedback_cell [s]', sngl(ttend-ttsta)
   endif
