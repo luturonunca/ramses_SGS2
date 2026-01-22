@@ -1026,10 +1026,8 @@ end subroutine Sedov_blast
 subroutine getSNonmyid(iSN_myid,nSN_myid,xSN,nSN)
   use amr_commons
   use pm_commons
+  use mpi_mod
   implicit none
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-#endif
   integer,dimension(1:nSN)::iSN_myid
   integer::nSN_myid,ii,nSN
   integer,dimension(1:8)::idom,jdom,kdom,cpu_min,cpu_max
@@ -1176,9 +1174,9 @@ subroutine mechanical_feedback_cell
   use amr_commons
   use pm_commons
   use hydro_commons
+  use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
-  include 'mpif.h'
   integer,dimension(1:ncpu)::nSNcomm_icpu_mpi
   real(dp),dimension(:),allocatable::mSN_mpi,ZSN_mpi
   real(dp),dimension(:,:),allocatable::xSN_mpi,vSN_mpi
@@ -1636,9 +1634,9 @@ subroutine inject_momentum_SN(xSN,vSN,mSN,ZSN,lSN,nSN,iSN_myid,nSN_glo,global_se
   use amr_commons
   use hydro_commons
   use pm_commons
+  use mpi_mod
   implicit none
 #ifndef WITHOUTMPI
-  include 'mpif.h'
   real(dp),dimension(1:nSN_glo,1:3)::vloadSN_mpi
   real(dp),dimension(1:nSN_glo,1:3)::dq_mpi
   real(dp),dimension(1:nSN_glo)::mloadSN_mpi,ZloadSN_mpi
@@ -2136,10 +2134,8 @@ end subroutine get_v48
 subroutine checkSNboundary(xSN,ncpu_read,mylevel)
   use amr_commons
   use pm_commons
+  use mpi_mod
   implicit none
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-#endif
   integer::mylevel,ncpu_read
   integer,dimension(1:8)::idom,jdom,kdom,cpu_min,cpu_max
   integer::lmin,nx_loc,ilevel,lmax,bit_length,maxdom
@@ -2266,10 +2262,8 @@ end subroutine checkSNboundary
 subroutine getSNonmyid2(iSN_myid,nSN_myid,xSN,nSN,lvSN)
   use amr_commons
   use pm_commons
+  use mpi_mod
   implicit none
-#ifndef WITHOUTMPI
-  include 'mpif.h'
-#endif
   integer,dimension(1:nSN)::iSN_myid,lvSN
   integer::nSN_myid,ii,nSN
   integer,dimension(1:8)::idom,jdom,kdom,cpu_min,cpu_max
