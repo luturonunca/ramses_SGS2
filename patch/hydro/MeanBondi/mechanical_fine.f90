@@ -682,7 +682,7 @@ subroutine mech_fine_mpi(ilevel)
   nSN_comm_mpi=0
   nSN_comm_mpi(myid)=nSN_comm
   ! compute the total number of communications needed
-  call MPI_ALLREDUCE(nSN_comm_mpi,nSN_comm_cpu,ncpu,&
+  call MPI_ALLREDUCE(nSN_comm_mpi(1),nSN_comm_cpu(1),ncpu,&
                    & MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
   nSN_tot = sum(nSN_comm_cpu)
   if(nSN_tot==0) return
@@ -711,7 +711,7 @@ subroutine mech_fine_mpi(ilevel)
 
   ! share the list of communications
   icpuSN_comm_mpi=0
-  call MPI_ALLREDUCE(icpuSN_comm,icpuSN_comm_mpi,nSN_tot*2,&
+  call MPI_ALLREDUCE(icpuSN_comm(1,1),icpuSN_comm_mpi(1,1),nSN_tot*2,&
                    & MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
 
   ncell_send = nSN_comm_cpu(myid)
