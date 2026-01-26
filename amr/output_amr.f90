@@ -485,9 +485,9 @@ subroutine output_header(filename)
   integer::ilun
   character(LEN=80)::fileloc
 #ifdef LONGINT
-  integer(i8b)::npart_family_loc(-5:5), npart_family(-5:5), npart_all_loc, npart_all
+  integer(i8b)::npart_family_loc(-NFAMILIES:NFAMILIES), npart_family(-NFAMILIES:NFAMILIES), npart_all_loc, npart_all
 #else
-  integer::npart_family_loc(-5:5), npart_family(-5:5), npart_all_loc, npart_all
+  integer::npart_family_loc(-NFAMILIES:NFAMILIES), npart_family(-NFAMILIES:NFAMILIES), npart_all_loc, npart_all
 #endif
   integer :: ifam, ipart
 
@@ -505,7 +505,7 @@ subroutine output_header(filename)
      ! Only used particles have a levelp > 0
      if (levelp(ipart) > 0) then
         npart_all_loc = npart_all_loc + 1
-        do ifam = -5, 5
+        do ifam = -NFAMILIES, NFAMILIES
            if (typep(ipart)%family == ifam) then
               npart_family_loc(ifam) = npart_family_loc(ifam) + 1
            end if
@@ -515,10 +515,10 @@ subroutine output_header(filename)
 
 #ifndef WITHOUTMPI
 #ifdef LONGINT
-  call MPI_ALLREDUCE(npart_family_loc,npart_family,11,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(npart_family_loc,npart_family,2*NFAMILIES+1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(npart_all_loc,npart_all,1,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
 #else
-  call MPI_ALLREDUCE(npart_family_loc,npart_family,11,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+  call MPI_ALLREDUCE(npart_family_loc,npart_family,2*NFAMILIES+1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
   call MPI_ALLREDUCE(npart_all_loc,npart_all,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
 #endif
 #else
@@ -547,6 +547,9 @@ subroutine output_header(filename)
         write(ilun,'(a)',advance='no')'tform '
         if(metal) then
            write(ilun,'(a)',advance='no')'metal '
+        endif
+        if(bns_enrichment) then
+           write(ilun,'(a)',advance='no')'bns_enrichment '
         endif
      endif
      close(ilun)

@@ -93,7 +93,7 @@ subroutine move_fine_static(ilevel)
            next_part=nextp(ipart)
            if(star) then
               if ( (.not. static_DM .and. is_DM(typep(ipart))) .or. &
-                   & (.not. static_stars .and. is_not_DM(typep(ipart)) )  ) then                 
+                   & (.not. static_stars .and. (is_star(typep(ipart)) .or. is_debris(typep(ipart))) )  ) then
                  ! FIXME: there should be a static_sink as well
                  ! FIXME: what about debris?
                  npart2=npart2+1
@@ -119,7 +119,7 @@ subroutine move_fine_static(ilevel)
            ! Select particles
            if(star) then
               if ( (.not. static_DM .and. is_DM(typep(ipart))) .or. &
-                   & (.not. static_stars .and. is_not_DM(typep(ipart)) )  ) then
+                   & (.not. static_stars .and. (is_star(typep(ipart)) .or. is_debris(typep(ipart))) )  ) then
                  ! FIXME: there should be a static_sink as well
                  ! FIXME: what about debris?
                  if(ig==0)then
