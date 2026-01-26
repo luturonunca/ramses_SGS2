@@ -185,6 +185,51 @@ module amr_parameters
   logical ::sf_log_properties=.false. ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.      ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false. ! Advect compressive and solenoidal turbulence terms separately
+  ! added by Taysun
+  real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
+  real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa
+  real(dp)::e_HN   =0.0D0     ! Additional energy from the typical hypernova in 1d51 erg
+  real(dp)::eff_sfbk=1.0D0    ! Efficiency of stellar feedback energy used to heat up/blow out the gas
+  real(dp)::err_grad_nH_thres=0.0D0  ! the minimum nH to trigger refinement when err_grad_XX were used
+  real(dp)::nISM_refine=-1d0   ! the minimum nH to trigger refinement until nlevelmax-nlevelfromtopISM
+  integer ::nlevelfromtopISM = 2 ! see above 
+  integer ::nlevelISM        = -1 ! see above 
+  real(dp)::n_gmc=1D0        ! density above which Hopkins Federrath and Cen SF routines are evaluated
+  real(dp)::n_dc=1d6          ! density above which SF will occur regardless of the kinematic condition (dark cloud)
+  integer ::runaway_n=0       ! number of runaway stars per stellar particle
+  real(dp)::runaway_f=0d0     ! runaway mass fraction
+  real(dp)::runaway_v=30d0    ! velocity of runaway stars in km/s 
+  real(dp)::T2maxHydro=1d20   ! maximum temperature above which it will be fixed in cooling routine
+  real(dp)::T2maxSN=-1      ! maximum temperature above which it will be fixed in feedback routine
+  real(dp)::fstar_min=1d0     ! Mstar,min = nH*dx_min^3*fstar_min
+  real(dp)::M_SNII=1   !2.5d0       ! Mean progenitor mass of the TypeII SNe usually 19 has been changed to 2.5 to reduce SFR acounting for four times the amount of SN per explotion (Arturo)
+  integer ::mechanical_feedback=0       ! Activate mechanical feedback (cannot use with star_particle_winds)
+  logical ::mechanical_conserve_p=.false. ! works only for mechanical_feedback=0
+  logical ::use_initial_mass=.false. ! read/write initial mass of particles
+  logical ::sn2_real_delay=.false.        ! realistic time delay for individual star particle. t_delay is the oldest age to consider if set
+  integer ::loading_type=0
+  logical ::log_mfb=.false.
+  logical ::log_mfb_mega=.false.
+  logical ::runaway=.false.   ! Activate runaway stars
+  logical ::runaway_df_mb=.true. ! Maxwellian-Boltzmann vel dist for runaway stars
+  logical ::verbose_SF=.false.
+  logical ::verbose_ref=.false.
+  logical ::H2_cooling=.false.
+  logical ::cosmic_ray=.false.
+  real(dp)::gamma_cr=1.33333
+  logical ::feedback_refine=.false.
+  real(dp)::nsn_resolve=1.d0  ! the minimum number of supernova 
+  real(dp)::tt_ref=0d0        ! time check
+  integer ::nshell_resolve=3  ! r_shell will be resolved on 3 cells in one direction
+  character(len=10)::star_maker='density' ! density,hopkins, cen, padoan
+  character(len=8 )::star_imf=''          ! salpeter,kroupa,(chabrier)
+  character(len=2),dimension(1:7):: chem_list=(/'H ','Mg','Fe','O ','C ','N ','Si'/)
+
+#ifdef NCHEM
+  integer,parameter::nchem=NCHEM
+#else
+  integer,parameter::nchem=0
+#endif
 
   ! Output times
   real(dp),dimension(1:MAXOUT)::aout=1.1        ! Output expansion factors

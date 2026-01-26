@@ -32,6 +32,9 @@ module pm_parameters
   real(dp)::mass_merger_vel_check=-1.0       ! Threshold for velocity check in  merging; in Msun; default: don't check
 
   logical::eddington_limit=.false.           ! Switch for Eddington limit for the smbh case
+  logical::mean_bondi=.false.                ! Switch for Eddington limit for the smbh case
+  logical::bondi_use_turb=.false.            ! for bondi accretion cs2--> cs2+sigma2
+  logical::use_bondi_exp_weight=.false.      ! Switch for Eddington limit for the smbh case
   logical::clump_core=.false.                ! Trims the clump (for star formation)
   logical::verbose_AGN=.false.               ! Controls print verbosity for the SMBH case
   real(dp)::acc_sink_boost=1.0               ! Boost coefficient for accretion
@@ -57,6 +60,12 @@ module pm_parameters
 
   real(dp)::max_mass_nsc=1.d15               ! Maximum mass of the Nuclear Star Cluster (msink) 
 
+  logical::sink_descent=.false.             ! Switch for the sink descent
+  real(dp)::gamma_grad_descent=0.0d0        ! Step for the gradient descent
+  real(dp)::fudge_graddescent=1.0d0         ! Fudge factor for the for the BB gradient descent
+
+  character(LEN=15)::agn_acc_method='mass'
+  character(LEN=15)::agn_inj_method='volume'
   type part_t
      ! We store these two things contiguously in memory
      ! because they are fetched at similar times
