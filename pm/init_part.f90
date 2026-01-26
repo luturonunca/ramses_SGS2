@@ -191,6 +191,11 @@
            read(ilun)xdp
            zp(1:npart2)=xdp
         end if
+        if(bns_enrichment)then
+           ! Read r-process enrichment
+           read(ilun)xdp
+           zp_heavy(1:npart2)=xdp
+        end if
         deallocate(xdp)
      end if
 
@@ -860,6 +865,9 @@ contains
           tp(ipart)=0d0
           if(metal)then
              zp(ipart)=0d0
+          end if
+          if(bns_enrichment)then
+             zp_heavy(ipart)=0d0
           end if
        end do
     end if

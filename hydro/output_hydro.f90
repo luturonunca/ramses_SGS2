@@ -131,6 +131,8 @@ subroutine backup_hydro(filename, filename_desc)
                  end do
                  if (metal .and. imetal == ivar) then
                     field_name = 'metallicity'
+                 else if (bns_enrichment .and. iheavy == ivar) then
+                    field_name = 'bns_enrichment'
                  else
                     write(field_name, '("scalar_", i0.2)') ivar - ndim - 3 - nener
                  end if
