@@ -670,7 +670,9 @@ subroutine virtual_tree_fine(ilevel)
   ! Calculate how many particle properties are being transferred
   particle_data_width = twondim+1
   if(star.or.sink) then
-     if(metal) then
+     if(bns_enrichment) then
+        particle_data_width=twondim+4
+     else if(metal) then
         particle_data_width=twondim+3
      else
         particle_data_width=twondim+2
