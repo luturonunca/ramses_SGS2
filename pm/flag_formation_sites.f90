@@ -159,11 +159,11 @@ subroutine flag_formation_sites
               if(ivar_refine>0)then
                  if(uold(cell_index(1),ivar_refine)/max(uold(cell_index(1),1),smallr)>var_cut_refine)then
                     flag2(cell_index(1))=jj
-                    write(*,"('CPU # ',I5,' produces a new sink for clump # ',I6' at',3(1X,1PE14.7))")myid,jj+ipeak_start(myid),peak_pos(jj,1:3)
+                    write(*,"('CPU # ',I5,' produces a new sink for clump # ',I6,' at',3(1X,1PE14.7))")myid,jj+ipeak_start(myid),peak_pos(jj,1:3)
                  end if
               else
                  flag2(cell_index(1))=jj
-                 write(*,"('CPU # ',I5,' produces a new sink for clump # ',I6' at',3(1X,1PE14.7))")myid,jj+ipeak_start(myid),peak_pos(jj,1:3)
+                 write(*,"('CPU # ',I5,' produces a new sink for clump # ',I6,' at',3(1X,1PE14.7))")myid,jj+ipeak_start(myid),peak_pos(jj,1:3)
               end if
             end if
          end if
@@ -1179,4 +1179,3 @@ subroutine surface_int_np(ind_cell,np,ilevel)
 
 end subroutine surface_int_np
 #endif
-
