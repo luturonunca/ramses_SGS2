@@ -8,7 +8,7 @@ NPRE = 8
 NVAR = 10 
 NENER = 0
 SOLVER = hydro
-PATCH = ../patch/hydro/MeanBondi
+PATCH =
 GRACKLE = 0
 EXEC = ramses_AGN
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
@@ -129,7 +129,9 @@ HYDROOBJ = init_hydro.o init_flow_fine.o write_screen.o output_hydro.o courant_f
            uplmde.o umuscl.o interpol_hydro.o godunov_utils.o condinit.o hydro_flag.o hydro_boundary.o \
            boundana.o read_hydro_params.o synchro_hydro_fine.o
 # Patch objects
+ifneq ($(PATCH),)
 sinclude $(PATCH)/Makefile
+endif
 
 # All objects
 AMRLIB = $(AMROBJ) $(HYDROOBJ) $(PMOBJ) $(POISSONOBJ)
