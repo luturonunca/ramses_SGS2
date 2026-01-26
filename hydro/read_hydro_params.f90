@@ -93,7 +93,7 @@ subroutine read_hydro_params(nml_ok)
   ! Star formation parameters
   namelist/sf_params/m_star,t_star,n_star,T2_star,g_star,del_star &
        & ,eps_star,jeans_ncells,sf_virial,sf_trelax,sf_save_sigma2,sf_model&
-       & ,sf_log_properties,sf_imf,sf_compressive
+       & ,sf_log_properties,sf_imf,sf_compressive,bns_enrichment
 
   ! Units parameters
   namelist/units_params/units_density,units_time,units_length
@@ -243,14 +243,27 @@ subroutine read_hydro_params(nml_ok)
      star=.true.
      pic=.true.
   endif
+  ! bns_enrichment only makes sense when metal enrichment and star formation are enabled
+  if((.not.metal).or.(.not.star)) bns_enrichment=.false.
 
   !--------------------------------------------------
   ! Check for metal
   !--------------------------------------------------
 #ifdef SOLVERmhd
-  if(metal.and.nvar<(ndim+6))then
+  if(metal.and.bns_enrichment.and.nvar<(ndim+7))then
+     if(myid==1)write(*,*)'Error: bns_enrichment needs nvar >= ndim+7'
+     if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
+     nml_ok=.false.
 #else
-  if(metal.and.nvar<(ndim+3))then
+  if(metal.and.bns_enrichment.and.nvar<(ndim+4))then
+     if(myid==1)write(*,*)'Error: bns_enrichment needs nvar >= ndim+4'
+     if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
+     nml_ok=.false.
+#endif
+#ifdef SOLVERmhd
+  else if(metal.and.nvar<(ndim+6))then
+#else
+  else if(metal.and.nvar<(ndim+3))then
 #endif
      if(myid==1)write(*,*)'Error: metals need nvar >= ndim+3'
      if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
@@ -457,8 +470,11 @@ subroutine read_hydro_params(nml_ok)
 #endif
   inener=ifixed+1
   imetal=inener+nener
+  iheavy=imetal
+  if(bns_enrichment) iheavy=imetal+1
   idelay=imetal
   if(metal)idelay=imetal+1
+  if(bns_enrichment)idelay=imetal+2
   ivirial1=idelay
   ivirial2=idelay
   if(delayed_cooling)then
@@ -479,6 +495,7 @@ subroutine read_hydro_params(nml_ok)
      write(*,*) '   inener   = ',inener
 #endif
      if(metal)           write(*,*) '   imetal   = ',imetal
+     if(bns_enrichment)  write(*,*) '   iheavy   = ',iheavy
      if(delayed_cooling) write(*,*) '   idelay   = ',idelay
      if(sf_virial)then
         write(*,*) '   ivirial1 = ',ivirial1
