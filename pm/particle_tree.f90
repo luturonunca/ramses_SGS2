@@ -895,6 +895,12 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
         end do
         current_property = current_property+1
      end if
+     if(bns_enrichment)then
+        do i=1,np
+           reception(icpu,ilevel)%up(ind_com(i),current_property)=zp_heavy(ind_part(i))
+        end do
+        current_property = current_property+1
+     end if
   end if
 
   ! Remove particles from parent linked list
@@ -968,6 +974,12 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
      if(metal)then
         do i=1,np
            zp(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+        end do
+        current_property = current_property+1
+     end if
+     if(bns_enrichment)then
+        do i=1,np
+           zp_heavy(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
         end do
         current_property = current_property+1
      end if

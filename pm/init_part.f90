@@ -85,6 +85,10 @@
         allocate(zp(npartmax))
         zp=0.0
      end if
+     if(bns_enrichment)then
+        allocate(zp_heavy(npartmax))
+        zp_heavy=0.0
+     end if
   end if
 
   !--------------------

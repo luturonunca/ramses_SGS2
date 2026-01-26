@@ -32,7 +32,7 @@ subroutine star_formation(ilevel)
   integer ::igrid,ix,iy,iz,ind,i,n,iskip,nx_loc,idim
   integer ::ntot,ntot_all,nstar_corrected,ncell
   logical ::ok_free
-  real(dp)::d,x,y,z,u,v,w,e,tg,zg
+  real(dp)::d,x,y,z,u,v,w,e,tg,zg,zg_heavy
   real(dp)::mstar,dstar,tstar,nISM,nCOM,phi_t,phi_x,theta,sigs,scrit,b_turb,zeta
   real(dp)::T2,nH,T_poly,cs2,cs2_poly,trel,t_dyn,t_ff,tdec,uvar
   real(dp)::ul,ur,fl,fr,trgv,alpha0,lamjt
@@ -597,6 +597,7 @@ subroutine star_formation(ilevel)
            z=(xg(ind_grid_new(i),3)+xc(ind,3)-skip_loc(3))*scale
            tg=uold(ind_cell_new(i),5)*(gamma-1)*scale_T2
            if(metal)zg=uold(ind_cell_new(i),imetal)
+           if(bns_enrichment)zg_heavy=uold(ind_cell_new(i),iheavy)
 
            ! Set star particle variables
            tp(ind_part(i)) = birth_epoch  ! Birth epoch
@@ -612,6 +613,7 @@ subroutine star_formation(ilevel)
            vp(ind_part(i),2) = v
            vp(ind_part(i),3) = w
            if(metal)zp(ind_part(i)) = zg  ! Initial star metallicity
+           if(bns_enrichment)zp_heavy(ind_part(i)) = zg_heavy
 
            ! Set GMC particle variables
            if(f_w>0)then
@@ -636,6 +638,7 @@ subroutine star_formation(ilevel)
               vp(ind_debris(i),3)=w
               ! GMC metallicity + yield from ejecta
               if(metal)zp(ind_debris(i))=zg+eta_sn*yield*(1-zg)*n*mstar/mdebris
+              if(bns_enrichment)zp_heavy(ind_debris(i))=zg_heavy
            endif
 
            if(sf_log_properties) then

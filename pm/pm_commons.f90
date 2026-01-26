@@ -57,6 +57,7 @@ module pm_commons
 #endif
   real(dp),allocatable,dimension(:)    ::tp       ! Birth epoch
   real(dp),allocatable,dimension(:)    ::zp       ! Birth metallicity
+  real(dp),allocatable,dimension(:)    ::zp_heavy ! Birth r-process scalar
   integer ,allocatable,dimension(:)    ::nextp    ! Next particle in list
   integer ,allocatable,dimension(:)    ::prevp    ! Previous particle in list
   integer ,allocatable,dimension(:)    ::levelp   ! Current level of particle

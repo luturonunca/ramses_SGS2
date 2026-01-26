@@ -73,6 +73,11 @@ subroutine add_free(ind_part,np)
            zp(ind_part(j))=0.0
         end do
      end if
+     if(bns_enrichment)then
+        do j=1,np
+           zp_heavy(ind_part(j))=0.0
+        end do
+     end if
   end if
 
   do j=1,np
@@ -139,6 +144,13 @@ subroutine add_free_cond(ind_part,ok,np)
         do j=1,np
            if(ok(j))then
               zp(ind_part(j))=0.0
+           endif
+        end do
+     end if
+     if(bns_enrichment)then
+        do j=1,np
+           if(ok(j))then
+              zp_heavy(ind_part(j))=0.0
            endif
         end do
      end if
