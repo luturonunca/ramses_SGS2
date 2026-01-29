@@ -145,6 +145,7 @@ module amr_parameters
   integer ::ndebris=1         ! Supernovae debris particle number
   real(dp)::mass_gmc=-1.0     ! Stochastic exploding GMC mass
   real(dp)::z_ave  =0.0D0     ! Average metal abundance
+  real(dp)::z_ave_heavy=0.0D0 ! Average heavy abundance
   real(dp)::B_ave  =0.0D0     ! Average magnetic field
   real(dp)::z_reion=8.5D0     ! Reionization redshift
   real(dp)::T2_start          ! Starting gas temperature
