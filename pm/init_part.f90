@@ -73,10 +73,15 @@
   allocate(levelp(npartmax))
   allocate(idp   (npartmax))
   allocate(typep (npartmax))
+  allocate(vkick1(npartmax))
+  allocate(t_sn2 (npartmax))
+  allocate(vkick2(npartmax))
+  allocate(t_merge(npartmax))
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   allocate(ptcl_phi(npartmax))
 #endif
   xp=0.0; vp=0.0; mp=0.0; levelp=0; idp=0;
+  vkick1=0.0; t_sn2=0.0; vkick2=0.0; t_merge=0.0;
   typep(1:npartmax)%family=FAM_UNDEF; typep(1:npartmax)%tag=0
   if(star.or.sink)then
      allocate(tp(npartmax))
