@@ -102,14 +102,16 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
-                 if(idp(ipart).le.0.and.tp(ipart).ge.tyoung)then
+                 if((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).ge.tyoung)then
                     call get_number_of_sn2 (tp(ipart),zp(ipart),idp(ipart), &
                              &  mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event per particle
                  ! if tp is older than t_sne 
-                 if(idp(ipart).le.0.and.tp(ipart).le.tyoung)then
+                 if((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).le.tyoung)then
                     ok=.true.
                  endif
               endif
@@ -143,14 +145,16 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
-                 if (idp(ipart).le.0.and.tp(ipart).ge.tyoung) then
+                 if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).ge.tyoung) then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), idp(ipart),&
                              & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event
                  ! if tp is older than t_sne
-                 if (idp(ipart).le.0.and.tp(ipart).le.tyoung)then
+                 if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).le.tyoung)then
                     ok=.true.
                  endif
               endif

@@ -1403,14 +1403,16 @@ subroutine mechanical_feedback_cell
               endif
               if(sn2_real_delay)then
                  !if tp is younger than t_sne
-                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
+                 if(.not.bns_sn .and. (is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), &
                                    & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event
                  !if tp is older than t_sne
-                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
+                 if(.not.bns_sn .and. (is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
                     ok=.true.
                  endif
               endif
@@ -1539,14 +1541,16 @@ subroutine mechanical_feedback_cell
               endif
               if(sn2_real_delay)then
                  !if tp is younger than t_sne
-                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
+                 if(.not.bns_sn .and. (is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), &
                                    & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event
                  !if tp is older than t_sne
-                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
+                 if(.not.bns_sn .and. (is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
+                      & idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
                     ok=.true.
                  endif
               endif
