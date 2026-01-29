@@ -387,7 +387,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  t_sn2_delay=t_sn2_delay*t_delay_unit
                  t_merge_delay=t_merge_delay*t_delay_unit
                  m1_code=m1_val*2d33/(scale_d*scale_l**3)
-                 bns_mass_code=(m2_val+1.5d0)*2d33/(scale_d*scale_l**3)
+                 bns_mass_code=(m2_val+Msn)*2d33/(scale_d*scale_l**3)
                  if(mp(ind_part(j))<=bns_mass_code)then
                     nbns=nbns-1
                     cycle
