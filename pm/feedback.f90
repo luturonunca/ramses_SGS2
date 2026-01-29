@@ -371,18 +371,12 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
               zstar=0.0d0
               if(metal)zstar=zp(ind_part(j))
               mass_msun=mp(ind_part(j))*(scale_d*scale_l**3)/2d33
-              pbns=bns_prob_of(mass_msun,zstar)
+              call bns_draw(mass_msun,zstar,pbns,m1_val,m2_val,kick1_mag,kick2_mag,t_sn2_delay,t_merge_delay)
               call ranf(localseed,RandNum)
               if(RandNum<pbns)then
                  nbns=nbns+1
                  ind_parent_bns(nbns)=ind_part(j)
                  ind_grid_bns(nbns)=ind_grid(ind_grid_part(j))
-                 kick1_mag=bns_kick1_of(mass_msun,zstar)
-                 t_sn2_delay=bns_t_sn2_of(mass_msun,zstar)
-                 kick2_mag=bns_kick2_of(mass_msun,zstar)
-                 t_merge_delay=bns_t_merge_of(mass_msun,zstar)
-                 m1_val=bns_m1_of(mass_msun,zstar)
-                 m2_val=bns_m2_of(mass_msun,zstar)
                  if(use_proper_time)then
                     t_delay_unit=sec_per_myr/(scale_t/aexp**2)
                  else
