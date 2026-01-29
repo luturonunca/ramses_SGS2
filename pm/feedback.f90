@@ -1262,6 +1262,7 @@ subroutine mechanical_feedback_cell
   use pm_commons
   use hydro_commons
   use mpi_mod
+  use random
   implicit none
 #ifndef WITHOUTMPI
   integer,dimension(1:ncpu)::nSNcomm_icpu_mpi
@@ -1295,7 +1296,10 @@ subroutine mechanical_feedback_cell
   real(dp)::ttsta,ttend,mejecta
   integer::ind_grid,ind_cell,ngrid,ind_son,idim,iSN_loc,iSN_glo
   integer::isort,iskip,i,ix,iy,iz,info,nok_sn,ncpu_read
-  logical::ok,done_star
+  logical::ok,done_star,bns_sn
+  real(kind=8)::RandNum
+  real(dp)::costheta,phi,sintheta
+  real(dp),parameter::pi=acos(-1.0d0)
 
   if(.not. hydro)return
   if(ndim.ne.3)return
@@ -1393,16 +1397,20 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
+              bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              if(bns_sn)then
+                 ok=.true.
+              endif
               if(sn2_real_delay)then
                  !if tp is younger than t_sne
-                 if(idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
+                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), &
                                    & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event
                  !if tp is older than t_sne
-                 if(idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
+                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
                     ok=.true.
                  endif
               endif
@@ -1525,16 +1533,20 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
+              bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              if(bns_sn)then
+                 ok=.true.
+              endif
               if(sn2_real_delay)then
                  !if tp is younger than t_sne
-                 if(idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
+                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).ge.(current_time-t0))then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), &
                                    & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event
                  !if tp is older than t_sne
-                 if(idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
+                 if(.not.bns_sn .and. idp(ipart).le.0.and.tp(ipart).le.(current_time-t0))then
                     ok=.true.
                  endif
               endif
@@ -1550,7 +1562,20 @@ subroutine mechanical_feedback_cell
                  ind_cell=iskip+ind_grid
                  if(son(ind_cell)==0)then
                     nSNp=nSNp+1
-                    if(sn2_real_delay)then
+                    if(bns_sn)then
+                       mejecta=eta_sn*mp(ipart)
+                       if(vkick2(ipart).ne.0d0)then
+                          call ranf(localseed,RandNum)
+                          costheta=2.0d0*RandNum-1.0d0
+                          call ranf(localseed,RandNum)
+                          phi=2.0d0*pi*RandNum
+                          sintheta=sqrt(max(0.0d0,1.0d0-costheta*costheta))
+                          vp(ipart,1)=vp(ipart,1)+vkick2(ipart)*sintheta*cos(phi)
+                          vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
+                          vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
+                       endif
+                       t_sn2(ipart)=0d0
+                    else if(sn2_real_delay)then
                        mejecta = M_SNII/scale_msun*nsn_star
                     else
                        if(use_initial_mass)then
@@ -1566,7 +1591,7 @@ subroutine mechanical_feedback_cell
                     if(metal) Z_ej(ind_son) = Z_ej(ind_son) + mejecta*zp(ipart)
                     ! Remove the mass ejected by the SN
                     mp(ipart)  = mp(ipart) - mejecta
-                    if(.not.sn2_real_delay) idp(ipart) = -idp(ipart)
+                    if((.not.sn2_real_delay) .and. (.not.bns_sn)) idp(ipart) = -idp(ipart)
                  endif
               endif
               ipart=next_part
