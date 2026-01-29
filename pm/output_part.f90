@@ -186,6 +186,56 @@ subroutine backup_part(filename, filename_desc)
         end do
         call generic_dump("bns_enrichment", ivar, xdp, unit_out, dump_info, unit_info)
      end if
+     ipart = 0
+     do i = 1, npartmax
+        if (levelp(i) > 0) then
+           ipart = ipart+1
+           xdp(ipart) = vkick1(i)
+        end if
+     end do
+     call generic_dump("vkick1", ivar, xdp, unit_out, dump_info, unit_info)
+     ipart = 0
+     do i = 1, npartmax
+        if (levelp(i) > 0) then
+           ipart = ipart+1
+           xdp(ipart) = t_sn2(i)
+        end if
+     end do
+     call generic_dump("t_sn2", ivar, xdp, unit_out, dump_info, unit_info)
+     ipart = 0
+     do i = 1, npartmax
+        if (levelp(i) > 0) then
+           ipart = ipart+1
+           xdp(ipart) = vkick2(i)
+        end if
+     end do
+     call generic_dump("vkick2", ivar, xdp, unit_out, dump_info, unit_info)
+     ipart = 0
+     do i = 1, npartmax
+        if (levelp(i) > 0) then
+           ipart = ipart+1
+           xdp(ipart) = t_merge(i)
+        end if
+     end do
+     call generic_dump("t_merge", ivar, xdp, unit_out, dump_info, unit_info)
+     allocate(ii8(1:npart))
+     ipart = 0
+     do i = 1, npartmax
+        if (levelp(i) > 0) then
+           ipart = ipart+1
+           ii8(ipart) = parent_id(i)
+        end if
+     end do
+     call generic_dump("parent_id", ivar, ii8, unit_out, dump_info, unit_info)
+     deallocate(ii8)
+     ipart = 0
+     do i = 1, npartmax
+        if (levelp(i) > 0) then
+           ipart = ipart+1
+           xdp(ipart) = m1_bns(i)
+        end if
+     end do
+     call generic_dump("m1", ivar, xdp, unit_out, dump_info, unit_info)
      deallocate(xdp)
   end if
 

@@ -682,7 +682,7 @@ subroutine virtual_tree_fine(ilevel)
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   particle_data_width=particle_data_width+1
 #endif
-  particle_data_width=particle_data_width+4
+  particle_data_width=particle_data_width+6
 
   ! Allocate communication buffer in emission
   do icpu=1,ncpu
@@ -921,6 +921,14 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
      reception(icpu,ilevel)%up(ind_com(i),current_property)=t_merge(ind_part(i))
   end do
   current_property = current_property+1
+  do i=1,np
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=real(parent_id(ind_part(i)), dp)
+  end do
+  current_property = current_property+1
+  do i=1,np
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=m1_bns(ind_part(i))
+  end do
+  current_property = current_property+1
 
   ! Remove particles from parent linked list
   call remove_list(ind_part,ind_list,ok,np)
@@ -1017,6 +1025,14 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
   current_property = current_property+1
   do i=1,np
      t_merge(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+  end do
+  current_property = current_property+1
+  do i=1,np
+     parent_id(ind_part(i))=int(emission(icpu,ilevel)%up(ind_com(i),current_property), i8b)
+  end do
+  current_property = current_property+1
+  do i=1,np
+     m1_bns(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
   end do
   current_property = current_property+1
 

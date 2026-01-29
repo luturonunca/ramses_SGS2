@@ -77,11 +77,14 @@
   allocate(t_sn2 (npartmax))
   allocate(vkick2(npartmax))
   allocate(t_merge(npartmax))
+  allocate(parent_id(npartmax))
+  allocate(m1_bns(npartmax))
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   allocate(ptcl_phi(npartmax))
 #endif
   xp=0.0; vp=0.0; mp=0.0; levelp=0; idp=0;
   vkick1=0.0; t_sn2=0.0; vkick2=0.0; t_merge=0.0;
+  parent_id=0; m1_bns=0.0;
   typep(1:npartmax)%family=FAM_UNDEF; typep(1:npartmax)%tag=0
   if(star.or.sink)then
      allocate(tp(npartmax))
@@ -201,6 +204,21 @@
            read(ilun)xdp
            zp_heavy(1:npart2)=xdp
         end if
+        ! Read BNS timing/kick fields
+        read(ilun)xdp
+        vkick1(1:npart2)=xdp
+        read(ilun)xdp
+        t_sn2(1:npart2)=xdp
+        read(ilun)xdp
+        vkick2(1:npart2)=xdp
+        read(ilun)xdp
+        t_merge(1:npart2)=xdp
+        allocate(isp8(1:npart2))
+        read(ilun)isp8
+        parent_id(1:npart2)=isp8
+        deallocate(isp8)
+        read(ilun)xdp
+        m1_bns(1:npart2)=xdp
         deallocate(xdp)
      end if
 

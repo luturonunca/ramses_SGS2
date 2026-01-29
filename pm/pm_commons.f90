@@ -62,6 +62,8 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::t_sn2    ! BNS second SN time
   real(dp),allocatable,dimension(:)    ::vkick2   ! BNS second kick velocity
   real(dp),allocatable,dimension(:)    ::t_merge  ! BNS merger time
+  integer(i8b),allocatable,dimension(:)::parent_id ! BNS parent identity
+  real(dp),allocatable,dimension(:)    ::m1_bns    ! BNS primary mass
   integer ,allocatable,dimension(:)    ::nextp    ! Next particle in list
   integer ,allocatable,dimension(:)    ::prevp    ! Previous particle in list
   integer ,allocatable,dimension(:)    ::levelp   ! Current level of particle

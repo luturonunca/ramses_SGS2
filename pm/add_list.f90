@@ -67,6 +67,8 @@ subroutine add_free(ind_part,np)
      t_sn2(ind_part(j))=0.0
      vkick2(ind_part(j))=0.0
      t_merge(ind_part(j))=0.0
+     parent_id(ind_part(j))=0
+     m1_bns(ind_part(j))=0.0
   end do
   if(star.or.sink)then
      do j=1,np
@@ -140,6 +142,8 @@ subroutine add_free_cond(ind_part,ok,np)
         t_sn2(ind_part(j))=0.0
         vkick2(ind_part(j))=0.0
         t_merge(ind_part(j))=0.0
+        parent_id(ind_part(j))=0
+        m1_bns(ind_part(j))=0.0
      endif
   end do
   if(star.or.sink)then
