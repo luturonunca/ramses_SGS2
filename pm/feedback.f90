@@ -1397,7 +1397,7 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              bns_sn = is_bns(typep(ipart)) .and. idp(ipart) > 0 .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
               if(bns_sn)then
                  ok=.true.
               endif
@@ -1533,7 +1533,7 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              bns_sn = is_bns(typep(ipart)) .and. idp(ipart) > 0 .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
               if(bns_sn)then
                  ok=.true.
               endif
@@ -1574,7 +1574,7 @@ subroutine mechanical_feedback_cell
                           vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
                           vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
                        endif
-                       t_sn2(ipart)=0d0
+                       idp(ipart)=-idp(ipart)
                     else if(sn2_real_delay)then
                        mejecta = M_SNII/scale_msun*nsn_star
                     else
