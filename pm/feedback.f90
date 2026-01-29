@@ -153,6 +153,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   use amr_commons
   use pm_commons
   use hydro_commons
+  use bns_tables
   use random
   implicit none
   integer::ng,np,ilevel
@@ -163,7 +164,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! dumps mass, momentum and energy in the nearest grid cell using array
   ! unew.
   !-----------------------------------------------------------------------
-  integer::i,j,idim,nx_loc,ivar,ilun
+  integer::i,j,idim,nx_loc,ivar,ilun,ipart
   real(kind=8)::RandNum
   real(dp)::SN_BOOST,mstar,dx_min,vol_min
   real(dp)::t0,ESN,mejecta,zloss,e,uvar
@@ -171,6 +172,14 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp)::delta_x,tau_factor,rad_factor
   real(dp)::dx,dx_loc,scale,birth_time,current_time
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,zstar
+  real(dp)::costheta,phi,sintheta,kickx,kicky,kickz
+  real(dp),parameter::pi=acos(-1.0d0)
+  integer::nbns
+  integer,dimension(1:nvector),save::ind_bns,ind_grid_bns,ind_parent_bns
+  real(dp),dimension(1:nvector),save::kickx_bns,kicky_bns,kickz_bns
+  real(dp),dimension(1:nvector),save::t_sn2_bns,vkick2_bns,t_merge_bns,m1_bns_val
+  logical,dimension(1:nvector),save::ok_bns
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim),save::x0
   integer ,dimension(1:nvector),save::ind_cell
@@ -329,6 +338,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      mzloss(j)=0d0
      ethermal(j)=0d0
   end do
+  nbns=0
 
   ! Compute stellar mass loss and thermal feedback due to supernovae
   if(f_w==0)then
@@ -355,6 +365,34 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            endif
            ! Reduce star particle mass
            mp(ind_part(j))=mp(ind_part(j))-mejecta
+           if(bns_enrichment)then
+              zstar=0.0d0
+              if(metal)zstar=zp(ind_part(j))
+              pbns=bns_prob_of(mp(ind_part(j)),zstar)
+              call ranf(localseed,RandNum)
+              if(RandNum<pbns)then
+                 nbns=nbns+1
+                 ind_parent_bns(nbns)=ind_part(j)
+                 ind_grid_bns(nbns)=ind_grid(ind_grid_part(j))
+                 kick1_mag=bns_kick1_of(mp(ind_part(j)),zstar)
+                 t_sn2_delay=bns_t_sn2_of(mp(ind_part(j)),zstar)
+                 kick2_mag=bns_kick2_of(mp(ind_part(j)),zstar)
+                 t_merge_delay=bns_t_merge_of(mp(ind_part(j)),zstar)
+                 m1_val=bns_m1_of(mp(ind_part(j)),zstar)
+                 call ranf(localseed,RandNum)
+                 costheta=2.0d0*RandNum-1.0d0
+                 call ranf(localseed,RandNum)
+                 phi=2.0d0*pi*RandNum
+                 sintheta=sqrt(max(0.0d0,1.0d0-costheta*costheta))
+                 kickx_bns(nbns)=kick1_mag*sintheta*cos(phi)
+                 kicky_bns(nbns)=kick1_mag*sintheta*sin(phi)
+                 kickz_bns(nbns)=kick1_mag*costheta
+                 t_sn2_bns(nbns)=current_time+t_sn2_delay
+                 vkick2_bns(nbns)=kick2_mag
+                 t_merge_bns(nbns)=current_time+t_merge_delay
+                 m1_bns_val(nbns)=m1_val
+              endif
+           endif
            ! Boost SNII energy and depopulate accordingly
            if(SN_BOOST>1d0)then
               call ranf(localseed,RandNum)
@@ -405,6 +443,40 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
               write(ilun,'(A1)') ' '
            endif
         endif
+     end do
+  endif
+
+  if(nbns>0)then
+     if(numbp_free<nbns)then
+        write(*,*)'No more free memory for BNS particles'
+        write(*,*)'in PE ',myid
+        call clean_stop
+     end if
+     call remove_free(ind_bns,nbns)
+     ok_bns(1:nbns)=.true.
+     call add_list(ind_bns,ind_grid_bns,ok_bns,nbns)
+     do j=1,nbns
+        ipart=ind_parent_bns(j)
+        tp(ind_bns(j))=current_time
+        mp(ind_bns(j))=mp(ipart)
+        levelp(ind_bns(j))=levelp(ipart)
+        idp(ind_bns(j))=idp(ipart)
+        typep(ind_bns(j))%family=FAM_BNS
+        typep(ind_bns(j))%tag=0
+        xp(ind_bns(j),1)=xp(ipart,1)
+        xp(ind_bns(j),2)=xp(ipart,2)
+        xp(ind_bns(j),3)=xp(ipart,3)
+        vp(ind_bns(j),1)=vp(ipart,1)+kickx_bns(j)
+        vp(ind_bns(j),2)=vp(ipart,2)+kicky_bns(j)
+        vp(ind_bns(j),3)=vp(ipart,3)+kickz_bns(j)
+        if(metal)zp(ind_bns(j))=zp(ipart)
+        if(bns_enrichment)zp_heavy(ind_bns(j))=zp_heavy(ipart)
+        vkick1(ind_bns(j))=sqrt(kickx_bns(j)**2+kicky_bns(j)**2+kickz_bns(j)**2)
+        t_sn2(ind_bns(j))=t_sn2_bns(j)
+        vkick2(ind_bns(j))=vkick2_bns(j)
+        t_merge(ind_bns(j))=t_merge_bns(j)
+        parent_id(ind_bns(j))=idp(ipart)
+        m1_bns(ind_bns(j))=m1_bns_val(j)
      end do
   endif
 

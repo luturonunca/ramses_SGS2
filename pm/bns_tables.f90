@@ -28,4 +28,34 @@ contains
     bns_prob_of = 1.0d0
   end function bns_prob_of
 
+  real(dp) function bns_kick1_of(mass, z)
+    real(dp), intent(in) :: mass, z
+    if (.not. bns_tables_ready) call init_bns_tables()
+    bns_kick1_of = 0.0d0
+  end function bns_kick1_of
+
+  real(dp) function bns_t_sn2_of(mass, z)
+    real(dp), intent(in) :: mass, z
+    if (.not. bns_tables_ready) call init_bns_tables()
+    bns_t_sn2_of = 0.0d0
+  end function bns_t_sn2_of
+
+  real(dp) function bns_kick2_of(mass, z)
+    real(dp), intent(in) :: mass, z
+    if (.not. bns_tables_ready) call init_bns_tables()
+    bns_kick2_of = 0.0d0
+  end function bns_kick2_of
+
+  real(dp) function bns_t_merge_of(mass, z)
+    real(dp), intent(in) :: mass, z
+    if (.not. bns_tables_ready) call init_bns_tables()
+    bns_t_merge_of = 0.0d0
+  end function bns_t_merge_of
+
+  real(dp) function bns_m1_of(mass, z)
+    real(dp), intent(in) :: mass, z
+    if (.not. bns_tables_ready) call init_bns_tables()
+    bns_m1_of = 0.5d0*mass
+  end function bns_m1_of
+
 end module bns_tables
