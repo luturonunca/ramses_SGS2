@@ -682,6 +682,7 @@ subroutine virtual_tree_fine(ilevel)
 #ifdef OUTPUT_PARTICLE_POTENTIAL
   particle_data_width=particle_data_width+1
 #endif
+  particle_data_width=particle_data_width+4
 
   ! Allocate communication buffer in emission
   do icpu=1,ncpu
@@ -901,9 +902,25 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
         do i=1,np
            reception(icpu,ilevel)%up(ind_com(i),current_property)=zp_heavy(ind_part(i))
         end do
-        current_property = current_property+1
+       current_property = current_property+1
      end if
   end if
+  do i=1,np
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=vkick1(ind_part(i))
+  end do
+  current_property = current_property+1
+  do i=1,np
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=t_sn2(ind_part(i))
+  end do
+  current_property = current_property+1
+  do i=1,np
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=vkick2(ind_part(i))
+  end do
+  current_property = current_property+1
+  do i=1,np
+     reception(icpu,ilevel)%up(ind_com(i),current_property)=t_merge(ind_part(i))
+  end do
+  current_property = current_property+1
 
   ! Remove particles from parent linked list
   call remove_list(ind_part,ind_list,ok,np)
@@ -983,9 +1000,25 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
         do i=1,np
            zp_heavy(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
         end do
-        current_property = current_property+1
+       current_property = current_property+1
      end if
   end if
+  do i=1,np
+     vkick1(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+  end do
+  current_property = current_property+1
+  do i=1,np
+     t_sn2(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+  end do
+  current_property = current_property+1
+  do i=1,np
+     vkick2(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+  end do
+  current_property = current_property+1
+  do i=1,np
+     t_merge(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+  end do
+  current_property = current_property+1
 
 end subroutine empty_comm
 !################################################################
