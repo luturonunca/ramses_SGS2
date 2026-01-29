@@ -26,7 +26,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_msun
   real(dp),dimension(1:twotondim),save::mw8, mzw8 ! SNe
   real(dp),dimension(1:twotondim,1:3),save:: pw8  ! SNe
-  real(dp),dimension(1:nvector),save::mSN, mZSN
+  real(dp),dimension(1:nvector),save::mSN_cell, mZSN_cell
   real(dp),dimension(1:nvector,1:3),save::pSN
   real(dp)::mejecta
   real(dp),parameter::msun2g=1.989d33
@@ -202,14 +202,14 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  ind_pos_cell(ip)=ind
      
                  ! collect information 
-                 mSN(ip)=mw8(ind)
-                 mZSN(ip)=mzw8(ind)
+                 mSN_cell(ip)=mw8(ind)
+                 mZSN_cell(ip)=mzw8(ind)
                  pSN(ip,1)=pw8(ind,1)
                  pSN(ip,2)=pw8(ind,2)
                  pSN(ip,3)=pw8(ind,3)
     
                  if(ip==nvector)then
-                    call mech_fine(ind_grid,ind_pos_cell,ip,ilevel,mSN,pSN,mZSN,dteff)
+                    call mech_fine(ind_grid,ind_pos_cell,ip,ilevel,mSN_cell,pSN,mZSN_cell,dteff)
                     ip=0
                  endif 
               endif
@@ -221,7 +221,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
      end do ! End loop over grids
     
      if (ip>0) then
-        call mech_fine(ind_grid,ind_pos_cell,ip,ilevel,mSN,pSN,mZSN,dteff)
+        call mech_fine(ind_grid,ind_pos_cell,ip,ilevel,mSN_cell,pSN,mZSN_cell,dteff)
         ip=0
      endif
 
@@ -246,7 +246,7 @@ end subroutine mechanical_feedback_fine
 !################################################################
 !################################################################
 !################################################################
-subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
+subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dteff)
   use amr_commons
   use pm_commons
   use hydro_commons
@@ -254,7 +254,7 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
   implicit none
   integer::np,ilevel ! actually the number of cells
   integer,dimension(1:nvector)::ind_grid,ind_pos_cell
-  real(dp),dimension(1:nvector)::mSN,mZSN,floadSN
+  real(dp),dimension(1:nvector)::mSN_cell,mZSN_cell,floadSN
   real(dp),dimension(1:nvector)::mloadSN,mZloadSN
   real(dp),dimension(1:nvector,1:3)::pSN,ploadSN
   !-----------------------------------------------------------------------
@@ -322,7 +322,7 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
 
 
      
-     num_sn    = nint(mSN(i)/(M_SNII/scale_msun))
+     num_sn    = nint(mSN_cell(i)/(M_SNII/scale_msun))
      nH_cen    = uold(icell,1)*scale_nH
      m_cen     = uold(icell,1)*vol_loc*scale_msun
 
@@ -430,9 +430,9 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
         write(*,398) log10(d*scale_nH),sngl(num_sn),floadSN(i),vturb/1d5,Mach,1./aexp-1,log10(Tk)
      endif
 
-     dm_ejecta = f_load*mSN(i)/dble(nSNnei)  ! per solid angle
-     mload     = f_load*mSN(i) + uold(icell,1)*vol_loc*floadSN(i)  ! total shell
-     if(metal) Zload = (f_load*mZSN(i) + uold(icell,imetal)*vol_loc*floadSN(i))/mload
+     dm_ejecta = f_load*mSN_cell(i)/dble(nSNnei)  ! per solid angle
+     mload     = f_load*mSN_cell(i) + uold(icell,1)*vol_loc*floadSN(i)  ! total shell
+     if(metal) Zload = (f_load*mZSN_cell(i) + uold(icell,imetal)*vol_loc*floadSN(i))/mload
 
 
     
@@ -466,7 +466,7 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
 
            if(log_mfb_mega)then
              write(*,'(" MFBN nHcen=", f6.2," nHnei=", f6.2, " mej=", f6.2, " mcen=", f6.2, " vload=", f6.2, " lv2=",I3," fwcrit=", f6.2, " fwcell=", f6.2, " psol=",f6.2, " mload/48=",f6.2," mnei/8=",f6.2," mej/48=",f6.2)') &
-            & log10(nH_cen),log10(nH_nei),log10(mSN(i)*scale_msun),log10(m_cen),log10(vload*scale_v/1d5),ilevel2-ilevel,&
+            & log10(nH_cen),log10(nH_nei),log10(mSN_cell(i)*scale_msun),log10(m_cen),log10(vload*scale_v/1d5),ilevel2-ilevel,&
             & log10(f_w_crit),log10(f_w_cell),log10(p_solid(i,j)*scale_msun*scale_v/1d5),log10(mload*scale_msun/48),&
             & log10(d_nei*vol_loc/8d0*scale_msun),log10(dm_ejecta*scale_msun)
             endif
@@ -485,10 +485,10 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
      w     = uold(icell,4)/d
      eth   = uold(icell,5)-d*(u**2+v**2+w**2)/2d0
 
-     mloadSN (i) = mSN (i)*f_load + d*vol_loc*floadSN(i)
+     mloadSN (i) = mSN_cell (i)*f_load + d*vol_loc*floadSN(i)
      if(metal)then
         z = uold(icell,imetal)/d
-        mZloadSN(i) = mZSN(i)*f_load + d*z*vol_loc*floadSN(i)
+        mZloadSN(i) = mZSN_cell(i)*f_load + d*z*vol_loc*floadSN(i)
      endif
 
      ! original momentum by star + gas entrained from the SN cell
@@ -498,11 +498,11 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
 
      ! update the hydro variable
      fleftSN = 1d0 - floadSN(i)
-     uold(icell,1) = mSN(i)  /vol_loc*f_left + d*fleftSN
+     uold(icell,1) = mSN_cell(i)  /vol_loc*f_left + d*fleftSN
      uold(icell,2) = pSN(i,1)/vol_loc*f_left + d*u*fleftSN ! make sure this is rho*v, not v
      uold(icell,3) = pSN(i,2)/vol_loc*f_left + d*v*fleftSN
      uold(icell,4) = pSN(i,3)/vol_loc*f_left + d*w*fleftSN
-     if(metal) uold(icell,imetal) = mZSN(i)/vol_loc*f_left + d*z*fleftSN
+     if(metal) uold(icell,imetal) = mZSN_cell(i)/vol_loc*f_left + d*z*fleftSN
 
      d     = uold(icell,1)
      u     = uold(icell,2)/d
@@ -626,7 +626,7 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN,pSN,mZSN,dteff)
         endif
         iSN_comm (ista:iend)=icpuSNnei(1:nwco)
         !lSN_comm (ista:iend)=ilevel
-        mSN_comm (ista:iend )=mSN(i)
+        mSN_comm (ista:iend )=mSN_cell(i)
         mloadSN_comm (ista:iend  )=mloadSN(i)
         xSN_comm (1,ista:iend)=xc2(1,i)
         xSN_comm (2,ista:iend)=xc2(2,i)
