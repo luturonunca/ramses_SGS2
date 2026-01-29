@@ -172,13 +172,15 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   real(dp)::delta_x,tau_factor,rad_factor
   real(dp)::dx,dx_loc,scale,birth_time,current_time
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
-  real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,zstar
+  real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,m2_val,zstar
+  real(dp)::mass_msun,bns_mass_code,m1_code,t_delay_unit
+  real(dp),parameter::sec_per_myr=1.0d6*365.d0*24.d0*3600.d0
   real(dp)::costheta,phi,sintheta,kickx,kicky,kickz
   real(dp),parameter::pi=acos(-1.0d0)
   integer::nbns
   integer,dimension(1:nvector),save::ind_bns,ind_grid_bns,ind_parent_bns
   real(dp),dimension(1:nvector),save::kickx_bns,kicky_bns,kickz_bns
-  real(dp),dimension(1:nvector),save::t_sn2_bns,vkick2_bns,t_merge_bns,m1_bns_val
+  real(dp),dimension(1:nvector),save::t_sn2_bns,vkick2_bns,t_merge_bns,m1_bns_val,mbns_val
   logical,dimension(1:nvector),save::ok_bns
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim),save::x0
@@ -368,17 +370,34 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            if(bns_enrichment)then
               zstar=0.0d0
               if(metal)zstar=zp(ind_part(j))
-              pbns=bns_prob_of(mp(ind_part(j)),zstar)
+              mass_msun=mp(ind_part(j))*(scale_d*scale_l**3)/2d33
+              pbns=bns_prob_of(mass_msun,zstar)
               call ranf(localseed,RandNum)
               if(RandNum<pbns)then
                  nbns=nbns+1
                  ind_parent_bns(nbns)=ind_part(j)
                  ind_grid_bns(nbns)=ind_grid(ind_grid_part(j))
-                 kick1_mag=bns_kick1_of(mp(ind_part(j)),zstar)
-                 t_sn2_delay=bns_t_sn2_of(mp(ind_part(j)),zstar)
-                 kick2_mag=bns_kick2_of(mp(ind_part(j)),zstar)
-                 t_merge_delay=bns_t_merge_of(mp(ind_part(j)),zstar)
-                 m1_val=bns_m1_of(mp(ind_part(j)),zstar)
+                 kick1_mag=bns_kick1_of(mass_msun,zstar)
+                 t_sn2_delay=bns_t_sn2_of(mass_msun,zstar)
+                 kick2_mag=bns_kick2_of(mass_msun,zstar)
+                 t_merge_delay=bns_t_merge_of(mass_msun,zstar)
+                 m1_val=bns_m1_of(mass_msun,zstar)
+                 m2_val=bns_m2_of(mass_msun,zstar)
+                 if(use_proper_time)then
+                    t_delay_unit=sec_per_myr/(scale_t/aexp**2)
+                 else
+                    t_delay_unit=sec_per_myr/scale_t
+                 endif
+                 kick1_mag=kick1_mag*1.0d5/scale_v
+                 kick2_mag=kick2_mag*1.0d5/scale_v
+                 t_sn2_delay=t_sn2_delay*t_delay_unit
+                 t_merge_delay=t_merge_delay*t_delay_unit
+                 m1_code=m1_val*2d33/(scale_d*scale_l**3)
+                 bns_mass_code=(m2_val+1.5d0)*2d33/(scale_d*scale_l**3)
+                 if(mp(ind_part(j))<=bns_mass_code)then
+                    nbns=nbns-1
+                    cycle
+                 endif
                  call ranf(localseed,RandNum)
                  costheta=2.0d0*RandNum-1.0d0
                  call ranf(localseed,RandNum)
@@ -390,7 +409,9 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  t_sn2_bns(nbns)=current_time+t_sn2_delay
                  vkick2_bns(nbns)=kick2_mag
                  t_merge_bns(nbns)=current_time+t_merge_delay
-                 m1_bns_val(nbns)=m1_val
+                 m1_bns_val(nbns)=m1_code
+                 mbns_val(nbns)=bns_mass_code
+                 mp(ind_part(j))=mp(ind_part(j))-bns_mass_code
               endif
            endif
            ! Boost SNII energy and depopulate accordingly
@@ -458,7 +479,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
      do j=1,nbns
         ipart=ind_parent_bns(j)
         tp(ind_bns(j))=current_time
-        mp(ind_bns(j))=mp(ipart)
+        mp(ind_bns(j))=mbns_val(j)
         levelp(ind_bns(j))=levelp(ipart)
         idp(ind_bns(j))=idp(ipart)
         typep(ind_bns(j))%family=FAM_BNS
