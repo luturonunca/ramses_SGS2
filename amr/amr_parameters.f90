@@ -142,7 +142,7 @@ module amr_parameters
   real(dp)::f_ek   =1.0D0     ! Supernovae kinetic energy fraction (only between 0 and 1)
   real(dp)::rbubble=0.0D0     ! Supernovae superbubble radius in pc
   real(dp)::f_w    =0.0D0     ! Supernovae mass loading factor
-  real(dp)::Mns    =1.5D0     ! Neutron star mass in Msun for BNS
+  real(dp)::M_ns   =1.5D0     ! Neutron star mass in Msun for BNS
   integer ::ndebris=1         ! Supernovae debris particle number
   real(dp)::mass_gmc=-1.0     ! Stochastic exploding GMC mass
   real(dp)::z_ave  =0.0D0     ! Average metal abundance
