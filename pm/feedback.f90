@@ -1309,6 +1309,7 @@ subroutine mechanical_feedback_cell
   real(dp),dimension(:),allocatable::mSN_mpi,ZSN_mpi
   real(dp),dimension(:,:),allocatable::xSN_mpi,vSN_mpi
   integer, dimension(:),allocatable::lSN_mpi
+  integer::info2,dummy_io
 #endif
   !----------------------------------------------------------------------
   ! Description: This subroutine gathers SN events on a cell-by-cell basis
@@ -1316,7 +1317,7 @@ subroutine mechanical_feedback_cell
   ! Taysun Kimm
   !----------------------------------------------------------------------
   ! local constants
-  integer::igrid,npart1,ipart,jpart,next_part
+  integer::igrid,npart1,ipart,jpart,next_part,ilun
   integer::nSNp,nSNp_tot,nSNc,nSNc_tot,nSNcomm,nSNcomm_tot,nSN_glo,nSN_loc
   integer::ilevel,ind,ivar,nx_loc,iSN,nsn_star,nSN
   integer,dimension(1:ncpu)::nSNcomm_icpu
@@ -1333,13 +1334,17 @@ subroutine mechanical_feedback_cell
   real(dp),dimension(1:twotondim,1:3)::xc,p_ej
   real(dp),dimension(1:twotondim)::m_ej,Z_ej
   real(dp),dimension(1:ndim)::x0,x
-  real(dp)::ttsta,ttend,mejecta
+  real(dp)::ttsta,ttend,mejecta,e,uvar
   integer::ind_grid,ind_cell,ngrid,ind_son,idim,iSN_loc,iSN_glo
   integer::isort,iskip,i,ix,iy,iz,info,nok_sn,ncpu_read
   logical::ok,done_star,bns_sn
   real(kind=8)::RandNum
   real(dp)::costheta,phi,sintheta
   real(dp),parameter::pi=acos(-1.0d0)
+  character(LEN=80)::filename,filedir,fileloc,filedirini
+  character(LEN=5)::nchar,ncharcpu
+  logical::file_exist
+  integer,parameter::tag=1120
 
   if(.not. hydro)return
   if(ndim.ne.3)return
@@ -1351,6 +1356,58 @@ subroutine mechanical_feedback_cell
 #ifndef WITHOUTMPI
   ttsta = MPI_WTIME()
 #endif
+
+  if(sf_log_properties) then
+     call title(ifout-1,nchar)
+     if(IOGROUPSIZEREP>0) then
+        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+        filedirini='output_'//TRIM(nchar)//'/'
+        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+     else
+        filedir='output_'//TRIM(nchar)//'/'
+     endif
+     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+     ilun=myid+103
+     call title(myid,nchar)
+     fileloc=TRIM(filename)//TRIM(nchar)
+     ! Wait for the token
+#ifndef WITHOUTMPI
+     if(IOGROUPSIZE>0) then
+        if (mod(myid-1,IOGROUPSIZE)/=0) then
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
+                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+        end if
+     endif
+#endif
+
+     inquire(file=fileloc,exist=file_exist)
+     if(.not.file_exist) then
+        open(ilun, file=fileloc, form='formatted')
+        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+        enddo
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+        enddo
+        do ivar=1,nvar
+           if(ivar.ge.10) then
+              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+           else
+              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+           endif
+        enddo
+        write(ilun,'(A5)',advance='no') 'tag  '
+        write(ilun,'(A1)') ' '
+        if(bns_enrichment) then
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+        else
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+        endif
+     else
+        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+     endif
+  endif
 
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -1815,6 +1872,7 @@ subroutine mechanical_feedback_cell
      write(*,*) 'Time elapsed in mechanical_feedback_cell [s]', sngl(ttend-ttsta)
   endif
 #endif
+  if(sf_log_properties) close(ilun)
 
 end subroutine mechanical_feedback_cell
 !################################################################
