@@ -28,6 +28,41 @@ if they are relevant to the current run. These are
 more detail.
 
 \clearpage
+\subsection{Updated physics namelist blocks (this fork)}
+\label{sec:runtimeparams-updated-physics}
+
+\begin{warning}
+In this codebase, the old \nmlblock{\&PHYSICS\_PARAMS} block is deprecated
+and explicitly rejected at runtime. The updated block names are
+\nmlblock{\&COOLING\_PARAMS}, \nmlblock{\&SF\_PARAMS},
+\nmlblock{\&FEEDBACK\_PARAMS} and \nmlblock{\&UNITS\_PARAMS}.
+\end{warning}
+
+The new blocks are parsed in \cmd{hydro/read\_hydro\_params.f90}, and are
+used by the modules listed below:
+
+\begin{itemize}
+   \item \nmlblock{\&COOLING\_PARAMS}: cooling/heating and UV background
+   (\cmd{hydro/cooling\_module.f90}).
+   \item \nmlblock{\&SF\_PARAMS}: star formation thresholds and models
+   (\cmd{pm/star\_formation.f90}).
+   \item \nmlblock{\&FEEDBACK\_PARAMS}: supernova and mechanical feedback
+   (\cmd{pm/feedback.f90}, \cmd{pm/mechanical\_fine.f90}).
+   \item \nmlblock{\&UNITS\_PARAMS}: code unit conversions
+   (\cmd{amr/units.f90}).
+\end{itemize}
+
+In addition, two blocks used by this fork are handled outside the hydro
+parameter reader:
+
+\begin{itemize}
+   \item \nmlblock{\&SINK\_PARAMS}: sink/SMBH/AGN controls
+   (\cmd{pm/sink\_particle.f90}).
+   \item \nmlblock{\&CLUMPFIND\_PARAMS}: clump finder thresholds
+   (\cmd{pm/clump\_finder.f90}).
+\end{itemize}
+
+\clearpage
 \subsection{Global parameters}
 
 This block, called \nmlblock{\&RUN\_PARAMS}, contains the run global
@@ -483,6 +518,12 @@ scale.
 Default value of zero means no supernovae feedback.
 \end{nmltable}
 
+When \cmd{\nmlentry{sf\_log\_properties}=.true.} in \nmlblock{\&SF\_PARAMS},
+RAMSES writes \cmd{stars\_\emph{nn}.out} logs in the output directories.
+The first column is an event id: 0 for star formation, 1 for supernovae,
+and if \cmd{\nmlentry{bns\_enrichment}=.true.}, 2 for BNS formation and 3
+for BNS SN2.
+
 
 \clearpage
 \subsection{Poisson solver}
@@ -624,5 +665,3 @@ level.
       \cmd{interpol\_type=2}: MonCen limiter.
    }
 \end{nmltable}
-
-

@@ -119,6 +119,11 @@ subroutine star_formation(ilevel)
         enddo
         write(ilun,'(A5)',advance='no') 'tag  '
         write(ilun,'(A1)') ' '
+        if(bns_enrichment) then
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+        else
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+        endif
      else
         open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
      endif

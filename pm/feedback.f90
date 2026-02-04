@@ -68,6 +68,11 @@ subroutine thermal_feedback(ilevel)
         enddo
         write(ilun,'(A5)',advance='no') 'tag  '
         write(ilun,'(A1)') ' '
+        if(bns_enrichment) then
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+        else
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+        endif
      else
         open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
      endif
@@ -406,6 +411,41 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  m1_bns_val(nbns)=m1_code
                  mbns_val(nbns)=bns_mass_code
                  mp(ind_part(j))=mp(ind_part(j))-bns_mass_code
+                 if(sf_log_properties) then
+                    write(ilun,'(I10)',advance='no') 2
+                    write(ilun,'(2I10,E24.12)',advance='no') idp(ind_part(j)),ilevel,mp(ind_part(j))
+                    do idim=1,ndim
+                       write(ilun,'(E24.12)',advance='no') xp(ind_part(j),idim)
+                    enddo
+                    do idim=1,ndim
+                       write(ilun,'(E24.12)',advance='no') vp(ind_part(j),idim)
+                    enddo
+                    write(ilun,'(E24.12)',advance='no') unew(indp(j),1)
+                    do ivar=2,nvar
+                       if(ivar.eq.ndim+2)then
+                          e=0.0d0
+                          do idim=1,ndim
+                             e=e+0.5*unew(ind_cell(i),idim+1)**2/max(unew(ind_cell(i),1),smallr)
+                          enddo
+#if NENER>0
+                          do irad=0,nener-1
+                             e=e+unew(ind_cell(i),inener+irad)
+                          enddo
+#endif
+#ifdef SOLVERmhd
+                          do idim=1,ndim
+                             e=e+0.125d0*(unew(ind_cell(i),idim+ndim+2)+unew(ind_cell(i),idim+nvar))**2
+                          enddo
+#endif
+                          uvar=(gamma-1.0)*(unew(ind_cell(i),ndim+2)-e)*scale_T2
+                       else
+                          uvar=unew(indp(j),ivar)
+                       endif
+                       write(ilun,'(E24.12)',advance='no') uvar/unew(indp(j),1)
+                    enddo
+                    write(ilun,'(I10)',advance='no') typep(ind_part(j))%tag
+                    write(ilun,'(A1)') ' '
+                 endif
               endif
            endif
            ! Boost SNII energy and depopulate accordingly
@@ -1577,6 +1617,41 @@ subroutine mechanical_feedback_cell
                           vp(ipart,1)=vp(ipart,1)+vkick2(ipart)*sintheta*cos(phi)
                           vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
                           vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
+                       endif
+                       if(sf_log_properties) then
+                          write(ilun,'(I10)',advance='no') 3
+                          write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
+                          do idim=1,ndim
+                             write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
+                          enddo
+                          do idim=1,ndim
+                             write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
+                          enddo
+                          write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
+                          do ivar=2,nvar
+                             if(ivar.eq.ndim+2)then
+                                e=0.0d0
+                                do idim=1,ndim
+                                   e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
+                                enddo
+#if NENER>0
+                                do irad=0,nener-1
+                                   e=e+unew(ind_cell,inener+irad)
+                                enddo
+#endif
+#ifdef SOLVERmhd
+                                do idim=1,ndim
+                                   e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
+                                enddo
+#endif
+                                uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
+                             else
+                                uvar=unew(ind_cell,ivar)
+                             endif
+                             write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
+                          enddo
+                          write(ilun,'(I10)',advance='no') typep(ipart)%tag
+                          write(ilun,'(A1)') ' '
                        endif
                        idp(ipart)=-idp(ipart)
                     else if(sn2_real_delay)then
