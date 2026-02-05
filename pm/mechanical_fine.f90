@@ -37,6 +37,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp),parameter::pi=acos(-1.0d0)
   real(dp)::ttsta,ttend
   logical::ok,done_star,bns_sn
+  logical,save::mech_init=.false.
   real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,m2_val,zstar
   real(dp)::mass_msun,bns_mass_code,m1_code,t_delay_unit
   real(dp)::RandNum,costheta,phi,sintheta
@@ -67,6 +68,10 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   if(myid.eq.1) ttsta=MPI_WTIME(info)
 #endif 
   nSNc=0
+  if(.not.mech_init)then
+     call init_mechanical
+     mech_init=.true.
+  endif
   nbns=0
 
   if(sf_log_properties) then
