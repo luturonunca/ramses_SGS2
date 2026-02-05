@@ -1494,7 +1494,7 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn = is_bns(typep(ipart)) .and. idp(ipart) > 0 .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              bns_sn = is_bns(typep(ipart)) .and. idp(ipart) < 0 .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
               if(bns_sn)then
                  ok=.true.
               endif
@@ -1632,7 +1632,7 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn = is_bns(typep(ipart)) .and. idp(ipart) > 0 .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              bns_sn = is_bns(typep(ipart)) .and. idp(ipart) < 0 .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
               if(bns_sn)then
                  ok=.true.
               endif
