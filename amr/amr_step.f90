@@ -334,7 +334,13 @@ recursive subroutine amr_step(ilevel,icount)
   ! Thermal feedback from stars
 #if NDIM==3
                                call timer('feedback','start')
-  if(hydro.and.star.and.eta_sn>0)call thermal_feedback(ilevel)
+  if(hydro.and.star.and.eta_sn>0)then
+     if(mechanical_feedback>0)then
+        call mechanical_feedback_fine(ilevel,icount)
+     else
+        call thermal_feedback(ilevel)
+     endif
+  endif
 #endif
 
   ! Density threshold or Bondi accretion onto sink particle
