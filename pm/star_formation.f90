@@ -59,6 +59,7 @@ subroutine star_formation(ilevel)
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
   logical::file_exist
+  logical::file_opened
 #ifdef SOLVERmhd
   real(dp)::bx1,bx2,by1,by2,bz1,bz2,A,B,C,emag,beta,fbeta
 #endif
@@ -100,32 +101,35 @@ subroutine star_formation(ilevel)
      endif
 #endif
 
-     inquire(file=fileloc,exist=file_exist)
-     if((.not.file_exist).or.(abs(t-trestart).lt.dtnew(ilevel))) then
-        open(ilun, file=fileloc, form='formatted')
-        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
-        enddo
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
-        enddo
-        do ivar=1,nvar
-           if(ivar.ge.10) then
-              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+     inquire(unit=ilun, opened=file_opened)
+     if(.not.file_opened) then
+        inquire(file=fileloc,exist=file_exist)
+        if((.not.file_exist).or.(abs(t-trestart).lt.dtnew(ilevel))) then
+           open(ilun, file=fileloc, form='formatted')
+           write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+           do idim=1,ndim
+              write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+           enddo
+           do idim=1,ndim
+              write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+           enddo
+           do ivar=1,nvar
+              if(ivar.ge.10) then
+                 write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+              else
+                 write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+              endif
+           enddo
+           write(ilun,'(A5)',advance='no') 'tag  '
+           write(ilun,'(A1)') ' '
+           if(bns_enrichment) then
+              write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
            else
-              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+              write(ilun,'(A)') '# event id: 0=SF, 1=SN'
            endif
-        enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
-        write(ilun,'(A1)') ' '
-        if(bns_enrichment) then
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
         else
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+           open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
         endif
-     else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
      endif
   endif
 
