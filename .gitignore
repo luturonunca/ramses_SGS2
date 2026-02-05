@@ -6,3 +6,16 @@
 ramses*1d
 ramses*2d
 ramses*3d
+doc/src/*.aux
+doc/src/*.log
+doc/src/*.out
+doc/src/*.toc
+doc/src/*.idx
+doc/src/*.ilg
+doc/src/*.ind
+doc/src/*.pdf
+doc/src/autolog/*.log
+doc/src/autolog/*.tex
+docs/namelist_extensions.md
+docs/runtime_flowchart.txt
+s.log
