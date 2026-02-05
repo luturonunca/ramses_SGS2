@@ -4,7 +4,9 @@
 subroutine mechanical_feedback_fine(ilevel,icount)
   use pm_commons
   use amr_commons
+  use hydro_commons
   use mechanical_commons
+  use bns_tables
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
@@ -19,6 +21,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::npart1,npart2,icpu,icount,idim,ip
   integer::ind,ind_son,ind_cell,ilevel,iskip,info,nSNc,nSNc_mpi,nsn_star
+  integer::ilun,ivar
   integer,dimension(1:nvector),save::ind_grid,ind_pos_cell
   real(dp)::tyoung,current_time,dteff
   real(dp)::skip_loc(1:3),scale,dx,dx_loc,vol_loc,x0(1:3)
@@ -31,8 +34,28 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp)::mejecta
   real(dp),parameter::msun2g=1.989d33
   real(dp),parameter::myr2s=3.1536000d+13
+  real(dp),parameter::pi=acos(-1.0d0)
   real(dp)::ttsta,ttend
-  logical::ok,done_star
+  logical::ok,done_star,bns_sn
+  real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,m2_val,zstar
+  real(dp)::mass_msun,bns_mass_code,m1_code,t_delay_unit
+  real(dp)::RandNum,costheta,phi,sintheta
+  integer::nbns
+  integer,dimension(1:nvector),save::ind_bns,ind_grid_bns,ind_parent_bns
+  real(dp),dimension(1:nvector),save::kickx_bns,kicky_bns,kickz_bns
+  real(dp),dimension(1:nvector),save::t_sn2_bns,vkick2_bns,t_merge_bns,m1_bns_val,mbns_val
+  logical,dimension(1:nvector),save::ok_bns
+  character(LEN=80)::filename,filedir,fileloc,filedirini
+  character(LEN=5)::nchar,ncharcpu
+  logical::file_exist
+#ifndef WITHOUTMPI
+  integer::info2,dummy_io
+#endif
+  integer,parameter::tag=1121
+  real(dp)::e,uvar
+#if NENER>0
+  integer::irad
+#endif
  
   if(icount==2) return
   if(.not.hydro) return
@@ -44,6 +67,57 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   if(myid.eq.1) ttsta=MPI_WTIME(info)
 #endif 
   nSNc=0
+  nbns=0
+
+  if(sf_log_properties) then
+     call title(ifout-1,nchar)
+     if(IOGROUPSIZEREP>0) then
+        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+        filedirini='output_'//TRIM(nchar)//'/'
+        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+     else
+        filedir='output_'//TRIM(nchar)//'/'
+     endif
+     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+     ilun=myid+103
+     call title(myid,nchar)
+     fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+     if(IOGROUPSIZE>0) then
+        if (mod(myid-1,IOGROUPSIZE)/=0) then
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
+                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+        end if
+     endif
+#endif
+     inquire(file=fileloc,exist=file_exist)
+     if(.not.file_exist) then
+        open(ilun, file=fileloc, form='formatted')
+        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+        enddo
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+        enddo
+        do ivar=1,nvar
+           if(ivar.ge.10) then
+              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+           else
+              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+           endif
+        enddo
+        write(ilun,'(A5)',advance='no') 'tag  '
+        write(ilun,'(A1)') ' '
+        if(bns_enrichment) then
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+        else
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+        endif
+     else
+        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+     endif
+  endif
 
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -143,7 +217,12 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ok=.false.
-              if(sn2_real_delay)then
+              bns_sn=.false.
+              if(is_bns(typep(ipart))) then
+                 bns_sn = t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+                 if(bns_sn) ok=.true.
+              endif
+              if((.not.bns_sn) .and. sn2_real_delay)then
                  ! if tp is younger than t_sne
                  if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
                       & idp(ipart).le.0.and.tp(ipart).ge.tyoung) then
@@ -151,7 +230,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                              & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
-              else ! single SN event
+              else if(.not.bns_sn)then ! single SN event
                  ! if tp is older than t_sne
                  if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
                       & idp(ipart).le.0.and.tp(ipart).le.tyoung)then
@@ -169,7 +248,55 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  iskip=ncoarse+(ind_son-1)*ngridmax
                  ind_cell=iskip+igrid
                  if(son(ind_cell)==0)then  ! leaf cell
-                    if(sn2_real_delay)then
+                    if(bns_sn)then
+                       mejecta = M_SNII/scale_msun
+                       if(vkick2(ipart).ne.0d0)then
+                          call ranf(localseed,RandNum)
+                          costheta=2.0d0*RandNum-1.0d0
+                          call ranf(localseed,RandNum)
+                          phi=2.0d0*pi*RandNum
+                          sintheta=sqrt(max(0.0d0,1.0d0-costheta*costheta))
+                          vp(ipart,1)=vp(ipart,1)+vkick2(ipart)*sintheta*cos(phi)
+                          vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
+                          vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
+                       endif
+                       if(sf_log_properties) then
+                          write(ilun,'(I10)',advance='no') 3
+                          write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
+                          do idim=1,ndim
+                             write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
+                          enddo
+                          do idim=1,ndim
+                             write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
+                          enddo
+                          write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
+                          do ivar=2,nvar
+                             if(ivar.eq.ndim+2)then
+                                e=0.0d0
+                                do idim=1,ndim
+                                   e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
+                                enddo
+#if NENER>0
+                                do irad=0,nener-1
+                                   e=e+unew(ind_cell,inener+irad)
+                                enddo
+#endif
+#ifdef SOLVERmhd
+                                do idim=1,ndim
+                                   e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
+                                enddo
+#endif
+                                uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
+                             else
+                                uvar=unew(ind_cell,ivar)
+                             endif
+                             write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
+                          enddo
+                          write(ilun,'(I10)',advance='no') typep(ipart)%tag
+                          write(ilun,'(A1)') ' '
+                       endif
+                       idp(ipart)=-idp(ipart)
+                    else if(sn2_real_delay)then
                        mejecta = M_SNII/scale_msun*nsn_star
                     else
                        mejecta = mp(ipart)*eta_sn
@@ -183,12 +310,125 @@ subroutine mechanical_feedback_fine(ilevel,icount)
     
                     mp(ipart)=mp(ipart)-mejecta
 
-                    if(sn2_real_delay) then
-                       if(done_star) idp(ipart)=-idp(ipart) ! only if all SNe exploded
-                    else
-                       idp(ipart)=-idp(ipart)
+                    if(.not.bns_sn) then
+                       if(bns_enrichment)then
+                          zstar=0.0d0
+                          if(metal)zstar=zp(ipart)
+                          mass_msun=mp(ipart)*(scale_d*scale_l**3)/2d33
+                          call bns_draw(mass_msun,zstar,pbns,m1_val,m2_val,kick1_mag,kick2_mag,t_sn2_delay,t_merge_delay)
+                          call ranf(localseed,RandNum)
+                          if(RandNum<pbns)then
+                             nbns=nbns+1
+                             ind_parent_bns(nbns)=ipart
+                             ind_grid_bns(nbns)=igrid
+                             if(use_proper_time)then
+                                t_delay_unit=myr2s/(scale_t/aexp**2)
+                             else
+                                t_delay_unit=myr2s/scale_t
+                             endif
+                             kick1_mag=kick1_mag*1.0d5/scale_v
+                             kick2_mag=kick2_mag*1.0d5/scale_v
+                             t_sn2_delay=t_sn2_delay*t_delay_unit
+                             t_merge_delay=t_merge_delay*t_delay_unit
+                             m1_code=m1_val*2d33/(scale_d*scale_l**3)
+                             bns_mass_code=(m2_val+M_ns)*2d33/(scale_d*scale_l**3)
+                             if(mp(ipart)<=bns_mass_code)then
+                                nbns=nbns-1
+                             else
+                                call ranf(localseed,RandNum)
+                                costheta=2.0d0*RandNum-1.0d0
+                                call ranf(localseed,RandNum)
+                                phi=2.0d0*pi*RandNum
+                                sintheta=sqrt(max(0.0d0,1.0d0-costheta*costheta))
+                                kickx_bns(nbns)=kick1_mag*sintheta*cos(phi)
+                                kicky_bns(nbns)=kick1_mag*sintheta*sin(phi)
+                                kickz_bns(nbns)=kick1_mag*costheta
+                                t_sn2_bns(nbns)=current_time+t_sn2_delay
+                                vkick2_bns(nbns)=kick2_mag
+                                t_merge_bns(nbns)=current_time+t_merge_delay
+                                m1_bns_val(nbns)=m1_code
+                                mbns_val(nbns)=bns_mass_code
+                                mp(ipart)=mp(ipart)-bns_mass_code
+                                if(sf_log_properties) then
+                                   write(ilun,'(I10)',advance='no') 2
+                                   write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
+                                   do idim=1,ndim
+                                      write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
+                                   enddo
+                                   do idim=1,ndim
+                                      write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
+                                   enddo
+                                   write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
+                                   do ivar=2,nvar
+                                      if(ivar.eq.ndim+2)then
+                                         e=0.0d0
+                                         do idim=1,ndim
+                                            e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
+                                         enddo
+#if NENER>0
+                                         do irad=0,nener-1
+                                            e=e+unew(ind_cell,inener+irad)
+                                         enddo
+#endif
+#ifdef SOLVERmhd
+                                         do idim=1,ndim
+                                            e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
+                                         enddo
+#endif
+                                         uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
+                                      else
+                                         uvar=unew(ind_cell,ivar)
+                                      endif
+                                      write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
+                                   enddo
+                                   write(ilun,'(I10)',advance='no') typep(ipart)%tag
+                                   write(ilun,'(A1)') ' '
+                                endif
+                             endif
+                          endif
+                       endif
+                       if(sn2_real_delay) then
+                          if(done_star) idp(ipart)=-idp(ipart) ! only if all SNe exploded
+                       else
+                          idp(ipart)=-idp(ipart)
+                       endif
+                       if(sf_log_properties) then
+                          write(ilun,'(I10)',advance='no') 1
+                          write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
+                          do idim=1,ndim
+                             write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
+                          enddo
+                          do idim=1,ndim
+                             write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
+                          enddo
+                          write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
+                          do ivar=2,nvar
+                             if(ivar.eq.ndim+2)then
+                                e=0.0d0
+                                do idim=1,ndim
+                                   e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
+                                enddo
+#if NENER>0
+                                do irad=0,nener-1
+                                   e=e+unew(ind_cell,inener+irad)
+                                enddo
+#endif
+#ifdef SOLVERmhd
+                                do idim=1,ndim
+                                   e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
+                                enddo
+#endif
+                                uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
+                             else
+                                uvar=unew(ind_cell,ivar)
+                             endif
+                             write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
+                          enddo
+                          write(ilun,'(I10)',advance='no') typep(ipart)%tag
+                          write(ilun,'(A1)') ' '
+                       endif
                     endif
-                 endif
+                endif
               endif
               ipart=next_part  ! Go to next particle
            end do
@@ -226,6 +466,40 @@ subroutine mechanical_feedback_fine(ilevel,icount)
      endif
 
   end do ! End loop over cpus
+
+  if(nbns>0)then
+     if(numbp_free<nbns)then
+        write(*,*)'No more free memory for BNS particles'
+        write(*,*)'in PE ',myid
+        call clean_stop
+     end if
+     call remove_free(ind_bns,nbns)
+     ok_bns(1:nbns)=.true.
+     call add_list(ind_bns,ind_grid_bns,ok_bns,nbns)
+     do jpart=1,nbns
+        ipart=ind_parent_bns(jpart)
+        tp(ind_bns(jpart))=current_time
+        mp(ind_bns(jpart))=mbns_val(jpart)
+        levelp(ind_bns(jpart))=levelp(ipart)
+        idp(ind_bns(jpart))=idp(ipart)
+        typep(ind_bns(jpart))%family=FAM_BNS
+        typep(ind_bns(jpart))%tag=0
+        xp(ind_bns(jpart),1)=xp(ipart,1)
+        xp(ind_bns(jpart),2)=xp(ipart,2)
+        xp(ind_bns(jpart),3)=xp(ipart,3)
+        vp(ind_bns(jpart),1)=vp(ipart,1)+kickx_bns(jpart)
+        vp(ind_bns(jpart),2)=vp(ipart,2)+kicky_bns(jpart)
+        vp(ind_bns(jpart),3)=vp(ipart,3)+kickz_bns(jpart)
+        if(metal)zp(ind_bns(jpart))=zp(ipart)
+        if(bns_enrichment)zp_heavy(ind_bns(jpart))=zp_heavy(ipart)
+        vkick1(ind_bns(jpart))=sqrt(kickx_bns(jpart)**2+kicky_bns(jpart)**2+kickz_bns(jpart)**2)
+        t_sn2(ind_bns(jpart))=t_sn2_bns(jpart)
+        vkick2(ind_bns(jpart))=vkick2_bns(jpart)
+        t_merge(ind_bns(jpart))=t_merge_bns(jpart)
+        parent_id(ind_bns(jpart))=idp(ipart)
+        m1_bns(ind_bns(jpart))=m1_bns_val(jpart)
+     end do
+  endif
 
 
 #ifndef WITHOUTMPI
