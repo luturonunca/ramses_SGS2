@@ -220,6 +220,8 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               bns_sn=.false.
               if(is_bns(typep(ipart))) then
                  bns_sn = t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+                 write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
+                      & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
                  if(bns_sn) ok=.true.
               endif
               if((.not.bns_sn) .and. sn2_real_delay)then
