@@ -239,6 +239,8 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                     if(nsn_star>0)ok=.true.
                  endif
               else if(.not.bns_sn)then ! single SN event
+                 write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
+                      & 'SN_GATE_CHECK', idp(ipart), typep(ipart)%family, tp(ipart), tyoung
                  ! if tp is older than t_sne
                  if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
                       & idp(ipart).le.0.and.tp(ipart).le.tyoung)then
