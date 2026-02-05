@@ -31,7 +31,7 @@ contains
     m2 = 9.0d0
     vk1 = 200.0d0
     vk2 = 200.0d0
-    t_sn2 = 50.0d0
+    t_sn2 = 30.0d0
     t_merge = 20.0d0
   end subroutine bns_draw
 
