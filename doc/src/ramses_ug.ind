@@ -1,0 +1,253 @@
+\begin{theindex}
+
+  \item makefile options and flags
+    \subitem \textbf  {\texttt  {F90}} option, \hyperpage{6}
+    \subitem \textbf  {\texttt  {FFLAGS}} option, \hyperpage{6}
+    \subitem \textbf  {\texttt  {NDIM}} option, \hyperpage{6}, 
+		\hyperpage{9}
+    \subitem \textbf  {\texttt  {NPRE}} option, \hyperpage{6}, 
+		\hyperpage{25}
+    \subitem \textbf  {\texttt  {NVAR}} option, \hyperpage{6}, 
+		\hyperpage{21}, \hyperpage{30}
+    \subitem \textbf  {\texttt  {NVECTOR}} option, \hyperpage{6}
+    \subitem \textbf  {\texttt  {PATCH}} option, \hyperpage{30}
+    \subitem \textbf  {\texttt  {WITHOUTMPI}} option, \hyperpage{6}, 
+		\hyperpage{26}
+
+  \indexspace
+
+  \item namelist blocks
+    \subitem \textbf  {\texttt  {\&AMR\_PARAMS}} block, \hyperpage{12}, 
+		\hyperpage{15}
+    \subitem \textbf  {\texttt  {\&BOUNDARY\_PARAMS}} block, 
+		\hyperpage{12}, \hyperpage{19}, \hyperpage{31}
+    \subitem \textbf  {\texttt  {\&CLUMPFIND\_PARAMS}} block, 
+		\hyperpage{13}
+    \subitem \textbf  {\texttt  {\&COOLING\_PARAMS}} block, 
+		\hyperpage{13}
+    \subitem \textbf  {\texttt  {\&FEEDBACK\_PARAMS}} block, 
+		\hyperpage{13}
+    \subitem \textbf  {\texttt  {\&HYDRO\_PARAMS}} block, 
+		\hyperpage{12}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {\&INIT\_PARAMS}} block, \hyperpage{12}, 
+		\hyperpage{16}, \hyperpage{24}, \hyperpage{29}
+    \subitem \textbf  {\texttt  {\&MOVIE\_PARAMS}} block, 
+		\hyperpage{18}
+    \subitem \textbf  {\texttt  {\&OUTPUT\_PARAMS}} block, 
+		\hyperpage{12}, \hyperpage{17}
+    \subitem \textbf  {\texttt  {\&PHYSICS\_PARAMS}} block, 
+		\hyperpage{12, 13}, \hyperpage{21}, \hyperpage{32}
+    \subitem \textbf  {\texttt  {\&POISSON\_PARAMS}} block, 
+		\hyperpage{12}, \hyperpage{22}
+    \subitem \textbf  {\texttt  {\&REFINE\_PARAMS}} block, 
+		\hyperpage{12}, \hyperpage{15}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {\&RUN\_PARAMS}} block, \hyperpage{12}, 
+		\hyperpage{14}, \hyperpage{24}, \hyperpage{26}
+    \subitem \textbf  {\texttt  {\&SF\_PARAMS}} block, \hyperpage{13}
+    \subitem \textbf  {\texttt  {\&SINK\_PARAMS}} block, \hyperpage{13}
+    \subitem \textbf  {\texttt  {\&UNITS\_PARAMS}} block, 
+		\hyperpage{13}
+  \item namelist parameters \& log entries
+    \subitem \textbf  {\texttt  {0}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {1}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {2}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {3}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {4}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {5}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {6}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {7...}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {J21}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {T2\_star}}, \hyperpage{21}, 
+		\hyperpage{32}
+    \subitem \textbf  {\texttt  {a\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {a\_spec}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {aexp\_ini}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {angular}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {aout}}, \hyperpage{17}
+    \subitem \textbf  {\texttt  {a}} log entry, \hyperpage{9}
+    \subitem \textbf  {\texttt  {b\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {bound\_type}}, \hyperpage{19}, 
+		\hyperpage{31, 32}
+    \subitem \textbf  {\texttt  {boxlen}}, \hyperpage{15}, 
+		\hyperpage{24}
+    \subitem \textbf  {\texttt  {cg\_levelmin}}, \hyperpage{22}
+    \subitem \textbf  {\texttt  {cooling}}, \hyperpage{21}, 
+		\hyperpage{32}
+    \subitem \textbf  {\texttt  {cosmo}}, \hyperpage{14}, 
+		\hyperpage{24}
+    \subitem \textbf  {\texttt  {courant\_factor}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {d\_bound}}, \hyperpage{19}, 
+		\hyperpage{31}
+    \subitem \textbf  {\texttt  {d\_region}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {del\_star}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {deltax\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {deltay\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {deltaz\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {econs}} log entry, \hyperpage{9}
+    \subitem \textbf  {\texttt  {epsilon}}, \hyperpage{22}
+    \subitem \textbf  {\texttt  {err\_grad\_d}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {err\_grad\_p}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {err\_grad\_u}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {eta\_sn}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {exp\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {exp\_region}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {filetype}}, \hyperpage{16}, 
+		\hyperpage{24}
+    \subitem \textbf  {\texttt  {floor\_d}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {floor\_p}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {floor\_u}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {foutput}}, \hyperpage{17}, 
+		\hyperpage{26}
+    \subitem \textbf  {\texttt  {g\_star}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {gamma}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {gravity\_params}}, \hyperpage{22}
+    \subitem \textbf  {\texttt  {gravity\_type}}, \hyperpage{22}
+    \subitem \textbf  {\texttt  {haardt\_madau}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {hilbert}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {hydro}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {ibound\_max}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {ibound\_min}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {imovout}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {imov}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {initfile}}, \hyperpage{16}, 
+		\hyperpage{24}
+    \subitem \textbf  {\texttt  {interpol\_type}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {interpol\_var}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {jbound\_max}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {jbound\_min}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {jeans\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {kbound\_max}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {kbound\_min}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {length\_x}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {length\_y}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {length\_z}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {levelmax\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {levelmax}}, \hyperpage{9}, 
+		\hyperpage{14, 15}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {levelmin}}, \hyperpage{8}, 
+		\hyperpage{14, 15}, \hyperpage{23, 24}
+    \subitem \textbf  {\texttt  {m\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {mass\_sph}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {mcons}} log entry, \hyperpage{9}
+    \subitem \textbf  {\texttt  {metal}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {movie\_vars}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {movie}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {multiple}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {n\_star}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {nboundary}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {ncontrol}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {nexpand}}, \hyperpage{15}
+    \subitem \textbf  {\texttt  {ngridmax}}, \hyperpage{15}, 
+		\hyperpage{25}
+    \subitem \textbf  {\texttt  {ngridtot}}, \hyperpage{15}, 
+		\hyperpage{25}
+    \subitem \textbf  {\texttt  {nh\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {niter\_riemann}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {noutput}}, \hyperpage{17}
+    \subitem \textbf  {\texttt  {npartmax}}, \hyperpage{15}, 
+		\hyperpage{25}
+    \subitem \textbf  {\texttt  {nparttot}}, \hyperpage{15}, 
+		\hyperpage{25}
+    \subitem \textbf  {\texttt  {nregion}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {nremap}}, \hyperpage{14}, 
+		\hyperpage{26}
+    \subitem \textbf  {\texttt  {nrestart}}, \hyperpage{14}, 
+		\hyperpage{26}
+    \subitem \textbf  {\texttt  {nstepmax}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {nsubcycle}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {nw\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {ordering}}, \hyperpage{14}, 
+		\hyperpage{26}
+    \subitem \textbf  {\texttt  {p\_bound}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {p\_region}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {pic}}, \hyperpage{14}, \hyperpage{22}
+    \subitem \textbf  {\texttt  {planar}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {poisson}}, \hyperpage{14}, 
+		\hyperpage{22}
+    \subitem \textbf  {\texttt  {pressure\_fix}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {proj\_axis}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {r\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {region\_type}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {riemann2d}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {riemann}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {slope\_type}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {smallc}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {smallr}}, \hyperpage{20}
+    \subitem \textbf  {\texttt  {t\_star}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {tendmov}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {tout}}, \hyperpage{17}
+    \subitem \textbf  {\texttt  {u\_bound}}, \hyperpage{19}, 
+		\hyperpage{31}
+    \subitem \textbf  {\texttt  {u\_region}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {v\_bound}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {v\_region}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {verbose}}, \hyperpage{14}
+    \subitem \textbf  {\texttt  {w\_bound}}, \hyperpage{19}
+    \subitem \textbf  {\texttt  {w\_region}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {x\_center}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {x\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {xcentre\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {y\_center}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {y\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {ycentre\_frame}}, \hyperpage{18}
+    \subitem \textbf  {\texttt  {yield}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {z\_ave}}, \hyperpage{21}
+    \subitem \textbf  {\texttt  {z\_center}}, \hyperpage{16}
+    \subitem \textbf  {\texttt  {z\_refine}}, \hyperpage{23}
+    \subitem \textbf  {\texttt  {zcentre\_frame}}, \hyperpage{18}
+
+  \indexspace
+
+  \item solvers
+    \subitem \textbf  {\texttt  {acoustic}} Riemann solver, 
+		\hyperpage{20}
+    \subitem \textbf  {\texttt  {exact}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {hllc}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {hlld}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {hll}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {hydro}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {hydro}} solver, \hyperpage{6}
+    \subitem \textbf  {\texttt  {llf}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {mhd}} solver, \hyperpage{6}
+    \subitem \textbf  {\texttt  {multimat}} solver, \hyperpage{6}
+    \subitem \textbf  {\texttt  {rhd}} solver, \hyperpage{6}
+    \subitem \textbf  {\texttt  {roe}} Riemann solver, \hyperpage{20}
+    \subitem \textbf  {\texttt  {upwind}} Riemann solver, 
+		\hyperpage{20}
+
+  \indexspace
+
+  \item utilities \& directories
+    \subitem \textbf  {\texttt  {amr/}} directory, \hyperpage{6}, 
+		\hyperpage{24}, \hyperpage{26}, \hyperpage{30}
+    \subitem \textbf  {\texttt  {amr2cube}} utility, \hyperpage{28}
+    \subitem \textbf  {\texttt  {amr2map}} utility, \hyperpage{28}
+    \subitem \textbf  {\texttt  {bin/}} directory, \hyperpage{6}
+    \subitem \textbf  {\texttt  {center\_grafic}} utility, 
+		\hyperpage{29}
+    \subitem \textbf  {\texttt  {degrade\_grafic}} utility, 
+		\hyperpage{29}
+    \subitem \textbf  {\texttt  {extract\_grafic}} utility, 
+		\hyperpage{29}
+    \subitem \textbf  {\texttt  {grafic2}} package, \hyperpage{24}
+    \subitem \textbf  {\texttt  {grafic}} package, \hyperpage{29--31}
+    \subitem \textbf  {\texttt  {hydro/}} directory, \hyperpage{6}, 
+		\hyperpage{30}, \hyperpage{32}
+    \subitem \textbf  {\texttt  {mpgrafic}} package, \hyperpage{4}, 
+		\hyperpage{24}, \hyperpage{29}
+    \subitem \textbf  {\texttt  {namelist/}} directory, \hyperpage{7}, 
+		\hyperpage{9}, \hyperpage{19}, \hyperpage{24}
+    \subitem \textbf  {\texttt  {output\_00001/}} directory, 
+		\hyperpage{26}
+    \subitem \textbf  {\texttt  {part2cube}} utility, \hyperpage{28}
+    \subitem \textbf  {\texttt  {part2map}} utility, \hyperpage{28}
+    \subitem \textbf  {\texttt  {patch/}} directory, \hyperpage{30}
+    \subitem \textbf  {\texttt  {poisson/}} directory, \hyperpage{32}
+    \subitem \textbf  {\texttt  {sod}} utility, \hyperpage{29}
+    \subitem \textbf  {\texttt  {trunk/ramses/}} directory, 
+		\hyperpage{6}
+    \subitem \textbf  {\texttt  {utils/f90}} directory, 
+		\hyperpage{28, 29}
+    \subitem \textbf  {\texttt  {utils/idl}} directory, \hyperpage{28}
+
+\end{theindex}

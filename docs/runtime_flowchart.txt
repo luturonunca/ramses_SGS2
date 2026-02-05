@@ -1,0 +1,146 @@
+                                  [Start]
+                                     |
+                                     v
+                                read_params
+                                     |
+                                     v
+                                 init_amr
+                                     |
+                                     v
+                                 init_time
+                                     |
+                                     v
+                           [hydro?]----no----> (skip)
+                              |
+                             yes
+                              v
+                              init_hydro
+                                     |
+                                     v
+                           [poisson?]--no----> (skip)
+                              |
+                             yes
+                              v
+                             init_poisson
+                                     |
+                                     v
+                             [pic?]--no----> (skip)
+                              |
+                             yes
+                              v
+                     init_part -> init_tree
+                                     |
+                                     v
+                                init_refine
+                                     |
+                                     v
+                               set_table
+                                     |
+                                     v
+                               init_refine_2
+                                     |
+                                     v
+                               adaptive_loop
+                                     |
+                                     v
+                              amr_step(level)
+                                     |
+                                     v
+                          [refine?]--no------------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                    refine_coarse/refine_fine             |
+                              |                          |
+                              v                          |
+                    build_comm + ghost zones             |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                            [sink?]--no------------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                             update_cloud                |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                            [pic?]---no------------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                            make_tree_fine               |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                           [output?]--no-----------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                    clump_finder -> dump_all -> output_frame
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                          [poisson?]--no-----------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+            rho_fine -> multigrid_fine/phi_fine_cg -> force_fine
+                              |                          |
+                              v                          |
+                     synchro_fine (particles)            |
+                              |                          |
+                              v                          |
+                 synchro_hydro_fine (±0.5 dt)            |
+                              |                          |
+                              v                          |
+                     collect_acczone_avg (sink)          |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                         newdt_fine -> set_unew
+                                     |
+                                     v
+                     [finer level?]--no------------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                        recurse amr_step(level+1)         |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                                update_time
+                                     |
+                                     v
+                           [sink?]---no------------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                     update_sink -> grow_sink            |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                         [feedback?]--no-----------------+
+                              |                          |
+                             yes                         |
+                              v                          |
+                 thermal_feedback / kinetic_feedback     |
+                              |                          |
+                              +--------------------------+
+                                     |
+                                     v
+                      [hydro & !static_gas?]--no--------> (skip)
+                              |
+                             yes
+                              v
+      godunov_fine -> make_virtual_reverse_dp -> set_uold -> upload_fine
+                                     |
+                                     v
+                             back to adaptive_loop

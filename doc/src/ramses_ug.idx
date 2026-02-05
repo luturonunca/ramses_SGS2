@@ -1,0 +1,273 @@
+\indexentry{utilities \& directories!\textbf  {\texttt  {mpgrafic}} package|hyperpage}{4}
+\indexentry{utilities \& directories!\textbf  {\texttt  {trunk/ramses/}} directory|hyperpage}{6}
+\indexentry{utilities \& directories!\textbf  {\texttt  {amr/}} directory|hyperpage}{6}
+\indexentry{utilities \& directories!\textbf  {\texttt  {hydro/}} directory|hyperpage}{6}
+\indexentry{utilities \& directories!\textbf  {\texttt  {bin/}} directory|hyperpage}{6}
+\indexentry{utilities \& directories!\textbf  {\texttt  {bin/}} directory|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {F90}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {FFLAGS}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {WITHOUTMPI}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NDIM}} option|hyperpage}{6}
+\indexentry{solvers!\textbf  {\texttt  {hydro}} solver|hyperpage}{6}
+\indexentry{solvers!\textbf  {\texttt  {mhd}} solver|hyperpage}{6}
+\indexentry{solvers!\textbf  {\texttt  {rhd}} solver|hyperpage}{6}
+\indexentry{solvers!\textbf  {\texttt  {multimat}} solver|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NVAR}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NDIM}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NPRE}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NPRE}} option|hyperpage}{6}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NVECTOR}} option|hyperpage}{6}
+\indexentry{utilities \& directories!\textbf  {\texttt  {namelist/}} directory|hyperpage}{7}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmin}}|hyperpage}{8}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmax}}|hyperpage}{9}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {a}} log entry|hyperpage}{9}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {mcons}} log entry|hyperpage}{9}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {econs}} log entry|hyperpage}{9}
+\indexentry{utilities \& directories!\textbf  {\texttt  {namelist/}} directory|hyperpage}{9}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NDIM}} option|hyperpage}{9}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&RUN\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&AMR\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&OUTPUT\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&INIT\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&BOUNDARY\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&HYDRO\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&PHYSICS\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&POISSON\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&REFINE\_PARAMS}} block|hyperpage}{12}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&PHYSICS\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&COOLING\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&SF\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&FEEDBACK\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&UNITS\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&COOLING\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&SF\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&FEEDBACK\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&UNITS\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&SINK\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&CLUMPFIND\_PARAMS}} block|hyperpage}{13}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&RUN\_PARAMS}} block|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {cosmo}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {pic}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {poisson}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {hydro}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {verbose}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nrestart}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nstepmax}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ncontrol}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nremap}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ordering}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {hilbert}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {planar}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {angular}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nsubcycle}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmin}}|hyperpage}{14}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmax}}|hyperpage}{14}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&AMR\_PARAMS}} block|hyperpage}{15}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&REFINE\_PARAMS}} block|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmax}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmin}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmin}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmax}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridmax}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridtot}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {npartmax}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nparttot}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nexpand}}|hyperpage}{15}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {boxlen}}|hyperpage}{15}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&INIT\_PARAMS}} block|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nregion}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {region\_type}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {x\_center}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {y\_center}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {z\_center}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {length\_x}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {length\_y}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {length\_z}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {exp\_region}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {d\_region}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {u\_region}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {v\_region}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {w\_region}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {p\_region}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {filetype}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {aexp\_ini}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {multiple}}|hyperpage}{16}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {initfile}}|hyperpage}{16}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&OUTPUT\_PARAMS}} block|hyperpage}{17}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {noutput}}|hyperpage}{17}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {tout}}|hyperpage}{17}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {aout}}|hyperpage}{17}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {foutput}}|hyperpage}{17}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&MOVIE\_PARAMS}} block|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {movie}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {tendmov}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {imovout}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {imov}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nw\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nh\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmax\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {xcentre\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ycentre\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {zcentre\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {deltax\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {deltay\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {deltaz\_frame}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {proj\_axis}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {movie\_vars}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {0}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {1}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {2}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {3}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {4}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {5}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {6}}|hyperpage}{18}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {7...}}|hyperpage}{18}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&BOUNDARY\_PARAMS}} block|hyperpage}{19}
+\indexentry{utilities \& directories!\textbf  {\texttt  {namelist/}} directory|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nboundary}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {bound\_type}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {d\_bound}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {u\_bound}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {v\_bound}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {w\_bound}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {p\_bound}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ibound\_min}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {jbound\_min}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {kbound\_min}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ibound\_max}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {jbound\_max}}|hyperpage}{19}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {kbound\_max}}|hyperpage}{19}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&HYDRO\_PARAMS}} block|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {gamma}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {courant\_factor}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {smallr}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {smallc}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {riemann}}|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {exact}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {acoustic}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {llf}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {hll}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {hllc}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {llf}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {hll}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {roe}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {hlld}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {upwind}} Riemann solver|hyperpage}{20}
+\indexentry{solvers!\textbf  {\texttt  {hydro}} Riemann solver|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {riemann2d}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {niter\_riemann}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {slope\_type}}|hyperpage}{20}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {pressure\_fix}}|hyperpage}{20}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&PHYSICS\_PARAMS}} block|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {cooling}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {metal}}|hyperpage}{21}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NVAR}} option|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {haardt\_madau}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {J21}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {a\_spec}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {z\_ave}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {t\_star}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {n\_star}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {del\_star}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {T2\_star}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {g\_star}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {eta\_sn}}|hyperpage}{21}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {yield}}|hyperpage}{21}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&POISSON\_PARAMS}} block|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {poisson}}|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {pic}}|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {cg\_levelmin}}|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {gravity\_type}}|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {epsilon}}|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {gravity\_params}}|hyperpage}{22}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {cg\_levelmin}}|hyperpage}{22}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&REFINE\_PARAMS}} block|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmax}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmin}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {mass\_sph}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {m\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {jeans\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {floor\_d}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {floor\_u}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {floor\_p}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {err\_grad\_d}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {err\_grad\_u}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {err\_grad\_p}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {x\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {y\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {z\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {r\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {a\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {b\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {exp\_refine}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {interpol\_var}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {interpol\_type}}|hyperpage}{23}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {cosmo}}|hyperpage}{24}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&RUN\_PARAMS}} block|hyperpage}{24}
+\indexentry{utilities \& directories!\textbf  {\texttt  {grafic2}} package|hyperpage}{24}
+\indexentry{utilities \& directories!\textbf  {\texttt  {mpgrafic}} package|hyperpage}{24}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {initfile}}|hyperpage}{24}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&INIT\_PARAMS}} block|hyperpage}{24}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {levelmin}}|hyperpage}{24}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {boxlen}}|hyperpage}{24}
+\indexentry{utilities \& directories!\textbf  {\texttt  {amr/}} directory|hyperpage}{24}
+\indexentry{utilities \& directories!\textbf  {\texttt  {namelist/}} directory|hyperpage}{24}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {filetype}}|hyperpage}{24}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&INIT\_PARAMS}} block|hyperpage}{24}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridtot}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nparttot}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridtot}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridmax}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridmax}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridmax}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {npartmax}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridmax}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {npartmax}}|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ngridmax}}|hyperpage}{25}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NPRE}} option|hyperpage}{25}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {foutput}}|hyperpage}{26}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nrestart}}|hyperpage}{26}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nrestart}}|hyperpage}{26}
+\indexentry{makefile options and flags!\textbf  {\texttt  {WITHOUTMPI}} option|hyperpage}{26}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nremap}}|hyperpage}{26}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ordering}}|hyperpage}{26}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&RUN\_PARAMS}} block|hyperpage}{26}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {nremap}}|hyperpage}{26}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {ordering}}|hyperpage}{26}
+\indexentry{utilities \& directories!\textbf  {\texttt  {amr/}} directory|hyperpage}{26}
+\indexentry{utilities \& directories!\textbf  {\texttt  {output\_00001/}} directory|hyperpage}{26}
+\indexentry{utilities \& directories!\textbf  {\texttt  {utils/f90}} directory|hyperpage}{28}
+\indexentry{utilities \& directories!\textbf  {\texttt  {amr2map}} utility|hyperpage}{28}
+\indexentry{utilities \& directories!\textbf  {\texttt  {amr2cube}} utility|hyperpage}{28}
+\indexentry{utilities \& directories!\textbf  {\texttt  {part2map}} utility|hyperpage}{28}
+\indexentry{utilities \& directories!\textbf  {\texttt  {part2cube}} utility|hyperpage}{28}
+\indexentry{utilities \& directories!\textbf  {\texttt  {utils/idl}} directory|hyperpage}{28}
+\indexentry{utilities \& directories!\textbf  {\texttt  {grafic}} package|hyperpage}{29}
+\indexentry{utilities \& directories!\textbf  {\texttt  {sod}} utility|hyperpage}{29}
+\indexentry{utilities \& directories!\textbf  {\texttt  {mpgrafic}} package|hyperpage}{29}
+\indexentry{utilities \& directories!\textbf  {\texttt  {utils/f90}} directory|hyperpage}{29}
+\indexentry{utilities \& directories!\textbf  {\texttt  {center\_grafic}} utility|hyperpage}{29}
+\indexentry{utilities \& directories!\textbf  {\texttt  {extract\_grafic}} utility|hyperpage}{29}
+\indexentry{utilities \& directories!\textbf  {\texttt  {degrade\_grafic}} utility|hyperpage}{29}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&INIT\_PARAMS}} block|hyperpage}{29}
+\indexentry{makefile options and flags!\textbf  {\texttt  {PATCH}} option|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {patch/}} directory|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {amr/}} directory|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {hydro/}} directory|hyperpage}{30}
+\indexentry{makefile options and flags!\textbf  {\texttt  {NVAR}} option|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {patch/}} directory|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {grafic}} package|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {grafic}} package|hyperpage}{30}
+\indexentry{utilities \& directories!\textbf  {\texttt  {grafic}} package|hyperpage}{31}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&BOUNDARY\_PARAMS}} block|hyperpage}{31}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {bound\_type}}|hyperpage}{31}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {bound\_type}}|hyperpage}{31}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {d\_bound}}|hyperpage}{31}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {u\_bound}}|hyperpage}{31}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {bound\_type}}|hyperpage}{32}
+\indexentry{utilities \& directories!\textbf  {\texttt  {poisson/}} directory|hyperpage}{32}
+\indexentry{utilities \& directories!\textbf  {\texttt  {poisson/}} directory|hyperpage}{32}
+\indexentry{utilities \& directories!\textbf  {\texttt  {hydro/}} directory|hyperpage}{32}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {cooling}}|hyperpage}{32}
+\indexentry{namelist parameters \& log entries!\textbf  {\texttt  {T2\_star}}|hyperpage}{32}
+\indexentry{namelist blocks!\textbf  {\texttt  {\&PHYSICS\_PARAMS}} block|hyperpage}{32}

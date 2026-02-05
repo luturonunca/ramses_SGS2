@@ -1,0 +1,14 @@
+ Mesh structure
+ Level  1 has          1 grids (       1,       1,       1,)
+ Level  2 has          2 grids (       2,       2,       2,)
+ Level  3 has          4 grids (       4,       4,       4,)
+ Level  4 has          8 grids (       8,       8,       8,)
+ Level  5 has         16 grids (      16,      16,      16,)
+ Level  6 has         27 grids (      27,      27,      27,)
+ Level  7 has         37 grids (      37,      37,      37,)
+ Level  8 has         17 grids (      17,      17,      17,)
+ Level  9 has         16 grids (      16,      16,      16,)
+ Level 10 has         13 grids (      13,      13,      13,)
+ Main step=    43 mcons=-1.97E-16 econs= 1.61E-16 epot= 0.00E+00 ekin= 1.38E+00
+ Fine step=   688 t= 2.45047E-01 dt= 3.561E-04 a= 1.000E+00 mem= 7.6% 
+ Run completed
