@@ -17,5 +17,4 @@ doc/src/*.pdf
 doc/src/autolog/*.log
 doc/src/autolog/*.tex
 docs/namelist_extensions.md
-docs/runtime_flowchart.txt
 s.log
