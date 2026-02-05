@@ -1496,7 +1496,7 @@ subroutine mechanical_feedback_cell
               ok=.false.
               bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
               if(is_bns(typep(ipart))) then
-                 if(myid==1) write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
+                 write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
                       & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
               endif
               if(bns_sn)then
@@ -1638,7 +1638,7 @@ subroutine mechanical_feedback_cell
               ok=.false.
               bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
               if(is_bns(typep(ipart))) then
-                 if(myid==1) write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
+                 write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
                       & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
               endif
               if(bns_sn)then
