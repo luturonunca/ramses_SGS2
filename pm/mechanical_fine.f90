@@ -63,10 +63,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   if(ndim.ne.3)  return
   if(numbtot(1,ilevel)==0)return
   if(nstar_tot==0)return
-  write(*,*) 'MECH_FB_ENTER level=', ilevel, 'nstar_tot=', nstar_tot
-  write(*,*) 'MECH_FB_GATE_PASS icount_ok=', (icount/=2), 'hydro_ok=', hydro, &
-             & 'ndim_ok=', (ndim==3), 'numbtot_ok=', (numbtot(1,ilevel)>0), &
-             & 'nstar_ok=', (nstar_tot>0)
+  write(*,*) 'Entering mechanical_feedback_fine for level', ilevel, 'nstar_tot=', nstar_tot
 
 #ifndef WITHOUTMPI
   if(myid.eq.1) ttsta=MPI_WTIME(info)
@@ -183,25 +180,22 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ok=.false.
-              write(*,*) 'MECH_FB_PARTICLE_CHECK idp=', idp(ipart), &
-                         & 'family=', typep(ipart)%family, 'tp=', tp(ipart), &
-                         & 'tyoung=', tyoung, 'sn2_real_delay=', sn2_real_delay
+              ! SN eligibility: stars only, positive idp means not exploded yet.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
-                 if((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
-                      & idp(ipart).le.0.and.tp(ipart).ge.tyoung)then
+                 if(is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                      & tp(ipart).ge.tyoung)then
                     call get_number_of_sn2 (tp(ipart),zp(ipart),idp(ipart), &
                              &  mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
               else ! single SN event per particle
                  ! if tp is older than t_sne 
-                 if((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
-                      & idp(ipart).le.0.and.tp(ipart).le.tyoung)then
+                 if(is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                      & tp(ipart).le.tyoung)then
                     ok=.true.
                  endif
               endif
-              write(*,*) 'MECH_FB_PARTICLE_GATE1 ok=', ok
 
               if(ok)then
                  ind_son=1
@@ -214,7 +208,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  if(son(ind_cell)==0)then  ! leaf cell
                     npart2=npart2+1
                  endif
-                 write(*,*) 'MECH_FB_LEAF_GATE ind_cell=', ind_cell, 'is_leaf=', (son(ind_cell)==0)
               endif
               ipart=next_part  ! Go to next particle
            end do
@@ -238,10 +231,11 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                       & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
                  if(bns_sn) ok=.true.
               endif
+              ! SN eligibility: stars only, positive idp means not exploded yet.
               if((.not.bns_sn) .and. sn2_real_delay)then
                  ! if tp is younger than t_sne
-                 if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
-                      & idp(ipart).le.0.and.tp(ipart).ge.tyoung) then
+                 if (is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                      & tp(ipart).ge.tyoung) then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), idp(ipart),&
                              & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
@@ -250,8 +244,8 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
                       & 'SN_GATE_CHECK', idp(ipart), typep(ipart)%family, tp(ipart), tyoung
                  ! if tp is older than t_sne
-                 if ((is_star(typep(ipart)) .or. is_debris(typep(ipart))) .and. &
-                      & idp(ipart).le.0.and.tp(ipart).le.tyoung)then
+                 if (is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                      & tp(ipart).le.tyoung)then
                     ok=.true.
                  endif
               endif
@@ -447,8 +441,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                        endif
                     endif
                 endif
-                write(*,*) 'MECH_FB_FINAL_GATE ind_cell=', ind_cell, 'is_leaf=', (son(ind_cell)==0), &
-                           & 'bns_sn=', bns_sn, 'sn2_real_delay=', sn2_real_delay, 'done_star=', done_star
               endif
               ipart=next_part  ! Go to next particle
            end do
