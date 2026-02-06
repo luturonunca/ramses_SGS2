@@ -216,6 +216,19 @@ subroutine set_uold(ilevel)
         end do
      end if
   end do
+  ! Guard against invalid uold after set_uold updates.
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,active(ilevel)%ngrid
+        ind_cell=active(ilevel)%igrid(i)+iskip
+        if (uold(ind_cell,1)/=uold(ind_cell,1) .or. uold(ind_cell,1)<=0d0 .or. &
+            uold(ind_cell,5)/=uold(ind_cell,5)) then
+           write(*,*) 'NAN_AFTER_SET_UOLD', ilevel, ind_cell, &
+                      uold(ind_cell,1), uold(ind_cell,2), uold(ind_cell,3), uold(ind_cell,4), uold(ind_cell,5)
+           call clean_stop
+        endif
+     end do
+  end do
 
 111 format('   Entering set_uold for level ',i2)
 

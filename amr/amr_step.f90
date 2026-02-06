@@ -61,6 +61,21 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
                  if(momentum_feedback)call make_virtual_fine_dp(pstarold(1),i)
                  if(simple_boundary)call make_boundary_hydro(i)
+                 ! Guard against invalid uold after boundary updates.
+                 do ind=1,twotondim
+                    iskip=ncoarse+(ind-1)*ngridmax
+                    do icell=1,active(i)%ngrid
+                       if (uold(active(i)%igrid(icell)+iskip,1)/=uold(active(i)%igrid(icell)+iskip,1) .or. &
+                           uold(active(i)%igrid(icell)+iskip,1)<=0d0 .or. &
+                           uold(active(i)%igrid(icell)+iskip,5)/=uold(active(i)%igrid(icell)+iskip,5)) then
+                          write(*,*) 'NAN_AFTER_BOUNDARY', i, active(i)%igrid(icell)+iskip, &
+                                     uold(active(i)%igrid(icell)+iskip,1), uold(active(i)%igrid(icell)+iskip,2), &
+                                     uold(active(i)%igrid(icell)+iskip,3), uold(active(i)%igrid(icell)+iskip,4), &
+                                     uold(active(i)%igrid(icell)+iskip,5)
+                          call clean_stop
+                       endif
+                    end do
+                 end do
               end if
 #ifdef RT
               if(rt)then
