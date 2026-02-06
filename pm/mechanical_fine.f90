@@ -808,6 +808,50 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
 
   enddo  ! loop over SN cell
 
+  ! Post-SN NaN scan for central and neighbor cells touched by feedback (local only).
+  do i=1,np
+     call get_icell_from_pos (xc2(1:3,i), ilevel+1, igrid, icell, ilevel2)
+     if(cpu_map(father(igrid))==myid) then
+        if (uold(icell,1)/=uold(icell,1) .or. &
+            uold(icell,2)/=uold(icell,2) .or. &
+            uold(icell,3)/=uold(icell,3) .or. &
+            uold(icell,4)/=uold(icell,4) .or. &
+            uold(icell,5)/=uold(icell,5)) then
+           write(*,*) 'NAN_MECH_POSTSN_UOLD', icell, ilevel, xc2(1,i), xc2(2,i), xc2(3,i)
+           call clean_stop
+        endif
+        if (unew(icell,1)/=unew(icell,1) .or. &
+            unew(icell,2)/=unew(icell,2) .or. &
+            unew(icell,3)/=unew(icell,3) .or. &
+            unew(icell,4)/=unew(icell,4) .or. &
+            unew(icell,5)/=unew(icell,5)) then
+           write(*,*) 'NAN_MECH_POSTSN_UNEW', icell, ilevel, xc2(1,i), xc2(2,i), xc2(3,i)
+           call clean_stop
+        endif
+     endif
+     do j=1,nSNnei
+        call get_icell_from_pos (xc2(1:3,i)+xSNnei(1:3,j)*dx, ilevel+1, igrid, icell, ilevel2)
+        if(cpu_map(father(igrid))==myid) then
+           if (uold(icell,1)/=uold(icell,1) .or. &
+               uold(icell,2)/=uold(icell,2) .or. &
+               uold(icell,3)/=uold(icell,3) .or. &
+               uold(icell,4)/=uold(icell,4) .or. &
+               uold(icell,5)/=uold(icell,5)) then
+              write(*,*) 'NAN_MECH_POSTSN_UOLD_NEI', icell, ilevel, xc2(1,i), xc2(2,i), xc2(3,i)
+              call clean_stop
+           endif
+           if (unew(icell,1)/=unew(icell,1) .or. &
+               unew(icell,2)/=unew(icell,2) .or. &
+               unew(icell,3)/=unew(icell,3) .or. &
+               unew(icell,4)/=unew(icell,4) .or. &
+               unew(icell,5)/=unew(icell,5)) then
+              write(*,*) 'NAN_MECH_POSTSN_UNEW_NEI', icell, ilevel, xc2(1,i), xc2(2,i), xc2(3,i)
+              call clean_stop
+           endif
+        endif
+     end do
+  end do
+
 
   ! Find and save stars affecting across the boundary of a cpu
   do i=1,np
