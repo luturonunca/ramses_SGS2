@@ -1084,6 +1084,21 @@ subroutine godfine1(ind_grid,ncache,ilevel)
               call clean_stop
            endif
         end do
+        if (unew(ind_grid(i)+iskip,1)<=0d0) then
+           write(*,*) 'NEG_GODUNOV_DENS', ind_grid(i), ilevel, unew(ind_grid(i)+iskip,1)
+           write(*,*) 'NEG_GODUNOV_UOLD', (uold(ind_grid(i)+iskip,1:nvar))
+           write(*,*) 'NEG_GODUNOV_FLUX_DIR1', &
+                      flux(i,1:if2,1: jf2,1: kf2,1,1)
+           if(ndim>1) then
+              write(*,*) 'NEG_GODUNOV_FLUX_DIR2', &
+                         flux(i,1:if2,1: jf2,1: kf2,1,2)
+           endif
+           if(ndim>2) then
+              write(*,*) 'NEG_GODUNOV_FLUX_DIR3', &
+                         flux(i,1:if2,1: jf2,1: kf2,1,3)
+           endif
+           call clean_stop
+        endif
      end do
   end do
 
