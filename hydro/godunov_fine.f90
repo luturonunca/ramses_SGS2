@@ -1019,6 +1019,17 @@ subroutine godfine1(ind_grid,ncache,ilevel)
         do ivar=1,nvar
            if (unew(ind_grid(i)+iskip,ivar)/=unew(ind_grid(i)+iskip,ivar)) then
               write(*,*) 'NAN_GODUNOV_UNEW', ind_grid(i), ivar, ilevel, unew(ind_grid(i)+iskip,ivar)
+              write(*,*) 'NAN_GODUNOV_UOLD', (uold(ind_grid(i)+iskip,1:nvar))
+              write(*,*) 'NAN_GODUNOV_FLUX_DIR1', &
+                         flux(i,1:if2,1: jf2,1: kf2,ivar,1)
+              if(ndim>1) then
+                 write(*,*) 'NAN_GODUNOV_FLUX_DIR2', &
+                            flux(i,1:if2,1: jf2,1: kf2,ivar,2)
+              endif
+              if(ndim>2) then
+                 write(*,*) 'NAN_GODUNOV_FLUX_DIR3', &
+                            flux(i,1:if2,1: jf2,1: kf2,ivar,3)
+              endif
               call clean_stop
            endif
         end do
