@@ -55,6 +55,20 @@ subroutine set_unew(ilevel)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
+  ! Guard against invalid uold before copying to unew.
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,active(ilevel)%ngrid
+        ind_cell=active(ilevel)%igrid(i)+iskip
+        if (uold(ind_cell,1)/=uold(ind_cell,1) .or. uold(ind_cell,1)<=0d0 .or. &
+            uold(ind_cell,5)/=uold(ind_cell,5)) then
+           write(*,*) 'NAN_BEFORE_GODUNOV', ilevel, ind_cell, &
+                      uold(ind_cell,1), uold(ind_cell,2), uold(ind_cell,3), uold(ind_cell,4), uold(ind_cell,5)
+           call clean_stop
+        endif
+     end do
+  end do
+
   ! Set unew to uold for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
