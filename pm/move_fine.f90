@@ -508,6 +508,21 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
         xp(ind_part(j),idim)=new_xp(j,idim)
      end do
   end do
+  ! Guard against NaNs after particle update in move1.
+  do j=1,np
+     if (xp(ind_part(j),1)/=xp(ind_part(j),1) .or. &
+         xp(ind_part(j),2)/=xp(ind_part(j),2) .or. &
+         xp(ind_part(j),3)/=xp(ind_part(j),3) .or. &
+         vp(ind_part(j),1)/=vp(ind_part(j),1) .or. &
+         vp(ind_part(j),2)/=vp(ind_part(j),2) .or. &
+         vp(ind_part(j),3)/=vp(ind_part(j),3)) then
+        write(*,*) 'NAN_MOVE_PARTICLE', ind_part(j), idp(ind_part(j)), &
+                   typep(ind_part(j))%family, &
+                   xp(ind_part(j),1), xp(ind_part(j),2), xp(ind_part(j),3), &
+                   vp(ind_part(j),1), vp(ind_part(j),2), vp(ind_part(j),3)
+        call clean_stop
+     endif
+  end do
 
 end subroutine move1
 !#########################################################################
