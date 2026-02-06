@@ -674,7 +674,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
   integer,dimension(1:nvector),save::igrid_nbor,ind_cell,ind_buffer,ind_exist,ind_nexist
 
-  integer::i,j,ivar,idim,ind_son,ind_father,iskip,nbuffer
+  integer::i,j,ivar,idim,ind,ind_son,ind_father,iskip,nbuffer
   integer::i0,j0,k0,i1,j1,k1,i2,j2,k2,i3,j3,k3,nx_loc,nb_noneigh,nexist
   integer::i1min,i1max,j1min,j1max,k1min,k1max
   integer::i2min,i2max,j2min,j2max,k2min,k2max
