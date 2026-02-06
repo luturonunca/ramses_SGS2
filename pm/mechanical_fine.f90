@@ -791,6 +791,10 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
   do i=1,np
      icell = ncoarse+ind_grid(i)+(ind_pos_cell(i)-1)*ngridmax
      d     = uold(icell,1)
+     if(d<=smallr)then
+        write(*,*) 'MECH_ERR_DENSITY_CEN', icell, ilevel, d
+        call clean_stop
+     endif
      u     = uold(icell,2)/d
      v     = uold(icell,3)/d
      w     = uold(icell,4)/d
@@ -1226,9 +1230,17 @@ subroutine mech_fine_mpi(ilevel)
         if(cpu_map(father(igrid)).eq.myid) then ! if belong to myid
            if(ilevel>ilevel2)then ! touching level-1 cells
               d_nei     = unew(icell,1)
+              if(d_nei<=smallr)then
+                 write(*,*) 'MECH_ERR_DENSITY_NEI', icell, ilevel, d_nei
+                 call clean_stop
+              endif
               if(metal) z_nei = unew(icell,imetal)/d_nei
            else
               d_nei     = uold(icell,1)
+              if(d_nei<=smallr)then
+                 write(*,*) 'MECH_ERR_DENSITY_NEI', icell, ilevel, d_nei
+                 call clean_stop
+              endif
               if(metal) z_nei = uold(icell,imetal)/d_nei
            endif
            f_w_cell  = (mloadSN_i/dble(nSNnei) + d_nei*vol_loc/8d0)/dm_ejecta - 1d0
@@ -1273,6 +1285,10 @@ subroutine mech_fine_mpi(ilevel)
            if(ilevel>ilevel2)then ! touching level-1 cells
 
               d=unew(icell,1)
+              if(d<=smallr)then
+                 write(*,*) 'MECH_ERR_DENSITY_UNEW', icell, ilevel, d
+                 call clean_stop
+              endif
               u0=unew(icell,2)/d
               v0=unew(icell,3)/d
               w0=unew(icell,4)/d
@@ -1321,6 +1337,10 @@ subroutine mech_fine_mpi(ilevel)
 
            else
               d=uold(icell,1)
+              if(d<=smallr)then
+                 write(*,*) 'MECH_ERR_DENSITY_UOLD', icell, ilevel, d
+                 call clean_stop
+              endif
               u0=uold(icell,2)/d
               v0=uold(icell,3)/d
               w0=uold(icell,4)/d
