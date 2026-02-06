@@ -514,6 +514,11 @@ subroutine mechanical_feedback_fine(ilevel,icount)
         t_merge(ind_bns(jpart))=t_merge_bns(jpart)
         parent_id(ind_bns(jpart))=idp(ipart)
         m1_bns(ind_bns(jpart))=m1_bns_val(jpart)
+        write(*,'(A,1X,I10,1X,I4,1X,3(ES14.6,1X),3(ES14.6,1X),ES14.6,1X,ES14.6,1X,ES14.6)') &
+             & 'BNS_FORMED', idp(ind_bns(jpart)), typep(ind_bns(jpart))%family, &
+             & xp(ind_bns(jpart),1), xp(ind_bns(jpart),2), xp(ind_bns(jpart),3), &
+             & vp(ind_bns(jpart),1), vp(ind_bns(jpart),2), vp(ind_bns(jpart),3), &
+             & t_sn2(ind_bns(jpart)), t_merge(ind_bns(jpart)), vkick1(ind_bns(jpart))
      end do
   endif
 
