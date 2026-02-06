@@ -812,12 +812,24 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
      ploadSN(i,3) = pSN(i,3)*f_load + vol_loc*d*w*floadSN(i)
 
      ! update the hydro variable
+     if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+         uold(icell,5)/=uold(icell,5)) then
+        write(*,*) 'NAN_BEFORE_UOLD_CEN', icell, ilevel, &
+                   uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5)
+        call clean_stop
+     endif
      fleftSN = 1d0 - floadSN(i)
      uold(icell,1) = mSN_cell(i)  /vol_loc*f_left + d*fleftSN
      uold(icell,2) = pSN(i,1)/vol_loc*f_left + d*u*fleftSN ! make sure this is rho*v, not v
      uold(icell,3) = pSN(i,2)/vol_loc*f_left + d*v*fleftSN
      uold(icell,4) = pSN(i,3)/vol_loc*f_left + d*w*fleftSN
      if(metal) uold(icell,imetal) = mZSN_cell(i)/vol_loc*f_left + d*z*fleftSN
+     if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+         uold(icell,5)/=uold(icell,5)) then
+        write(*,*) 'NAN_AFTER_UOLD_CEN', icell, ilevel, &
+                   uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5)
+        call clean_stop
+     endif
 
      d     = uold(icell,1)
      u     = uold(icell,2)/d
@@ -902,6 +914,12 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
               u=(ploadSN(i,1)/dble(nSNnei)+p_solid(i,j)*vSNnei(1,j))/vol_nei/d
               v=(ploadSN(i,2)/dble(nSNnei)+p_solid(i,j)*vSNnei(2,j))/vol_nei/d
               w=(ploadSN(i,3)/dble(nSNnei)+p_solid(i,j)*vSNnei(3,j))/vol_nei/d
+              if (unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
+                  unew(icell,5)/=unew(icell,5)) then
+                 write(*,*) 'NAN_BEFORE_UNEW_NEI', icell, ilevel, &
+                            unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
+                 call clean_stop
+              endif
               unew(icell,1)=unew(icell,1)+d
               unew(icell,2)=unew(icell,2)+d*u
               unew(icell,3)=unew(icell,3)+d*v
@@ -913,6 +931,12 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
               if(metal)then
                  unew(icell,imetal)=unew(icell,imetal)+mzloadSN(i)/dble(nSNnei)/vol_nei
               end if
+              if (unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
+                  unew(icell,5)/=unew(icell,5)) then
+                 write(*,*) 'NAN_AFTER_UNEW_NEI', icell, ilevel, &
+                            unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
+                 call clean_stop
+              endif
               ! Guard against NaNs introduced during local SN deposition (unew).
               if (unew(icell,1)/=unew(icell,1) .or. &
                   unew(icell,2)/=unew(icell,2) .or. &
@@ -952,6 +976,12 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
               v=(ploadSN(i,2)/dble(nSNnei)+p_solid(i,j)*vSNnei(2,j))/vol_nei/d
               w=(ploadSN(i,3)/dble(nSNnei)+p_solid(i,j)*vSNnei(3,j))/vol_nei/d
 
+              if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+                  uold(icell,5)/=uold(icell,5)) then
+                 write(*,*) 'NAN_BEFORE_UOLD_NEI', icell, ilevel, &
+                            uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5)
+                 call clean_stop
+              endif
               uold(icell,1)=uold(icell,1)+d
               uold(icell,2)=uold(icell,2)+d*u
               uold(icell,3)=uold(icell,3)+d*v
@@ -962,6 +992,12 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
               if(metal)then
                  uold(icell,imetal)=uold(icell,imetal)+mzloadSN(i)/dble(nSNnei)/vol_nei
               end if
+              if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+                  uold(icell,5)/=uold(icell,5)) then
+                 write(*,*) 'NAN_AFTER_UOLD_NEI', icell, ilevel, &
+                            uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5)
+                 call clean_stop
+              endif
               ! Guard against NaNs introduced during local SN deposition (uold).
               if (uold(icell,1)/=uold(icell,1) .or. &
                   uold(icell,2)/=uold(icell,2) .or. &
@@ -1300,6 +1336,12 @@ subroutine mech_fine_mpi(ilevel)
               v=(ploadSN_i(2)/dble(nSNnei)+p_solid(i,j)*vSNnei(2,j))/vol_nei/d
               w=(ploadSN_i(3)/dble(nSNnei)+p_solid(i,j)*vSNnei(3,j))/vol_nei/d
 
+              if (unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
+                  unew(icell,5)/=unew(icell,5)) then
+                 write(*,*) 'NAN_BEFORE_MPI_UNEW', icell, ilevel, &
+                            unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
+                 call clean_stop
+              endif
               unew(icell,1)=unew(icell,1)+d
               unew(icell,2)=unew(icell,2)+d*u
               unew(icell,3)=unew(icell,3)+d*v
@@ -1311,6 +1353,12 @@ subroutine mech_fine_mpi(ilevel)
               if(metal)then
                  unew(icell,imetal)=unew(icell,imetal)+mloadSN_i/dble(nSNnei)*ZloadSN_i/vol_nei
               end if
+              if (unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
+                  unew(icell,5)/=unew(icell,5)) then
+                 write(*,*) 'NAN_AFTER_MPI_UNEW', icell, ilevel, &
+                            unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
+                 call clean_stop
+              endif
               ! Guard against NaNs introduced during MPI SN deposition (unew).
               if (unew(icell,1)/=unew(icell,1) .or. &
                   unew(icell,2)/=unew(icell,2) .or. &
@@ -1351,6 +1399,12 @@ subroutine mech_fine_mpi(ilevel)
               u=(ploadSN_i(1)/dble(nSNnei)+p_solid(i,j)*vSNnei(1,j))/vol_nei/d
               v=(ploadSN_i(2)/dble(nSNnei)+p_solid(i,j)*vSNnei(2,j))/vol_nei/d
               w=(ploadSN_i(3)/dble(nSNnei)+p_solid(i,j)*vSNnei(3,j))/vol_nei/d
+              if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+                  uold(icell,5)/=uold(icell,5)) then
+                 write(*,*) 'NAN_BEFORE_MPI_UOLD', icell, ilevel, &
+                            uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5)
+                 call clean_stop
+              endif
               uold(icell,1)=uold(icell,1)+d
               uold(icell,2)=uold(icell,2)+d*u
               uold(icell,3)=uold(icell,3)+d*v
@@ -1362,6 +1416,12 @@ subroutine mech_fine_mpi(ilevel)
               if(metal)then
                  uold(icell,imetal)=uold(icell,imetal)+mloadSN_i/dble(nSNnei)*ZloadSN_i/vol_nei
               end if
+              if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+                  uold(icell,5)/=uold(icell,5)) then
+                 write(*,*) 'NAN_AFTER_MPI_UOLD', icell, ilevel, &
+                            uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5)
+                 call clean_stop
+              endif
               ! Guard against NaNs introduced during MPI SN deposition (uold).
               if (uold(icell,1)/=uold(icell,1) .or. &
                   uold(icell,2)/=uold(icell,2) .or. &
