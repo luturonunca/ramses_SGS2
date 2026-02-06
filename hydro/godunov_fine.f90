@@ -1012,5 +1012,17 @@ subroutine godfine1(ind_grid,ncache,ilevel)
 
   end do
   ! End loop over dimensions
+  ! Guard against NaNs in unew after hydro update.
+  do i=1,ncache
+     do ind=1,twotondim
+        iskip=ncoarse+(ind-1)*ngridmax
+        do ivar=1,nvar
+           if (unew(ind_grid(i)+iskip,ivar)/=unew(ind_grid(i)+iskip,ivar)) then
+              write(*,*) 'NAN_GODUNOV_UNEW', ind_grid(i), ivar, ilevel, unew(ind_grid(i)+iskip,ivar)
+              call clean_stop
+           endif
+        end do
+     end do
+  end do
 
 end subroutine godfine1

@@ -626,7 +626,8 @@ subroutine star_formation(ilevel)
                vp(ind_part(i),2)/=vp(ind_part(i),2) .or. &
                vp(ind_part(i),3)/=vp(ind_part(i),3)) then
               write(*,*) 'NAN_STAR_FORM_VEL', ind_part(i), idp(ind_part(i)), &
-                         typep(ind_part(i))%family, &
+                         typep(ind_part(i))%family, ilevel, ind_cell_new(i), &
+                         xp(ind_part(i),1), xp(ind_part(i),2), xp(ind_part(i),3), &
                          vp(ind_part(i),1), vp(ind_part(i),2), vp(ind_part(i),3), &
                          uold(ind_cell_new(i),1), uold(ind_cell_new(i),2), &
                          uold(ind_cell_new(i),3), uold(ind_cell_new(i),4), &

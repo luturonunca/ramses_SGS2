@@ -545,6 +545,19 @@ subroutine coolfine1(ind_grid,ngrid,ilevel)
            uold(ind_leaf(i),ndim+2) = T2(i) + T2min(i) + ekk(i) + err(i) + emag(i)
         end do
      endif
+     ! Guard against NaNs in cooling update.
+     do i=1,nleaf
+        il=ind_leaf(i)
+        if (uold(il,1)/=uold(il,1) .or. &
+            uold(il,2)/=uold(il,2) .or. &
+            uold(il,3)/=uold(il,3) .or. &
+            uold(il,4)/=uold(il,4) .or. &
+            uold(il,5)/=uold(il,5)) then
+           write(*,*) 'NAN_COOL_UOLD', il, uold(il,1), uold(il,2), uold(il,3), &
+                      uold(il,4), uold(il,5)
+           call clean_stop
+        endif
+     end do
 
      ! Update delayed cooling switch
      if(delayed_cooling)then
