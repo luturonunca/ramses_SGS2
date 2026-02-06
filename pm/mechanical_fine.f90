@@ -63,7 +63,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   if(ndim.ne.3)  return
   if(numbtot(1,ilevel)==0)return
   if(nstar_tot==0)return
-  write(*,*) 'Entering mechanical_feedback_fine for level', ilevel, 'nstar_tot=', nstar_tot
+  if(verbose) then
+     write(*,*) 'Entering mechanical_feedback_fine for level', ilevel, 'nstar_tot=', nstar_tot
+  endif
 
 #ifndef WITHOUTMPI
   if(myid.eq.1) ttsta=MPI_WTIME(info)
@@ -225,6 +227,8 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               next_part=nextp(ipart)
               ok=.false.
               bns_sn=.false.
+              write(*,*) 'PARTICLE_TYPE_CHECK is_star=', is_star(typep(ipart)), &
+                         & 'is_bns=', is_bns(typep(ipart))
               if(is_bns(typep(ipart))) then
                  bns_sn = t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
                  write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
