@@ -177,6 +177,20 @@ subroutine set_uold(ilevel)
   endif
 #endif
 
+  ! Guard against invalid unew before copying to uold.
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,active(ilevel)%ngrid
+        ind_cell=active(ilevel)%igrid(i)+iskip
+        if (unew(ind_cell,1)/=unew(ind_cell,1) .or. unew(ind_cell,1)<=0d0 .or. &
+            unew(ind_cell,5)/=unew(ind_cell,5)) then
+           write(*,*) 'NAN_BEFORE_SET_UOLD_UNEW', ilevel, ind_cell, &
+                      unew(ind_cell,1), unew(ind_cell,2), unew(ind_cell,3), unew(ind_cell,4), unew(ind_cell,5)
+           call clean_stop
+        endif
+     end do
+  end do
+
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
@@ -213,6 +227,16 @@ subroutine set_uold(ilevel)
            if(e_cons<e_trunc)then
               uold(ind_cell,ndim+2)=e_prim+e_kin
            end if
+        end do
+        ! Guard against invalid uold after pressure_fix correction.
+        do i=1,active(ilevel)%ngrid
+           ind_cell=active(ilevel)%igrid(i)+iskip
+           if (uold(ind_cell,1)/=uold(ind_cell,1) .or. uold(ind_cell,1)<=0d0 .or. &
+               uold(ind_cell,5)/=uold(ind_cell,5)) then
+              write(*,*) 'NAN_AFTER_PRESSURE_FIX', ilevel, ind_cell, &
+                         uold(ind_cell,1), uold(ind_cell,2), uold(ind_cell,3), uold(ind_cell,4), uold(ind_cell,5)
+              call clean_stop
+           endif
         end do
      end if
   end do
