@@ -365,6 +365,23 @@ recursive subroutine amr_step(ilevel,icount)
   if(sink)then
                                call timer('sinks','start')
      call grow_sink(ilevel,.false.)
+     ! Guard against invalid hydro state after sink updates.
+     if(hydro)then
+        do ind=1,twotondim
+           iskip=ncoarse+(ind-1)*ngridmax
+           do i=1,active(ilevel)%ngrid
+              icell=active(ilevel)%igrid(i)+iskip
+              if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
+                  unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
+                  uold(icell,5)/=uold(icell,5) .or. unew(icell,5)/=unew(icell,5)) then
+                 write(*,*) 'NAN_AFTER_SINK', ilevel, icell, &
+                            uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5), &
+                            unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
+                 call clean_stop
+              endif
+           end do
+        end do
+     endif
   end if
 #endif
   !-----------
