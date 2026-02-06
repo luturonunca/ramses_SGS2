@@ -726,6 +726,10 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
      endif
 
      dm_ejecta = f_load*mSN_cell(i)/dble(nSNnei)  ! per solid angle
+     if(dm_ejecta<=0d0)then
+        write(*,*) 'MECH_ERR_DM_EJECTA', i, mSN_cell(i), f_load, nSNnei
+        call clean_stop
+     endif
      mload     = f_load*mSN_cell(i) + uold(icell,1)*vol_loc*floadSN(i)  ! total shell
      if(metal) Zload = (f_load*mZSN_cell(i) + uold(icell,imetal)*vol_loc*floadSN(i))/mload
 
@@ -742,6 +746,10 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
               if(metal) z_nei = uold(icell,imetal)/d_nei
            endif
            f_w_cell  = (mload/dble(nSNnei) + d_nei*vol_loc/8d0)/dm_ejecta - 1d0
+           if(f_w_cell/=f_w_cell)then
+              write(*,*) 'NAN_MECH_FW_CELL', i, j, d_nei, mload, dm_ejecta
+              call clean_stop
+           endif
            nH_nei     = d_nei*scale_nH
            if(metal)then
               Zdepen=(max(0.01,z_nei/0.02))**(-0.28) !From Thornton+(98)
@@ -757,7 +765,15 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
               f_esn2 = 1d0-(1d0-f_esn)*f_w_cell/f_w_crit
               vload = dsqrt(2d0*f_esn2*ESN/(1d0+f_w_cell)/(M_SNII*msun2g))/scale_v/f_load
            endif
+           if(vload/=vload)then
+              write(*,*) 'NAN_MECH_VLOAD', i, j, f_w_cell, f_w_crit, nH_nei, num_sn
+              call clean_stop
+           endif
            p_solid(i,j)=(1d0+f_w_cell)*dm_ejecta*vload
+           if(p_solid(i,j)/=p_solid(i,j))then
+              write(*,*) 'NAN_MECH_P_SOLID', i, j, f_w_cell, dm_ejecta, vload
+              call clean_stop
+           endif
 
            if(log_mfb_mega)then
              write(*,'(" MFBN nHcen=", f6.2," nHnei=", f6.2, " mej=", f6.2, " mcen=", f6.2, " vload=", f6.2, " lv2=",I3," fwcrit=", f6.2, " fwcell=", f6.2, " psol=",f6.2, " mload/48=",f6.2," mnei/8=",f6.2," mej/48=",f6.2)') &
