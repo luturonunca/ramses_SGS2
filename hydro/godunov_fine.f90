@@ -55,20 +55,6 @@ subroutine set_unew(ilevel)
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
 
-  ! Guard against invalid uold before copying to unew.
-  do ind=1,twotondim
-     iskip=ncoarse+(ind-1)*ngridmax
-     do i=1,active(ilevel)%ngrid
-        ind_cell=active(ilevel)%igrid(i)+iskip
-        if (uold(ind_cell,1)/=uold(ind_cell,1) .or. uold(ind_cell,1)<=0d0 .or. &
-            uold(ind_cell,5)/=uold(ind_cell,5)) then
-           write(*,*) 'NAN_BEFORE_GODUNOV', ilevel, ind_cell, &
-                      uold(ind_cell,1), uold(ind_cell,2), uold(ind_cell,3), uold(ind_cell,4), uold(ind_cell,5)
-           call clean_stop
-        endif
-     end do
-  end do
-
   ! Set unew to uold for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
@@ -177,20 +163,6 @@ subroutine set_uold(ilevel)
   endif
 #endif
 
-  ! Guard against invalid unew before copying to uold.
-  do ind=1,twotondim
-     iskip=ncoarse+(ind-1)*ngridmax
-     do i=1,active(ilevel)%ngrid
-        ind_cell=active(ilevel)%igrid(i)+iskip
-        if (unew(ind_cell,1)/=unew(ind_cell,1) .or. unew(ind_cell,1)<=0d0 .or. &
-            unew(ind_cell,5)/=unew(ind_cell,5)) then
-           write(*,*) 'NAN_BEFORE_SET_UOLD_UNEW', ilevel, ind_cell, &
-                      unew(ind_cell,1), unew(ind_cell,2), unew(ind_cell,3), unew(ind_cell,4), unew(ind_cell,5)
-           call clean_stop
-        endif
-     end do
-  end do
-
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
@@ -228,30 +200,7 @@ subroutine set_uold(ilevel)
               uold(ind_cell,ndim+2)=e_prim+e_kin
            end if
         end do
-        ! Guard against invalid uold after pressure_fix correction.
-        do i=1,active(ilevel)%ngrid
-           ind_cell=active(ilevel)%igrid(i)+iskip
-           if (uold(ind_cell,1)/=uold(ind_cell,1) .or. uold(ind_cell,1)<=0d0 .or. &
-               uold(ind_cell,5)/=uold(ind_cell,5)) then
-              write(*,*) 'NAN_AFTER_PRESSURE_FIX', ilevel, ind_cell, &
-                         uold(ind_cell,1), uold(ind_cell,2), uold(ind_cell,3), uold(ind_cell,4), uold(ind_cell,5)
-              call clean_stop
-           endif
-        end do
      end if
-  end do
-  ! Guard against invalid uold after set_uold updates.
-  do ind=1,twotondim
-     iskip=ncoarse+(ind-1)*ngridmax
-     do i=1,active(ilevel)%ngrid
-        ind_cell=active(ilevel)%igrid(i)+iskip
-        if (uold(ind_cell,1)/=uold(ind_cell,1) .or. uold(ind_cell,1)<=0d0 .or. &
-            uold(ind_cell,5)/=uold(ind_cell,5)) then
-           write(*,*) 'NAN_AFTER_SET_UOLD', ilevel, ind_cell, &
-                      uold(ind_cell,1), uold(ind_cell,2), uold(ind_cell,3), uold(ind_cell,4), uold(ind_cell,5)
-           call clean_stop
-        endif
-     end do
   end do
 
 111 format('   Entering set_uold for level ',i2)
@@ -1067,23 +1016,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   do i=1,ncache
      do ind=1,twotondim
         iskip=ncoarse+(ind-1)*ngridmax
-        do ivar=1,nvar
-           if (unew(ind_grid(i)+iskip,ivar)/=unew(ind_grid(i)+iskip,ivar)) then
-              write(*,*) 'NAN_GODUNOV_UNEW', ind_grid(i), ivar, ilevel, unew(ind_grid(i)+iskip,ivar)
-              write(*,*) 'NAN_GODUNOV_UOLD', (uold(ind_grid(i)+iskip,1:nvar))
-              write(*,*) 'NAN_GODUNOV_FLUX_DIR1', &
-                         flux(i,1:if2,1: jf2,1: kf2,ivar,1)
-              if(ndim>1) then
-                 write(*,*) 'NAN_GODUNOV_FLUX_DIR2', &
-                            flux(i,1:if2,1: jf2,1: kf2,ivar,2)
-              endif
-              if(ndim>2) then
-                 write(*,*) 'NAN_GODUNOV_FLUX_DIR3', &
-                            flux(i,1:if2,1: jf2,1: kf2,ivar,3)
-              endif
-              call clean_stop
-           endif
-        end do
         if (unew(ind_grid(i)+iskip,1)<=0d0) then
            write(*,*) 'NEG_GODUNOV_DENS', ind_grid(i), ilevel, unew(ind_grid(i)+iskip,1)
            write(*,*) 'NEG_GODUNOV_UOLD', (uold(ind_grid(i)+iskip,1:nvar))

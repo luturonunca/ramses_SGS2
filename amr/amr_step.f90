@@ -61,21 +61,6 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
                  if(momentum_feedback)call make_virtual_fine_dp(pstarold(1),i)
                  if(simple_boundary)call make_boundary_hydro(i)
-                 ! Guard against invalid uold after boundary updates.
-                 do ind=1,twotondim
-                    iskip=ncoarse+(ind-1)*ngridmax
-                    do icell=1,active(i)%ngrid
-                       if (uold(active(i)%igrid(icell)+iskip,1)/=uold(active(i)%igrid(icell)+iskip,1) .or. &
-                           uold(active(i)%igrid(icell)+iskip,1)<=0d0 .or. &
-                           uold(active(i)%igrid(icell)+iskip,5)/=uold(active(i)%igrid(icell)+iskip,5)) then
-                          write(*,*) 'NAN_AFTER_BOUNDARY', i, active(i)%igrid(icell)+iskip, &
-                                     uold(active(i)%igrid(icell)+iskip,1), uold(active(i)%igrid(icell)+iskip,2), &
-                                     uold(active(i)%igrid(icell)+iskip,3), uold(active(i)%igrid(icell)+iskip,4), &
-                                     uold(active(i)%igrid(icell)+iskip,5)
-                          call clean_stop
-                       endif
-                    end do
-                 end do
               end if
 #ifdef RT
               if(rt)then
@@ -356,23 +341,6 @@ recursive subroutine amr_step(ilevel,icount)
         call thermal_feedback(ilevel)
      endif
   endif
-  ! Guard against invalid hydro state immediately after feedback.
-  if(hydro)then
-     do ind=1,twotondim
-        iskip=ncoarse+(ind-1)*ngridmax
-        do i=1,active(ilevel)%ngrid
-           icell=active(ilevel)%igrid(i)+iskip
-           if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
-               unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
-               uold(icell,5)/=uold(icell,5) .or. unew(icell,5)/=unew(icell,5)) then
-              write(*,*) 'NAN_AFTER_FEEDBACK', ilevel, icell, &
-                         uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5), &
-                         unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
-              call clean_stop
-           endif
-        end do
-     end do
-  endif
 #endif
 
   ! Density threshold or Bondi accretion onto sink particle
@@ -380,23 +348,6 @@ recursive subroutine amr_step(ilevel,icount)
   if(sink)then
                                call timer('sinks','start')
      call grow_sink(ilevel,.false.)
-     ! Guard against invalid hydro state after sink updates.
-     if(hydro)then
-        do ind=1,twotondim
-           iskip=ncoarse+(ind-1)*ngridmax
-           do i=1,active(ilevel)%ngrid
-              icell=active(ilevel)%igrid(i)+iskip
-              if (uold(icell,1)/=uold(icell,1) .or. uold(icell,1)<=0d0 .or. &
-                  unew(icell,1)/=unew(icell,1) .or. unew(icell,1)<=0d0 .or. &
-                  uold(icell,5)/=uold(icell,5) .or. unew(icell,5)/=unew(icell,5)) then
-                 write(*,*) 'NAN_AFTER_SINK', ilevel, icell, &
-                            uold(icell,1), uold(icell,2), uold(icell,3), uold(icell,4), uold(icell,5), &
-                            unew(icell,1), unew(icell,2), unew(icell,3), unew(icell,4), unew(icell,5)
-                 call clean_stop
-              endif
-           end do
-        end do
-     endif
   end if
 #endif
   !-----------

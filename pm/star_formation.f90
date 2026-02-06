@@ -621,19 +621,6 @@ subroutine star_formation(ilevel)
            vp(ind_part(i),1) = u
            vp(ind_part(i),2) = v
            vp(ind_part(i),3) = w
-           ! Guard against NaNs in newly formed star velocity from gas state.
-           if (vp(ind_part(i),1)/=vp(ind_part(i),1) .or. &
-               vp(ind_part(i),2)/=vp(ind_part(i),2) .or. &
-               vp(ind_part(i),3)/=vp(ind_part(i),3)) then
-              write(*,*) 'NAN_STAR_FORM_VEL', ind_part(i), idp(ind_part(i)), &
-                         typep(ind_part(i))%family, ilevel, ind_cell_new(i), &
-                         xp(ind_part(i),1), xp(ind_part(i),2), xp(ind_part(i),3), &
-                         vp(ind_part(i),1), vp(ind_part(i),2), vp(ind_part(i),3), &
-                         uold(ind_cell_new(i),1), uold(ind_cell_new(i),2), &
-                         uold(ind_cell_new(i),3), uold(ind_cell_new(i),4), &
-                         uold(ind_cell_new(i),5)
-              call clean_stop
-           endif
            if(metal)zp(ind_part(i)) = zg  ! Initial star metallicity
            if(bns_enrichment)zp_heavy(ind_part(i)) = zg_heavy
 

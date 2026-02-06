@@ -313,18 +313,6 @@ subroutine check_tree(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ok(1:np)=.false.
   do idim=1,ndim
      do j=1,np
-        if (xp(ind_part(j),1)/=xp(ind_part(j),1) .or. &
-            xp(ind_part(j),2)/=xp(ind_part(j),2) .or. &
-            xp(ind_part(j),3)/=xp(ind_part(j),3) .or. &
-            vp(ind_part(j),1)/=vp(ind_part(j),1) .or. &
-            vp(ind_part(j),2)/=vp(ind_part(j),2) .or. &
-            vp(ind_part(j),3)/=vp(ind_part(j),3)) then
-           write(*,*) 'NAN_CHECK_TREE_PARTICLE', ind_part(j), idp(ind_part(j)), &
-                      typep(ind_part(j))%family, &
-                      xp(ind_part(j),1), xp(ind_part(j),2), xp(ind_part(j),3), &
-                      vp(ind_part(j),1), vp(ind_part(j),2), vp(ind_part(j),3)
-           call clean_stop
-        endif
         i=floor((xp(ind_part(j),idim)/scale+skip_loc(idim)-x0(ind_grid_part(j),idim))/dx/2.0D0)
         if(i<0.or.i>2)error=.true.
         i=MAX(i,0)
