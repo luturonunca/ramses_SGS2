@@ -192,9 +192,11 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               is_bns_part = is_bns(typep(ipart))
               is_star_part = is_star(typep(ipart))
-              write(*,'(A,1X,I10,1X,I4,1X,L1,1X,L1,1X,ES14.6,1X,ES14.6)') &
-                   & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
-                   & current_time, t_sn2(ipart)
+              if(typep(ipart)%family/=FAM_DM) then
+                 write(*,'(A,1X,I10,1X,I4,1X,L1,1X,L1,1X,ES14.6,1X,ES14.6)') &
+                      & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
+                      & current_time, t_sn2(ipart)
+              endif
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
