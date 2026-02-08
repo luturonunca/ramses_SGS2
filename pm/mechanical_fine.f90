@@ -248,7 +248,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                       & 'BNS_FAM_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, current_time, t_sn2(ipart)
               !endif
               if(is_bns_part) then
-                 bns_sn = t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+                 bns_sn = t_sn2(ipart) <= current_time
                  write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
                       & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
                  if(bns_sn) ok=.true.
