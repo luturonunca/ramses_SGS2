@@ -36,7 +36,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp),parameter::myr2s=3.1536000d+13
   real(dp),parameter::pi=acos(-1.0d0)
   real(dp)::ttsta,ttend
-  logical::ok,done_star,bns_sn
+  logical::ok,done_star,bns_sn,is_bns_part
   logical,save::mech_init=.false.
   real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,m2_val,zstar
   real(dp)::mass_msun,bns_mass_code,m1_code,t_delay_unit
@@ -235,7 +235,12 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               next_part=nextp(ipart)
               ok=.false.
               bns_sn=.false.
-              if(is_bns(typep(ipart))) then
+              is_bns_part = is_bns(typep(ipart))
+              if(typep(ipart)%family/=FAM_DM) then
+                 write(*,'(A,1X,I10,1X,I4,1X,L1,1X,ES14.6,1X,ES14.6)') &
+                      & 'BNS_FAM_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, current_time, t_sn2(ipart)
+              endif
+              if(is_bns_part) then
                  bns_sn = t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
                  write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
                       & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
