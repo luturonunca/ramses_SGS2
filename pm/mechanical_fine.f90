@@ -47,8 +47,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp),dimension(1:nvector),save::t_sn2_bns,vkick2_bns,t_merge_bns,m1_bns_val,mbns_val
   logical,dimension(1:nvector),save::ok_bns
   character(LEN=80)::filename,filedir,fileloc,filedirini
+  character(LEN=256)::unit_name
   character(LEN=5)::nchar,ncharcpu
-  logical::file_exist
+  logical::file_exist,unit_open
 #ifndef WITHOUTMPI
   integer::info2,dummy_io
 #endif
@@ -98,32 +99,39 @@ subroutine mechanical_feedback_fine(ilevel,icount)
         end if
      endif
 #endif
-     inquire(file=fileloc,exist=file_exist)
-     if(.not.file_exist) then
-        open(ilun, file=fileloc, form='formatted')
-        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
-        enddo
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
-        enddo
-        do ivar=1,nvar
-           if(ivar.ge.10) then
-              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
-           else
-              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
-           endif
-        enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
-        write(ilun,'(A1)') ' '
-        if(bns_enrichment) then
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
-        else
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+     inquire(unit=ilun, opened=unit_open, name=unit_name)
+     if(unit_open) then
+        if(trim(unit_name).ne.trim(fileloc)) then
+           close(ilun)
+           unit_open=.false.
         endif
-     else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+     endif
+     if(.not.unit_open) then
+        inquire(file=fileloc,exist=file_exist)
+        open(ilun, file=fileloc, status="unknown", position="append", action="write", form='formatted')
+        if(.not.file_exist) then
+           write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+           do idim=1,ndim
+              write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+           enddo
+           do idim=1,ndim
+              write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+           enddo
+           do ivar=1,nvar
+              if(ivar.ge.10) then
+                 write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+              else
+                 write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+              endif
+           enddo
+           write(ilun,'(A5)',advance='no') 'tag  '
+           write(ilun,'(A1)') ' '
+           if(bns_enrichment) then
+              write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+           else
+              write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+           endif
+        endif
      endif
   endif
 
