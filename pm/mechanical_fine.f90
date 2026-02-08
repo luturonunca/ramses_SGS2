@@ -36,7 +36,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp),parameter::myr2s=3.1536000d+13
   real(dp),parameter::pi=acos(-1.0d0)
   real(dp)::ttsta,ttend
-  logical::ok,done_star,bns_sn,is_bns_part
+  logical::ok,done_star,bns_sn,is_bns_part,is_star_part
   logical,save::mech_init=.false.
   real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,m2_val,zstar
   real(dp)::mass_msun,bns_mass_code,m1_code,t_delay_unit
@@ -190,6 +190,11 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ok=.false.
+              is_bns_part = is_bns(typep(ipart))
+              is_star_part = is_star(typep(ipart))
+              write(*,'(A,1X,I10,1X,I4,1X,L1,1X,L1,1X,ES14.6,1X,ES14.6)') &
+                   & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
+                   & current_time, t_sn2(ipart)
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
