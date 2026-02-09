@@ -197,6 +197,13 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                       & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
                       & current_time, t_sn2(ipart)
               endif
+              ! BNS SN2 eligibility: negative id means not yet exploded.
+              write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
+                   & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              if(is_bns_part .and. idp(ipart).lt.0 .and. &
+                   & t_sn2(ipart).le.current_time)then
+                 ok=.true.
+              endif
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
@@ -243,15 +250,12 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               bns_sn=.false.
               is_bns_part = is_bns(typep(ipart))
-              !if(typep(ipart)%family/=FAM_DM) then
-              write(*,'(A,1X,I10,1X,I4,1X,L1,1X,ES14.6,1X,ES14.6)') &
-                      & 'BNS_FAM_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, current_time, t_sn2(ipart)
-              !endif
-              if(is_bns_part) then
-                 bns_sn = t_sn2(ipart) <= current_time
-                 write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
-                      & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
-                 if(bns_sn) ok=.true.
+              write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
+                   & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              if(is_bns_part .and. idp(ipart).lt.0 .and. &
+                   & t_sn2(ipart).le.current_time)then
+                 bns_sn = .true.
+                 ok=.true.
               endif
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if((.not.bns_sn) .and. sn2_real_delay)then
