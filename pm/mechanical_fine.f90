@@ -198,8 +198,10 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                       & current_time, t_sn2(ipart)
               endif
               ! BNS SN2 eligibility: negative id means not yet exploded.
-              write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
-                   & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              if(typep(ipart)%family/=FAM_DM) then
+                 write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
+                      & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              endif
               if(is_bns_part .and. idp(ipart).lt.0 .and. &
                    & t_sn2(ipart).le.current_time)then
                  ok=.true.
@@ -250,8 +252,10 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               bns_sn=.false.
               is_bns_part = is_bns(typep(ipart))
-              write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
-                   & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              if(typep(ipart)%family/=FAM_DM) then
+                 write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
+                      & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              endif
               if(is_bns_part .and. idp(ipart).lt.0 .and. &
                    & t_sn2(ipart).le.current_time)then
                  bns_sn = .true.
