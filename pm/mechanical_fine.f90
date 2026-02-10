@@ -197,19 +197,19 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                       & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
                       & current_time, t_sn2(ipart)
               endif
-              ! BNS SN2 eligibility: negative id means not yet exploded.
+              ! BNS SN2 eligibility: tag=0 means not yet exploded.
               if(typep(ipart)%family/=FAM_DM) then
                  write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
                       & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
               endif
-              if(is_bns_part .and. idp(ipart).lt.0 .and. &
+              if(is_bns_part .and. typep(ipart)%tag.eq.0 .and. &
                    & t_sn2(ipart).le.current_time)then
                  ok=.true.
               endif
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
-                 if(is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if(is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).ge.tyoung)then
                     call get_number_of_sn2 (tp(ipart),zp(ipart),idp(ipart), &
                              &  mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
@@ -217,7 +217,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  endif
               else ! single SN event per particle
                  ! if tp is older than t_sne 
-                 if(is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if(is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).le.tyoung)then
                     ok=.true.
                  endif
@@ -256,7 +256,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
                       & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
               endif
-              if(is_bns_part .and. idp(ipart).lt.0 .and. &
+              if(is_bns_part .and. typep(ipart)%tag.eq.0 .and. &
                    & t_sn2(ipart).le.current_time)then
                  bns_sn = .true.
                  ok=.true.
@@ -264,7 +264,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if((.not.bns_sn) .and. sn2_real_delay)then
                  ! if tp is younger than t_sne
-                 if (is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if (is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).ge.tyoung) then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), idp(ipart),&
                              & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
@@ -272,7 +272,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  endif
               else if(.not.bns_sn)then ! single SN event
                  ! if tp is older than t_sne
-                 if (is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if (is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).le.tyoung)then
                     ok=.true.
                  endif
@@ -335,7 +335,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                           write(ilun,'(I10)',advance='no') typep(ipart)%tag
                           write(ilun,'(A1)') ' '
                        endif
-                       idp(ipart)=-idp(ipart)
+                       typep(ipart)%tag = 1
                     else if(sn2_real_delay)then
                        mejecta = M_SNII/scale_msun*nsn_star
                     else
@@ -428,9 +428,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                           endif
                        endif
                     if(sn2_real_delay) then
-                       if(done_star) idp(ipart)=-idp(ipart) ! only if all SNe exploded
+                       if(done_star) typep(ipart)%tag = 1
                     else
-                       idp(ipart)=-idp(ipart)
+                       typep(ipart)%tag = 1
                     endif
                        if(sf_log_properties) then
                           write(ilun,'(I10)',advance='no') 1
