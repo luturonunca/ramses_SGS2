@@ -1,6 +1,6 @@
 subroutine read_hydro_params(nml_ok)
   use amr_commons
-  use amr_parameters, only: M_ns, bns_efficiency_table
+  use amr_parameters, only: M_ns, bns_table_dir
   use hydro_commons
   use mpi_mod
   implicit none
@@ -96,7 +96,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/sf_params/m_star,t_star,n_star,T2_star,g_star,del_star &
        & ,eps_star,jeans_ncells,sf_virial,sf_trelax,sf_save_sigma2,sf_model&
        & ,sf_log_properties,sf_imf,sf_compressive,bns_enrichment, &
-       & bns_efficiency_table
+       & bns_table_dir
 
   ! Units parameters
   namelist/units_params/units_density,units_time,units_length
