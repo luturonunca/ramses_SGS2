@@ -188,6 +188,7 @@ module amr_parameters
   logical ::sf_imf=.false.      ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false. ! Advect compressive and solenoidal turbulence terms separately
   logical ::bns_enrichment=.false. ! Enable BNS r-process passive scalar
+  character(len=128)::bns_efficiency_table='namelist/bns_efficiency_Z.dat'
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
   real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa

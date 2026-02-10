@@ -50,6 +50,7 @@ metal=.true.
 t_star=8.0
 n_star=0.1
 T2_star=1d4
+bns_efficiency_table='namelist/bns_efficiency_Z.dat'
 /
 
 &FEEDBACK_PARAMS
@@ -62,5 +63,4 @@ m_refine=7*8.
 interpol_var=1
 interpol_type=0
 /
-
 
