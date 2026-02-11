@@ -192,16 +192,16 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               is_bns_part = is_bns(typep(ipart))
               is_star_part = is_star(typep(ipart))
-              if(typep(ipart)%family/=FAM_DM) then
-                 write(*,'(A,1X,I10,1X,I4,1X,L1,1X,L1,1X,ES14.6,1X,ES14.6)') &
-                      & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
-                      & current_time, t_sn2(ipart)
-              endif
+              ! if(typep(ipart)%family/=FAM_DM) then
+              !    write(*,'(A,1X,I10,1X,I4,1X,L1,1X,L1,1X,ES14.6,1X,ES14.6)') &
+              !         & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
+              !         & current_time, t_sn2(ipart)
+              ! endif
               ! BNS SN2 eligibility: tag=0 means not yet exploded.
-              if(typep(ipart)%family/=FAM_DM) then
-                 write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
-                      & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
-              endif
+              ! if(typep(ipart)%family/=FAM_DM) then
+              !    write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
+              !         & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              ! endif
               if(is_bns_part .and. typep(ipart)%tag.eq.0 .and. &
                    & t_sn2(ipart).le.current_time)then
                  ok=.true.
@@ -252,10 +252,10 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ok=.false.
               bns_sn=.false.
               is_bns_part = is_bns(typep(ipart))
-              if(typep(ipart)%family/=FAM_DM) then
-                 write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
-                      & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
-              endif
+              ! if(typep(ipart)%family/=FAM_DM) then
+              !    write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
+              !         & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
+              ! endif
               if(is_bns_part .and. typep(ipart)%tag.eq.0 .and. &
                    & t_sn2(ipart).le.current_time)then
                  bns_sn = .true.
