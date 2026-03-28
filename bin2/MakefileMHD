@@ -8,7 +8,7 @@ NPRE = 8
 NVAR = 12
 NENER = 0
 SOLVER = mhd
-PATCH =
+PATCH = ../patch/hydro/MeanBondi
 GRACKLE = 0
 EXEC = ramses_MHD
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
