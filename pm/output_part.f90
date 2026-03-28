@@ -44,9 +44,6 @@ subroutine backup_part(filename, filename_desc)
   if (myid == 1) then
      open(newunit=unit_info, file=trim(filename_desc), form='formatted')
      call dump_header_info(unit_info)
-     write(unit_info, '("# notes: family-agnostic columns; some fields are meaningful only for certain families")')
-     write(unit_info, '("# base fields apply to all families: position_*, velocity_*, mass, identity, levelp, family, tag")')
-     write(unit_info, '("# if star or sink: birth_time; if metal: metallicity; if bns_enrichment: bns_enrichment, vkick1, t_sn2, vkick2, t_merge, parent_id, m1")')
      dump_info = .true.
   else
      dump_info = .false.
