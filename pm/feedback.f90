@@ -1494,7 +1494,7 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              bns_sn = is_bns(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. t_sn2(ipart) <= current_time
               ! if(is_bns(typep(ipart))) then
               !    write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
               !         & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
@@ -1502,10 +1502,10 @@ subroutine mechanical_feedback_cell
               if(bns_sn)then
                  ok=.true.
               endif
-              ! SN eligibility: stars only, positive idp means not exploded yet.
+              ! SN eligibility: stars only, tag=0 means not exploded yet.
               if(sn2_real_delay)then
                  !if tp is younger than t_sne
-                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).ge.(current_time-t0))then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), &
                                    & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
@@ -1513,7 +1513,7 @@ subroutine mechanical_feedback_cell
                  endif
               else ! single SN event
                  !if tp is older than t_sne
-                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).le.(current_time-t0))then
                     ok=.true.
                  endif
@@ -1637,7 +1637,7 @@ subroutine mechanical_feedback_cell
            do jpart=1,npart1
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn = is_bns(typep(ipart)) .and. t_sn2(ipart) > 0d0 .and. t_sn2(ipart) <= current_time
+              bns_sn = is_bns(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. t_sn2(ipart) <= current_time
               ! if(is_bns(typep(ipart))) then
               !    write(*,'(A,1X,I10,1X,I4,1X,ES14.6,1X,ES14.6)') &
               !         & 'BNS_SN2_CHECK', idp(ipart), typep(ipart)%family, current_time, t_sn2(ipart)
@@ -1645,10 +1645,10 @@ subroutine mechanical_feedback_cell
               if(bns_sn)then
                  ok=.true.
               endif
-              ! SN eligibility: stars only, positive idp means not exploded yet.
+              ! SN eligibility: stars only, tag=0 means not exploded yet.
               if(sn2_real_delay)then
                  !if tp is younger than t_sne
-                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).ge.(current_time-t0))then
                     call get_number_of_sn2  (tp(ipart), zp(ipart), &
                                    & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
@@ -1656,7 +1656,7 @@ subroutine mechanical_feedback_cell
                  endif
               else ! single SN event
                  !if tp is older than t_sne
-                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. idp(ipart).ge.0 .and. &
+                 if(.not.bns_sn .and. is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).le.(current_time-t0))then
                     ok=.true.
                  endif
@@ -1720,7 +1720,7 @@ subroutine mechanical_feedback_cell
                           write(ilun,'(I10)',advance='no') typep(ipart)%tag
                           write(ilun,'(A1)') ' '
                        endif
-                       idp(ipart)=-idp(ipart)
+                       typep(ipart)%tag=1
                     else if(sn2_real_delay)then
                        mejecta = M_SNII/scale_msun*nsn_star
                     else
@@ -1737,7 +1737,7 @@ subroutine mechanical_feedback_cell
                     if(metal) Z_ej(ind_son) = Z_ej(ind_son) + mejecta*zp(ipart)
                     ! Remove the mass ejected by the SN
                     mp(ipart)  = mp(ipart) - mejecta
-                    if((.not.sn2_real_delay) .and. (.not.bns_sn)) idp(ipart) = -idp(ipart)
+                    if((.not.sn2_real_delay) .and. (.not.bns_sn)) typep(ipart)%tag = 1
                  endif
               endif
               ipart=next_part
@@ -2663,6 +2663,85 @@ subroutine getSNonmyid2(iSN_myid,nSN_myid,xSN,nSN,lvSN)
   nSN_myid=ii
 
 end subroutine getSNonmyid2
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+#if NDIM==3
+subroutine bns_merger_enrich(ilevel)
+  use pm_commons
+  use amr_commons
+  use hydro_commons
+  implicit none
+  integer,intent(in)::ilevel
+  !------------------------------------------------------------------------
+  ! Scans BNS particles with tag=1 (post-SN2) whose merger time has been
+  ! reached and deposits r-process heavy elements into the host gas cell.
+  ! Injection mirrors the mzloss pattern: mejecta = eta_merger * mp,
+  ! heavyzloss = eu_yield + (1-eu_yield)*zp_heavy.
+  ! Called every fine step from amr_step, independent of feedback choice.
+  !------------------------------------------------------------------------
+  integer::igrid,jgrid,ipart,jpart,next_part,icpu
+  integer::npart1,ind,ind_son,ind_cell,iskip,idim
+  real(dp)::current_time,dx,dx_loc,vol_loc,scale
+  real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
+  real(dp)::mejecta,heavyzloss,mheavyloss
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+
+  if(numbtot(1,ilevel)==0)return
+  if(nstar_tot==0)return
+
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  call mesh_info(ilevel,skip_loc,scale,dx,dx_loc,vol_loc,xc)
+
+  if(use_proper_time)then
+     current_time=texp
+  else
+     current_time=t
+  endif
+
+  ! Loop over cpus
+  do icpu=1,ncpu
+     igrid=headl(icpu,ilevel)
+     ! Loop over grids
+     do jgrid=1,numbl(icpu,ilevel)
+        npart1=numbp(igrid)
+        if(npart1>0)then
+           do idim=1,ndim
+              x0(idim)=xg(igrid,idim)-dx-skip_loc(idim)
+           end do
+           ipart=headp(igrid)
+           ! Loop over particles
+           do jpart=1,npart1
+              next_part=nextp(ipart)
+              ! BNS merger eligibility: tag=1 means SN2 done, waiting for merger
+              if(is_bns(typep(ipart)) .and. typep(ipart)%tag.eq.1 .and. &
+                   & t_merge(ipart).le.current_time)then
+                 ! Find the host cell
+                 ind_son=1
+                 do idim=1,ndim
+                    ind=int((xp(ipart,idim)/scale-x0(idim))/dx)
+                    ind_son=ind_son+ind*2**(idim-1)
+                 end do
+                 iskip=ncoarse+(ind_son-1)*ngridmax
+                 ind_cell=iskip+igrid
+                 if(son(ind_cell)==0)then  ! leaf cell only
+                    mejecta    = eta_merger*mp(ipart)
+                    heavyzloss = eu_yield+(1d0-eu_yield)*zp_heavy(ipart)
+                    mheavyloss = mejecta*heavyzloss/vol_loc
+                    unew(ind_cell,iheavy)=unew(ind_cell,iheavy)+mheavyloss
+                    typep(ipart)%tag=2
+                 endif
+              endif
+              ipart=next_part
+           end do
+        endif
+        igrid=next(igrid)
+     end do
+  end do
+
+end subroutine bns_merger_enrich
+#endif
 !################################################################
 !################################################################
 !################################################################

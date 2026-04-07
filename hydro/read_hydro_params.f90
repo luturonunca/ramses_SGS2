@@ -1,6 +1,6 @@
 subroutine read_hydro_params(nml_ok)
   use amr_commons
-  use amr_parameters, only: M_ns, bns_table_dir
+  use amr_parameters, only: M_ns, eta_merger, eu_yield, bns_table_dir
   use hydro_commons
   use mpi_mod
   implicit none
@@ -83,7 +83,7 @@ subroutine read_hydro_params(nml_ok)
 
   ! Feedback parameters
   namelist/feedback_params/eta_sn,eta_ssn,yield,rbubble,f_ek,ndebris &
-       & ,M_ns &
+       & ,M_ns,eta_merger,eu_yield &
        & ,f_w,mass_gmc,kappa_IR,delayed_cooling,momentum_feedback &
        & ,ir_feedback,ir_eff,t_diss,t_sne,mass_star_max,mass_sne_min &
        & ,mechanical_feedback
