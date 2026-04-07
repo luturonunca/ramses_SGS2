@@ -372,9 +372,11 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
            endif
            ! Reduce star particle mass
            mp(ind_part(j))=mp(ind_part(j))-mejecta
-           ! bns_formation gates particle spawning independently of iheavy scalar.
+           ! bns_formation gates particle spawning independently of the iheavy scalar.
            ! bns_enrichment=T + bns_formation=F: HEAVY advects but no BNS are created.
-           if(bns_enrichment .and. bns_formation)then
+           ! bns_enrichment=F + bns_formation=T: BNS particles created and drift/kick/SN2
+           !   but no iheavy inheritance or merger enrichment (useful for dynamics tests).
+           if(bns_formation)then
               zstar=0.0d0
               if(metal)zstar=zp(ind_part(j))
               mass_msun=mp(ind_part(j))*(scale_d*scale_l**3)/2d33
