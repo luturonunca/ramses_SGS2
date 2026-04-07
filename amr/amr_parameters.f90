@@ -189,7 +189,13 @@ module amr_parameters
   logical ::sf_log_properties=.false. ! Log in ascii files birth properties of stars and supernovae
   logical ::sf_imf=.false.      ! Activate IMF sampling for SN feedback when resolution allows it
   logical ::sf_compressive=.false. ! Advect compressive and solenoidal turbulence terms separately
-  logical ::bns_enrichment=.false. ! Enable BNS r-process passive scalar
+  logical ::bns_enrichment=.false. ! Enable BNS r-process passive scalar (iheavy).
+                                   ! Must be .true. for iheavy to be allocated, advected,
+                                   ! inherited by stars, and written to outputs.
+  logical ::bns_formation =.false. ! Enable BNS particle creation at SN events.
+                                   ! Only active when bns_enrichment=.true.
+                                   ! Set to .false. to run with iheavy enabled but no BNS
+                                   ! particles (e.g. baseline tests of HEAVY advection).
   character(len=128)::bns_table_dir=''
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)

@@ -96,6 +96,7 @@ subroutine read_hydro_params(nml_ok)
   namelist/sf_params/m_star,t_star,n_star,T2_star,g_star,del_star &
        & ,eps_star,jeans_ncells,sf_virial,sf_trelax,sf_save_sigma2,sf_model&
        & ,sf_log_properties,sf_imf,sf_compressive,bns_enrichment, &
+       & bns_formation,  & ! set .false. to enable iheavy without spawning BNS particles
        & bns_table_dir
 
   ! Units parameters
