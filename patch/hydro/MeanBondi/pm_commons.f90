@@ -15,12 +15,13 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::dMsink_overdt,dMBHoverdt
   real(dp),allocatable,dimension(:)    ::dMBHoverdt_fraction
   real(dp),allocatable,dimension(:)    ::dMsmbh_overdt,dMBHoverdt_smbh,dMBHoverdt_fraction_smbh
-  real(dp),allocatable,dimension(:)    ::rho_gas,volume_gas,eps_sink
+  real(dp),allocatable,dimension(:)    ::rho_gas,volume_gas,eps_sink,dMtorque_sink
   real(dp),allocatable,dimension(:,:)  ::vel_gas
   real(dp),allocatable,dimension(:)    ::delta_mass,delta_mass_new,delta_mass_all
   real(dp),allocatable,dimension(:)    ::wden,weth,wvol,wdiv,wden_new,weth_new,wvol_new,wdiv_new
   real(dp),allocatable,dimension(:)    ::wfrac, wfvol, wfrac_new, wfvol_new
   real(dp),allocatable,dimension(:)    ::wv2, wc2, wv2_new, wc2_new
+  real(dp),allocatable,dimension(:)    ::wvr2, wvphi2, wvr2_new, wvphi2_new
   real(dp),allocatable,dimension(:)    ::v2sink, c2sink, r2sink
   real(dp),allocatable,dimension(:)    ::wsigma2, sigma2sink,wsigma2_new
   real(dp),allocatable,dimension(:,:)  ::wmom,wmom_new

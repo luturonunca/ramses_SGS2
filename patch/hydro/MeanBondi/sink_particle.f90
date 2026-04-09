@@ -402,7 +402,7 @@ subroutine collect_acczone_avg(ilevel)
   !write(*,*) 'nsink = ', nsink, ' nsinkmax = ', nsinkmax
   ! Compute (volume weighted) averages over accretion zone
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0d0; wfvol = 0d0
-  wc2=0d0; wv2=0d0; r2sink=0d0; wsigma2=0d0
+  wc2=0d0; wv2=0d0; r2sink=0d0; wsigma2=0d0; wvr2=0d0; wvphi2=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -476,6 +476,8 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wv2, wv2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wc2, wc2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wsigma2, wsigma2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wvr2,   wvr2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wvphi2, wvphi2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
 #else
      wden_new=wden
      wvol_new=wvol
@@ -486,6 +488,8 @@ subroutine collect_acczone_avg(ilevel)
      wv2_new=wv2
      wc2_new=wc2
      wsigma2_new=wsigma2
+     wvr2_new=wvr2
+     wvphi2_new=wvphi2
 #endif
   endif
   
@@ -610,7 +614,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 #if NENER>0
   integer::irad
 #endif
-  real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local
+  real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -703,6 +707,18 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               wv2(isink)=wv2(isink) + (d * v2 * weight)
               wc2(isink)=wc2(isink) + (d * cs2 * weight)
               wsigma2(isink) = wsigma2(isink) + (weight * d * sigma2_local)
+              if(angular_momentum_accretion_switch)then
+                 ! Decompose velocity into radial and tangential w.r.t. sink position
+                 r2=sum((xp(ind_part(j),1:ndim)-xsink(isink,1:ndim))**2)
+                 if(r2>0d0)then
+                    vr_loc=sum((vv(1:ndim)-vsink(isink,1:ndim))*(xp(ind_part(j),1:ndim)-xsink(isink,1:ndim)))/sqrt(r2)
+                 else
+                    vr_loc=0d0
+                 endif
+                 vphi2_loc=max(v2-vr_loc**2,0d0)
+                 wvr2(isink)=wvr2(isink)+(d*vr_loc**2*weight)
+                 wvphi2(isink)=wvphi2(isink)+(d*vphi2_loc*weight)
+              endif
            endif
            if (mode == 2) then
               if (bondi_use_turb) then
@@ -1166,6 +1182,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp),dimension(1:ndim)::velocity
   real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
   real(dp)::T2_gas,delta_mass_min
+  real(dp)::vphi2_eff,vr2_eff,chi,S_switch,dMtorque_overdt,Md_eff,R0_eff,fd_eff
 
   ! Gravitational constant
   factG=1d0
@@ -1250,6 +1267,27 @@ subroutine compute_accretion_rate(write_sinks)
      if(mean_bondi)dMsink_overdt(isink)=dMBHoverdt_fraction(isink)
      if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt(isink))
      if(eddington_limit.and.mean_bondi)dMsink_overdt(isink)=min(dMBHoverdt_fraction(isink),dMEDoverdt(isink))
+
+     ! Hybrid torque/Bondi accretion model
+     if(angular_momentum_accretion_switch)then
+        vphi2_eff = wvphi2_new(isink) / (mgas + tiny(0.0_dp))
+        vr2_eff   = wvr2_new(isink)   / (mgas + tiny(0.0_dp))
+        chi       = vphi2_eff / (vphi2_eff + vr2_eff + c2 + sigma2sink(isink) + tiny(0.0_dp))
+        S_switch  = 1.0d0 / (1.0d0 + exp(-(chi - chi_crit) / delta_chi))
+        fd_eff    = sqrt(vphi2_eff) / (sqrt(vphi2_eff + c2) + tiny(0.0_dp))
+        Md_eff    = mgas
+        R0_eff    = dble(ir_cloud) * dx_min
+        if(smbh .and. mass_smbh_seed > 0.0)then
+           dMtorque_overdt = alpha_T * fd_eff**2.5d0 * Md_eff * R0_eff**(-1.5d0) &
+                & * msmbh(isink)**(1.0d0/6.0d0)
+        else
+           dMtorque_overdt = alpha_T * fd_eff**2.5d0 * Md_eff * R0_eff**(-1.5d0) &
+                & * msink(isink)**(1.0d0/6.0d0)
+        endif
+        dMsink_overdt(isink) = S_switch * dMtorque_overdt &
+             & + (1.0d0 - S_switch) * dMsink_overdt(isink)
+        dMtorque_sink(isink) = dMtorque_overdt
+     endif
 
      if(smbh.and.mass_smbh_seed>0.0)then
         r2_smbh=(factG*msmbh(isink)/v_bondi**2)**2
@@ -1401,6 +1439,8 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
                 & ,rho_gas(isink)*volume_gas(isink)*scale_m/2d33,sqrt(c2sink(isink))*scale_v/1e5 &
                 & ,sqrt(r2)*scale_l/3.086e18
             write(*,'(6(1X,1PE14.7))')vel_gas(isink,1:ndim)*scale_v/1e5,vsink(isink,1:ndim)*scale_v/1e5
+            if(angular_momentum_accretion_switch) &
+                 & write(*,'("   Mdot_torque[Msol/yr]=",1PE12.5)')dMtorque_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
           end do
           write(*,'(" ============================================================================================")')
         end if
@@ -1428,6 +1468,8 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
                 & l_abs/l_max,&
                 & dMsink_overdt(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.,&
                 & (t-tsink(isink))*scale_t/(3600*24*365.25)
+           if(angular_momentum_accretion_switch) &
+                & write(*,'("   Mdot_torque[Msol/yr]=",1PE12.5)')dMtorque_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
         end do
         write(*,'(" =============================================================================================================================================")')
      endif
@@ -2622,7 +2664,8 @@ subroutine read_sink_params()
        clump_core,verbose_AGN,T2_AGN,T2_min,cone_opening,mass_halo_AGN,mass_clump_AGN,&
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
-       agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent
+       agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
+       angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)

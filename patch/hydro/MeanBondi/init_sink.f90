@@ -57,6 +57,8 @@ subroutine init_sink
   allocate(r2sink(1:nsinkmax))
   allocate(wv2(1:nsinkmax))
   allocate(wc2(1:nsinkmax))
+  allocate(wvr2(1:nsinkmax))
+  allocate(wvphi2(1:nsinkmax))
   allocate(wsigma2(1:nsinkmax))
   allocate(wden_new(1:nsinkmax))
   allocate(wmom_new(1:nsinkmax,1:ndim))
@@ -67,6 +69,8 @@ subroutine init_sink
   allocate(wfvol_new(1:nsinkmax))
   allocate(wv2_new(1:nsinkmax))
   allocate(wc2_new(1:nsinkmax))
+  allocate(wvr2_new(1:nsinkmax))
+  allocate(wvphi2_new(1:nsinkmax))
   allocate(wsigma2_new(1:nsinkmax))
   allocate(msink_new(1:nsinkmax))
   allocate(msmbh_new(1:nsinkmax))
@@ -101,6 +105,8 @@ subroutine init_sink
   vel_gas=0.d0
   allocate(rho_gas(1:nsinkmax))
   rho_gas=0.d0
+  allocate(dMtorque_sink(1:nsinkmax))
+  dMtorque_sink=0.d0
   allocate(c2sink(1:nsinkmax))
   allocate(v2sink(1:nsinkmax))
   allocate(sigma2sink(1:nsinkmax))

@@ -35,6 +35,10 @@ module pm_parameters
   logical::mean_bondi=.false.                ! Switch for Eddington limit for the smbh case
   logical::bondi_use_turb=.false.            ! for bondi accretion cs2--> cs2+sigma2
   logical::use_bondi_exp_weight=.false.      ! Switch for Eddington limit for the smbh case
+  logical::angular_momentum_accretion_switch=.false. ! Switch for torque/Bondi hybrid accretion
+  real(dp)::chi_crit=0.5d0                           ! Rotational support threshold for sigmoid switch
+  real(dp)::delta_chi=0.1d0                          ! Sigmoid width
+  real(dp)::alpha_T=1.0d0                            ! Torque channel normalization
   logical::clump_core=.false.                ! Trims the clump (for star formation)
   logical::verbose_AGN=.false.               ! Controls print verbosity for the SMBH case
   real(dp)::acc_sink_boost=1.0               ! Boost coefficient for accretion
