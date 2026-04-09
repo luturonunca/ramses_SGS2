@@ -72,6 +72,24 @@ subroutine init_sink
   allocate(wvr2_new(1:nsinkmax))
   allocate(wvphi2_new(1:nsinkmax))
   allocate(wsigma2_new(1:nsinkmax))
+  allocate(wcold_w(1:nsinkmax))    ;  wcold_w=0.d0
+  allocate(whot_w(1:nsinkmax))     ;  whot_w=0.d0
+  allocate(wcold_rho(1:nsinkmax))  ;  wcold_rho=0.d0
+  allocate(whot_rho(1:nsinkmax))   ;  whot_rho=0.d0
+  allocate(whot_cs2(1:nsinkmax))   ;  whot_cs2=0.d0
+  allocate(whot_v2(1:nsinkmax))    ;  whot_v2=0.d0
+  allocate(wcold_vphi2(1:nsinkmax));  wcold_vphi2=0.d0
+  allocate(wcold_cs2(1:nsinkmax))  ;  wcold_cs2=0.d0
+  allocate(wcold_w_new(1:nsinkmax))
+  allocate(whot_w_new(1:nsinkmax))
+  allocate(wcold_rho_new(1:nsinkmax))
+  allocate(whot_rho_new(1:nsinkmax))
+  allocate(whot_cs2_new(1:nsinkmax))
+  allocate(whot_v2_new(1:nsinkmax))
+  allocate(wcold_vphi2_new(1:nsinkmax))
+  allocate(wcold_cs2_new(1:nsinkmax))
+  allocate(dMtorque2_sink(1:nsinkmax));  dMtorque2_sink=0.d0
+  allocate(dMbondi2_sink(1:nsinkmax)) ;  dMbondi2_sink=0.d0
   allocate(msink_new(1:nsinkmax))
   allocate(msmbh_new(1:nsinkmax))
   allocate(msmbh_all(1:nsinkmax))

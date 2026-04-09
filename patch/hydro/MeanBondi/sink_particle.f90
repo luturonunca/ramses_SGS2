@@ -391,6 +391,14 @@ subroutine collect_acczone_avg(ilevel)
   dx_loc=dx*scale
   dx_min=scale*0.5D0**nlevelmax/aexp
 
+  ! Convert two-channel phase thresholds to code units (done each call for cosmo compatibility)
+  if(two_channel_accretion_switch)then
+     cs2_cold_code  = T_cold_crit  / scale_T2
+     dcs2_cold_code = dT_cold      / scale_T2
+     d_cold_code    = n_cold_crit  / scale_nH
+     dd_cold_code   = dn_cold      / scale_nH
+  endif
+
   if(ilevel<levelmin)return
   if(verbose)write(*,111)ilevel
   !write(*,*) 'wden bounds:', lbound(wden), ubound(wden)
@@ -403,6 +411,8 @@ subroutine collect_acczone_avg(ilevel)
   ! Compute (volume weighted) averages over accretion zone
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0d0; wfvol = 0d0
   wc2=0d0; wv2=0d0; r2sink=0d0; wsigma2=0d0; wvr2=0d0; wvphi2=0d0
+  wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0
+  whot_cs2=0d0; whot_v2=0d0; wcold_vphi2=0d0; wcold_cs2=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -478,6 +488,14 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wsigma2, wsigma2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wvr2,   wvr2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wvphi2, wvphi2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_w,    wcold_w_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(whot_w,     whot_w_new,     nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_rho,  wcold_rho_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(whot_rho,   whot_rho_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(whot_cs2,   whot_cs2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(whot_v2,    whot_v2_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_vphi2,wcold_vphi2_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_cs2,  wcold_cs2_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
 #else
      wden_new=wden
      wvol_new=wvol
@@ -490,6 +508,10 @@ subroutine collect_acczone_avg(ilevel)
      wsigma2_new=wsigma2
      wvr2_new=wvr2
      wvphi2_new=wvphi2
+     wcold_w_new=wcold_w    ;  whot_w_new=whot_w
+     wcold_rho_new=wcold_rho;  whot_rho_new=whot_rho
+     whot_cs2_new=whot_cs2  ;  whot_v2_new=whot_v2
+     wcold_vphi2_new=wcold_vphi2;  wcold_cs2_new=wcold_cs2
 #endif
   endif
   
@@ -615,6 +637,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
   integer::irad
 #endif
   real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
+  real(dp)::chi_loc,S_rot_loc,S_T_loc,S_n_loc,cold_w_loc,hot_w_loc
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -707,7 +730,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               wv2(isink)=wv2(isink) + (d * v2 * weight)
               wc2(isink)=wc2(isink) + (d * cs2 * weight)
               wsigma2(isink) = wsigma2(isink) + (weight * d * sigma2_local)
-              if(angular_momentum_accretion_switch)then
+              if(angular_momentum_accretion_switch .or. two_channel_accretion_switch)then
                  ! Decompose velocity into radial and tangential w.r.t. sink position
                  r2=sum((xp(ind_part(j),1:ndim)-xsink(isink,1:ndim))**2)
                  if(r2>0d0)then
@@ -716,8 +739,27 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     vr_loc=0d0
                  endif
                  vphi2_loc=max(v2-vr_loc**2,0d0)
-                 wvr2(isink)=wvr2(isink)+(d*vr_loc**2*weight)
-                 wvphi2(isink)=wvphi2(isink)+(d*vphi2_loc*weight)
+                 if(angular_momentum_accretion_switch)then
+                    wvr2(isink)=wvr2(isink)+(d*vr_loc**2*weight)
+                    wvphi2(isink)=wvphi2(isink)+(d*vphi2_loc*weight)
+                 endif
+                 if(two_channel_accretion_switch)then
+                    ! Per-particle phase classification via smooth sigmoids
+                    chi_loc    = vphi2_loc/(vphi2_loc+vr_loc**2+cs2+sigma2_local+tiny(0.0_dp))
+                    S_rot_loc  = 1.0d0/(1.0d0+exp(-(chi_loc-chi_crit)/delta_chi))
+                    S_T_loc    = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
+                    S_n_loc    = 1.0d0/(1.0d0+exp(-(d-d_cold_code)/dd_cold_code))
+                    cold_w_loc = S_T_loc * S_n_loc * S_rot_loc
+                    hot_w_loc  = (1.0d0-S_n_loc) * (1.0d0-S_rot_loc)
+                    wcold_w(isink)    = wcold_w(isink)    + weight*cold_w_loc
+                    whot_w(isink)     = whot_w(isink)     + weight*hot_w_loc
+                    wcold_rho(isink)  = wcold_rho(isink)  + weight*cold_w_loc*d
+                    whot_rho(isink)   = whot_rho(isink)   + weight*hot_w_loc*d
+                    whot_cs2(isink)   = whot_cs2(isink)   + weight*hot_w_loc*d*cs2
+                    whot_v2(isink)    = whot_v2(isink)    + weight*hot_w_loc*d*v2
+                    wcold_vphi2(isink)= wcold_vphi2(isink)+ weight*cold_w_loc*d*vphi2_loc
+                    wcold_cs2(isink)  = wcold_cs2(isink)  + weight*cold_w_loc*d*cs2
+                 endif
               endif
            endif
            if (mode == 2) then
@@ -1183,6 +1225,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
   real(dp)::T2_gas,delta_mass_min
   real(dp)::vphi2_eff,vr2_eff,chi,S_switch,dMtorque_overdt,Md_eff,R0_eff,fd_eff
+  real(dp)::rho_hot,cs2_hot,vrel2_hot,boost2,dMbondi2,dMtorque2,fd2_eff,Md2_eff,R0_eff2
 
   ! Gravitational constant
   factG=1d0
@@ -1287,6 +1330,41 @@ subroutine compute_accretion_rate(write_sinks)
         dMsink_overdt(isink) = S_switch * dMtorque_overdt &
              & + (1.0d0 - S_switch) * dMsink_overdt(isink)
         dMtorque_sink(isink) = dMtorque_overdt
+     endif
+
+     ! Two-channel additive accretion model (cold torque + hot Bondi)
+     if(two_channel_accretion_switch)then
+        ! Hot phase effective properties (density-weighted over hot-flagged particles)
+        rho_hot   = whot_rho_new(isink)  / (whot_w_new(isink)   + tiny(0.0_dp))
+        cs2_hot   = whot_cs2_new(isink)  / (whot_rho_new(isink)  + tiny(0.0_dp))
+        vrel2_hot = whot_v2_new(isink)   / (whot_rho_new(isink)  + tiny(0.0_dp))
+        cs2_hot   = max(cs2_hot, smallc**2)
+        ! Resolution-dependent boost (reuses existing acc_sink_boost logic)
+        if(star .and. acc_sink_boost < 0.0)then
+           boost2=max((rho_hot/(boost_threshold_density/scale_nH))**2,1.0_dp)
+        else
+           boost2=abs(acc_sink_boost)
+        endif
+        ! Bondi channel from hot phase
+        dMbondi2 = 4.d0*3.1415926d0*(factG*msink(isink))**2*rho_hot &
+             & / (cs2_hot+vrel2_hot+tiny(0.0_dp))**1.5d0 * boost2
+        ! Cold phase effective properties (density-weighted over cold-flagged particles)
+        Md2_eff  = wcold_rho_new(isink)
+        R0_eff2  = dble(ir_cloud)*dx_min
+        fd2_eff  = sqrt(max(wcold_vphi2_new(isink),0.0_dp)) &
+             & / (sqrt(max(wcold_vphi2_new(isink),0.0_dp) &
+             &        +max(wcold_cs2_new(isink),0.0_dp)) + tiny(0.0_dp))
+        ! Torque channel from cold phase
+        if(smbh .and. mass_smbh_seed > 0.0)then
+           dMtorque2 = alpha_T * fd2_eff**2.5d0 * Md2_eff * R0_eff2**(-1.5d0) &
+                & * msmbh(isink)**(1.0d0/6.0d0)
+        else
+           dMtorque2 = alpha_T * fd2_eff**2.5d0 * Md2_eff * R0_eff2**(-1.5d0) &
+                & * msink(isink)**(1.0d0/6.0d0)
+        endif
+        dMsink_overdt(isink)  = dMtorque2 + dMbondi2
+        dMtorque2_sink(isink) = dMtorque2
+        dMbondi2_sink(isink)  = dMbondi2
      endif
 
      if(smbh.and.mass_smbh_seed>0.0)then
@@ -1441,6 +1519,10 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
             write(*,'(6(1X,1PE14.7))')vel_gas(isink,1:ndim)*scale_v/1e5,vsink(isink,1:ndim)*scale_v/1e5
             if(angular_momentum_accretion_switch) &
                  & write(*,'("   Mdot_torque[Msol/yr]=",1PE12.5)')dMtorque_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
+            if(two_channel_accretion_switch) &
+                 & write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
+                 & dMtorque2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600., &
+                 & dMbondi2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
           end do
           write(*,'(" ============================================================================================")')
         end if
@@ -1470,6 +1552,10 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
                 & (t-tsink(isink))*scale_t/(3600*24*365.25)
            if(angular_momentum_accretion_switch) &
                 & write(*,'("   Mdot_torque[Msol/yr]=",1PE12.5)')dMtorque_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
+           if(two_channel_accretion_switch) &
+                & write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
+                & dMtorque2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600., &
+                & dMbondi2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
         end do
         write(*,'(" =============================================================================================================================================")')
      endif
@@ -2665,7 +2751,8 @@ subroutine read_sink_params()
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
-       angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T
+       angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T,&
+       two_channel_accretion_switch,T_cold_crit,n_cold_crit,dT_cold,dn_cold
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -2690,6 +2777,15 @@ subroutine read_sink_params()
   if (sink .and. (nlevelmax==levelmin))then
      if(myid==1)write(*,*)'sink particles do currently not work in a single-level cartesian grid'
      if(myid==1)write(*,*)'because they need level 1 to be activated.'
+     call clean_stop
+  end if
+
+  ! Two accretion models cannot run simultaneously:
+  ! angular_momentum_accretion_switch: sigmoid-weighted switch between torque and Bondi channels
+  ! two_channel_accretion_switch: additive two-channel model (cold torque + hot Bondi), no switching
+  if(angular_momentum_accretion_switch .and. two_channel_accretion_switch)then
+     if(myid==1)write(*,*)'ERROR: angular_momentum_accretion_switch and two_channel_accretion_switch'
+     if(myid==1)write(*,*)'cannot both be true. Choose one accretion model and set the other to .false.'
      call clean_stop
   end if
 

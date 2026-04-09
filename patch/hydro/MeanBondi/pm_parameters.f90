@@ -39,6 +39,16 @@ module pm_parameters
   real(dp)::chi_crit=0.5d0                           ! Rotational support threshold for sigmoid switch
   real(dp)::delta_chi=0.1d0                          ! Sigmoid width
   real(dp)::alpha_T=1.0d0                            ! Torque channel normalization
+  logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
+  real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
+  real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]
+  real(dp)::dT_cold=5.0d3                            ! Sigmoid width in temperature [K]
+  real(dp)::dn_cold=0.05d0                           ! Sigmoid width in density [H/cc]
+  ! Code-unit versions set at runtime in collect_acczone_avg
+  real(dp)::cs2_cold_code=0.0d0
+  real(dp)::dcs2_cold_code=0.0d0
+  real(dp)::d_cold_code=0.0d0
+  real(dp)::dd_cold_code=0.0d0
   logical::clump_core=.false.                ! Trims the clump (for star formation)
   logical::verbose_AGN=.false.               ! Controls print verbosity for the SMBH case
   real(dp)::acc_sink_boost=1.0               ! Boost coefficient for accretion
