@@ -411,7 +411,7 @@ subroutine collect_acczone_avg(ilevel)
   ! Compute (volume weighted) averages over accretion zone
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0d0; wfvol = 0d0
   wc2=0d0; wv2=0d0; r2sink=0d0; wsigma2=0d0; wvr2=0d0; wvphi2=0d0
-  wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0
+  wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0; wcold_mass=0d0
   whot_cs2=0d0; whot_v2=0d0; wcold_vphi2=0d0; wcold_cs2=0d0
   ! Loop over cpus
   do icpu=1,ncpu
@@ -490,8 +490,9 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wvphi2, wvphi2_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wcold_w,    wcold_w_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(whot_w,     whot_w_new,     nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
-     call MPI_ALLREDUCE(wcold_rho,  wcold_rho_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
-     call MPI_ALLREDUCE(whot_rho,   whot_rho_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_rho,   wcold_rho_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(whot_rho,    whot_rho_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_mass,  wcold_mass_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(whot_cs2,   whot_cs2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(whot_v2,    whot_v2_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wcold_vphi2,wcold_vphi2_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
@@ -510,6 +511,7 @@ subroutine collect_acczone_avg(ilevel)
      wvphi2_new=wvphi2
      wcold_w_new=wcold_w    ;  whot_w_new=whot_w
      wcold_rho_new=wcold_rho;  whot_rho_new=whot_rho
+     wcold_mass_new=wcold_mass
      whot_cs2_new=whot_cs2  ;  whot_v2_new=whot_v2
      wcold_vphi2_new=wcold_vphi2;  wcold_cs2_new=wcold_cs2
 #endif
@@ -754,6 +756,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wcold_w(isink)    = wcold_w(isink)    + weight*cold_w_loc
                     whot_w(isink)     = whot_w(isink)     + weight*hot_w_loc
                     wcold_rho(isink)  = wcold_rho(isink)  + weight*cold_w_loc*d
+                    wcold_mass(isink) = wcold_mass(isink) + cold_w_loc*d
                     whot_rho(isink)   = whot_rho(isink)   + weight*hot_w_loc*d
                     whot_cs2(isink)   = whot_cs2(isink)   + weight*hot_w_loc*d*cs2
                     whot_v2(isink)    = whot_v2(isink)    + weight*hot_w_loc*d*v2
@@ -1349,7 +1352,7 @@ subroutine compute_accretion_rate(write_sinks)
         dMbondi2 = 4.d0*3.1415926d0*(factG*msink(isink))**2*rho_hot &
              & / (cs2_hot+vrel2_hot+tiny(0.0_dp))**1.5d0 * boost2
         ! Cold phase effective properties (density-weighted over cold-flagged particles)
-        Md2_eff  = wcold_rho_new(isink)
+        Md2_eff  = wcold_mass_new(isink) * dx_min**3
         R0_eff2  = dble(ir_cloud)*dx_min
         fd2_eff  = sqrt(max(wcold_vphi2_new(isink),0.0_dp)) &
              & / (sqrt(max(wcold_vphi2_new(isink),0.0_dp) &
