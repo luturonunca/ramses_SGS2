@@ -1352,7 +1352,7 @@ subroutine compute_accretion_rate(write_sinks)
         dMbondi2 = 4.d0*3.1415926d0*(factG*msink(isink))**2*rho_hot &
              & / (cs2_hot+vrel2_hot+tiny(0.0_dp))**1.5d0 * boost2
         ! Cold phase effective properties (density-weighted over cold-flagged particles)
-        Md2_eff  = wcold_mass_new(isink) * dx_min**3
+        Md2_eff  = wcold_mass_new(isink) * dx_min**3 + msink(isink)
         R0_eff2  = dble(ir_cloud)*dx_min
         fd2_eff  = sqrt(max(wcold_vphi2_new(isink),0.0_dp)) &
              & / (sqrt(max(wcold_vphi2_new(isink),0.0_dp) &
