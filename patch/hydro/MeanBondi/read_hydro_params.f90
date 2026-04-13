@@ -1,5 +1,6 @@
 subroutine read_hydro_params(nml_ok)
   use amr_commons
+  use amr_parameters, only: M_ns, eta_merger, eu_yield, bns_table_dir
   use hydro_commons
   use mpi_mod
   implicit none
@@ -82,9 +83,10 @@ subroutine read_hydro_params(nml_ok)
 
   ! Feedback parameters
   namelist/feedback_params/eta_sn,eta_ssn,yield,rbubble,f_ek,ndebris &
+       & ,M_ns,eta_merger,eu_yield &
        & ,f_w,mass_gmc,kappa_IR,delayed_cooling,momentum_feedback &
        & ,ir_feedback,ir_eff,t_diss,t_sne,mass_star_max,mass_sne_min &
-       & ,mechanical_feedback
+       & ,mechanical_feedback,sn2_real_delay
 
   ! Cooling / basic chemistry parameters
   namelist/cooling_params/cooling,metal,isothermal,haardt_madau,J21 &
@@ -93,7 +95,9 @@ subroutine read_hydro_params(nml_ok)
   ! Star formation parameters
   namelist/sf_params/m_star,t_star,n_star,T2_star,g_star,del_star &
        & ,eps_star,jeans_ncells,sf_virial,sf_trelax,sf_save_sigma2,sf_model&
-       & ,sf_log_properties,sf_imf,sf_compressive
+       & ,sf_log_properties,sf_imf,sf_compressive,bns_enrichment, &
+       & bns_formation, &
+       & bns_table_dir
 
   ! Units parameters
   namelist/units_params/units_density,units_time,units_length
