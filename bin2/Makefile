@@ -10,7 +10,7 @@ NENER = 0
 SOLVER = hydro
 PATCH =
 GRACKLE = 0
-EXEC = ramses_AGN
+EXEC = ramses_bns
 # Set to one to use 'include "mpif.h"' instead of more recent "use mpi"
 OLD_MPI_SUPPORT = 0 # if you have openmpi < 2
 #############################################################################
