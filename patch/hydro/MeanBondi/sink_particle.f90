@@ -411,7 +411,7 @@ subroutine collect_acczone_avg(ilevel)
   ! Compute (volume weighted) averages over accretion zone
   wden=0d0; wvol=0d0; weth=0d0; wmom=0d0; wfrac = 0d0; wfvol = 0d0
   wc2=0d0; wv2=0d0; r2sink=0d0; wsigma2=0d0; wvr2=0d0; wvphi2=0d0
-  wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0; wcold_mass=0d0
+  wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0; wcold_mass=0d0; wtotal_mass=0d0
   whot_cs2=0d0; whot_v2=0d0; wcold_vphi2=0d0; wcold_cs2=0d0
   ! Loop over cpus
   do icpu=1,ncpu
@@ -492,7 +492,8 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(whot_w,     whot_w_new,     nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wcold_rho,   wcold_rho_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(whot_rho,    whot_rho_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
-     call MPI_ALLREDUCE(wcold_mass,  wcold_mass_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wcold_mass,   wcold_mass_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wtotal_mass,  wtotal_mass_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(whot_cs2,   whot_cs2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(whot_v2,    whot_v2_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wcold_vphi2,wcold_vphi2_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
@@ -512,6 +513,7 @@ subroutine collect_acczone_avg(ilevel)
      wcold_w_new=wcold_w    ;  whot_w_new=whot_w
      wcold_rho_new=wcold_rho;  whot_rho_new=whot_rho
      wcold_mass_new=wcold_mass
+     wtotal_mass_new=wtotal_mass
      whot_cs2_new=whot_cs2  ;  whot_v2_new=whot_v2
      wcold_vphi2_new=wcold_vphi2;  wcold_cs2_new=wcold_cs2
 #endif
@@ -756,7 +758,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wcold_w(isink)    = wcold_w(isink)    + weight*cold_w_loc
                     whot_w(isink)     = whot_w(isink)     + weight*hot_w_loc
                     wcold_rho(isink)  = wcold_rho(isink)  + weight*cold_w_loc*d
-                    wcold_mass(isink) = wcold_mass(isink) + cold_w_loc*d
+                    wcold_mass(isink)  = wcold_mass(isink)  + cold_w_loc*d
+                    wtotal_mass(isink) = wtotal_mass(isink) + d
                     whot_rho(isink)   = whot_rho(isink)   + weight*hot_w_loc*d
                     whot_cs2(isink)   = whot_cs2(isink)   + weight*hot_w_loc*d*cs2
                     whot_v2(isink)    = whot_v2(isink)    + weight*hot_w_loc*d*v2
@@ -1229,6 +1232,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::T2_gas,delta_mass_min
   real(dp)::vphi2_eff,vr2_eff,chi,S_switch,dMtorque_overdt,Md_eff,R0_eff,fd_eff
   real(dp)::rho_hot,cs2_hot,vrel2_hot,boost2,dMbondi2,dMtorque2,fd2_eff,Md2_eff,R0_eff2
+  real(dp)::M_gas_d,M_d_torque,M_gas_all,f_d_torque,f_gas_torque,f0_torque,supply_factor,dMt_msunyr
 
   ! Gravitational constant
   factG=1d0
@@ -1352,19 +1356,40 @@ subroutine compute_accretion_rate(write_sinks)
         dMbondi2 = 4.d0*3.1415926d0*(factG*msink(isink))**2*rho_hot &
              & / (cs2_hot+vrel2_hot+tiny(0.0_dp))**1.5d0 * boost2
         ! Cold phase effective properties (density-weighted over cold-flagged particles)
-        Md2_eff  = wcold_mass_new(isink) * dx_min**3 + msink(isink)
-        R0_eff2  = dble(ir_cloud)*dx_min
-        fd2_eff  = sqrt(max(wcold_vphi2_new(isink),0.0_dp)) &
-             & / (sqrt(max(wcold_vphi2_new(isink),0.0_dp) &
-             &        +max(wcold_cs2_new(isink),0.0_dp)) + tiny(0.0_dp))
-        ! Torque channel from cold phase
+        ! Torque channel: AA17/HQ11 formula (AGN notes Eq. 133)
+        ! Aperture radius [code_length]
+        R0_eff2     = dble(ir_cloud) * dx_min
+        ! Cold disc gas mass (rotationally supported, cold) [code_mass]
+        M_gas_d     = wcold_mass_new(isink) * dx_min**3
+        ! Total gas mass in cloud aperture [code_mass]
+        M_gas_all   = wtotal_mass_new(isink) * dx_min**3
+        ! Disc mass: cold disc gas + NSC stellar mass [code_mass]
+        M_d_torque  = M_gas_d + msink(isink)
+        ! Disc fraction: f_d = M_d / (M_gas + M_star_NSC)
+        f_d_torque  = M_d_torque / (M_gas_all + msink(isink) + tiny(0.0_dp))
+        f_d_torque  = max(min(f_d_torque, 1.0_dp), 0.0_dp)
+        ! Gaseous fraction of disc: f_gas = M_gas_d / M_d
+        f_gas_torque = M_gas_d / (M_d_torque + tiny(0.0_dp))
+        f_gas_torque = max(f_gas_torque, tiny(0.0_dp))
+        ! Supply suppression scale (AA17 Eq. 5)
+        f0_torque    = 0.31d0 * f_d_torque**2 &
+             &        * (M_d_torque * scale_m / (1d9 * 2d33))**(-1d0/3d0)
+        supply_factor = 1.0d0 / (1.0d0 + f0_torque / f_gas_torque)
+        ! BH mass for formula
         if(smbh .and. mass_smbh_seed > 0.0)then
-           dMtorque2 = alpha_T * fd2_eff**2.5d0 * Md2_eff * R0_eff2**(-1.5d0) &
-                & * msmbh(isink)**(1.0d0/6.0d0)
+           Md2_eff = msmbh(isink)
         else
-           dMtorque2 = alpha_T * fd2_eff**2.5d0 * Md2_eff * R0_eff2**(-1.5d0) &
-                & * msink(isink)**(1.0d0/6.0d0)
+           Md2_eff = msink(isink)
         endif
+        ! Torque rate in M_sun/yr (AA17 Eq. 133, AGN notes Eq. 133)
+        dMt_msunyr = alpha_T &
+             & * f_d_torque**chi_d &
+             & * (Md2_eff * scale_m / (1d8 * 2d33))**(1d0/6d0) &
+             & * (M_d_torque * scale_m / (1d9 * 2d33)) &
+             & * (R0_eff2 * scale_l / (100d0 * 3.086d18))**(-1.5d0) &
+             & * supply_factor
+        ! Convert M_sun/yr → code units [code_mass/code_time]
+        dMtorque2 = max(dMt_msunyr, 0.0d0) * (2d33 / scale_m) * (scale_t / 3.156d7)
         dMsink_overdt(isink)  = dMtorque2 + dMbondi2
         dMtorque2_sink(isink) = dMtorque2
         dMbondi2_sink(isink)  = dMbondi2
@@ -2754,7 +2779,7 @@ subroutine read_sink_params()
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
-       angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T,&
+       angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T,chi_d,&
        two_channel_accretion_switch,T_cold_crit,n_cold_crit,dT_cold,dn_cold
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 

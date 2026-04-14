@@ -77,6 +77,7 @@ subroutine init_sink
   allocate(wcold_rho(1:nsinkmax))   ;  wcold_rho=0.d0
   allocate(whot_rho(1:nsinkmax))    ;  whot_rho=0.d0
   allocate(wcold_mass(1:nsinkmax))  ;  wcold_mass=0.d0
+  allocate(wtotal_mass(1:nsinkmax)) ;  wtotal_mass=0.d0
   allocate(whot_cs2(1:nsinkmax))   ;  whot_cs2=0.d0
   allocate(whot_v2(1:nsinkmax))    ;  whot_v2=0.d0
   allocate(wcold_vphi2(1:nsinkmax));  wcold_vphi2=0.d0
@@ -86,6 +87,7 @@ subroutine init_sink
   allocate(wcold_rho_new(1:nsinkmax))
   allocate(whot_rho_new(1:nsinkmax))
   allocate(wcold_mass_new(1:nsinkmax))
+  allocate(wtotal_mass_new(1:nsinkmax))
   allocate(whot_cs2_new(1:nsinkmax))
   allocate(whot_v2_new(1:nsinkmax))
   allocate(wcold_vphi2_new(1:nsinkmax))

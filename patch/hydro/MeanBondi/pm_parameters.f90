@@ -38,7 +38,8 @@ module pm_parameters
   logical::angular_momentum_accretion_switch=.false. ! Switch for torque/Bondi hybrid accretion
   real(dp)::chi_crit=0.5d0                           ! Rotational support threshold for sigmoid switch
   real(dp)::delta_chi=0.1d0                          ! Sigmoid width
-  real(dp)::alpha_T=1.0d0                            ! Torque channel normalization
+  real(dp)::alpha_T=1.0d0                            ! Torque channel normalization (epsilon_T in AA17)
+  real(dp)::chi_d=2.5d0                              ! Exponent of f_d in torque formula (benchmark 5/2)
   logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]
