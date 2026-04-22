@@ -73,7 +73,7 @@ module pm_parameters
 
   real(dp)::boost_threshold_density=0.1      ! Accretion boost threshold for Bondi
 
-  real(dp)::max_mass_nsc=1.d15               ! Maximum mass of the Nuclear Star Cluster (msink) 
+  real(dp)::max_mass_nsc=1.d9                ! Maximum mass of the Nuclear Star Cluster (msink)
 
   logical::sink_descent=.false.             ! Switch for the sink descent
   real(dp)::gamma_grad_descent=0.0d0        ! Step for the gradient descent

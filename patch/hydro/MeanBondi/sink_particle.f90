@@ -702,8 +702,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               v2 = sum(vv**2)
            endif
            e=e-0.5d0*v2 ! Remove kinetic energy
-           ! load sigma2
-           sigma2_local = uold(indp(j,ind), ivirial1) * 2.0d0/3.0d0
+           ! load sigma2 (only valid when sf_virial is active; ivirial1 holds a delay var otherwise)
+           if(sf_virial) then
+              sigma2_local = uold(indp(j,ind), ivirial1) * 2.0d0/3.0d0
+           else
+              sigma2_local = 0.0d0
+           endif
            ! compute approximate sound speed^2:
            cs2 = (gamma - 1.0d0) * e
            if (cs2 < smallc**2) cs2 = smallc**2   ! floor it if needed
@@ -717,11 +721,11 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
            weight=vol_cloud*vol(j,ind)
            if (mode ==1) then
               if (.not. use_bondi_exp_weight) then
-                 if (bondi_use_turb) then
+                 if (bondi_use_turb .and. sf_virial) then
                     cs2_eff = cs2 + sigma2_local
                  else
                     cs2_eff = cs2
-                 endif 
+                 endif
                  fraction = d / ( (cs2_eff + v2)**1.5d0 )
                  wfrac(isink) = wfrac(isink) + weight * fraction
                  wfvol(isink) = wfvol(isink) + weight
@@ -754,7 +758,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     S_T_loc    = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
                     S_n_loc    = 1.0d0/(1.0d0+exp(-(d-d_cold_code)/dd_cold_code))
                     cold_w_loc = S_T_loc * S_n_loc * S_rot_loc
-                    hot_w_loc  = (1.0d0-S_n_loc) * (1.0d0-S_rot_loc)
+                    hot_w_loc  = (1.0d0-S_T_loc) * (1.0d0-S_n_loc) * (1.0d0-S_rot_loc)
                     wcold_w(isink)    = wcold_w(isink)    + weight*cold_w_loc
                     whot_w(isink)     = whot_w(isink)     + weight*hot_w_loc
                     wcold_rho(isink)  = wcold_rho(isink)  + weight*cold_w_loc*d
@@ -769,11 +773,11 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               endif
            endif
            if (mode == 2) then
-              if (bondi_use_turb) then
+              if (bondi_use_turb .and. sf_virial) then
                  cs2_eff = c2sink(isink) + sigma2sink(isink)
               else
-                 cs2_eff = c2sink(isink) 
-              endif 
+                 cs2_eff = c2sink(isink)
+              endif
               rho_local = wden(isink) / (wvol(isink) + tiny(0.0_dp))
               
               ! accumulate the fraction = rho / (cs^2 + v^2)^(3/2) this
@@ -1322,9 +1326,14 @@ subroutine compute_accretion_rate(write_sinks)
      if(angular_momentum_accretion_switch)then
         vphi2_eff = wvphi2_new(isink) / (mgas + tiny(0.0_dp))
         vr2_eff   = wvr2_new(isink)   / (mgas + tiny(0.0_dp))
-        chi       = vphi2_eff / (vphi2_eff + vr2_eff + c2 + sigma2sink(isink) + tiny(0.0_dp))
+        if(sf_virial) then
+           chi    = vphi2_eff / (vphi2_eff + vr2_eff + c2 + sigma2sink(isink) + tiny(0.0_dp))
+           fd_eff = sqrt(vphi2_eff) / (sqrt(vphi2_eff + c2 + sigma2sink(isink)) + tiny(0.0_dp))
+        else
+           chi    = vphi2_eff / (vphi2_eff + vr2_eff + c2 + tiny(0.0_dp))
+           fd_eff = sqrt(vphi2_eff) / (sqrt(vphi2_eff + c2) + tiny(0.0_dp))
+        endif
         S_switch  = 1.0d0 / (1.0d0 + exp(-(chi - chi_crit) / delta_chi))
-        fd_eff    = sqrt(vphi2_eff) / (sqrt(vphi2_eff + c2) + tiny(0.0_dp))
         Md_eff    = mgas
         R0_eff    = dble(ir_cloud) * dx_min
         if(smbh .and. mass_smbh_seed > 0.0)then
