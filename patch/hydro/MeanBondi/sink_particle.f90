@@ -1380,8 +1380,16 @@ subroutine compute_accretion_rate(write_sinks)
         M_gas_all   = wtotal_mass_new(isink) * dx_min**3
         ! Disc mass: cold disc gas + NSC stellar mass [code_mass]
         M_d_torque  = M_gas_d + msink(isink)
-        ! Disc fraction: f_d = M_d / (M_gas + M_star_NSC)
-        f_d_torque  = M_d_torque / (M_gas_all + msink(isink) + tiny(0.0_dp))
+        ! Disc fraction following AA17, where f_d arises from gravitational potential
+        ! considerations (disc self-gravity vs enclosed mass). Here msink is the NSC
+        ! stellar mass, which is not necessarily a reliable tracer of the disc potential.
+        ! When smbh is active, the BH mass (Md2_eff = msmbh) is added to M_enc so that
+        ! f_d does not saturate to 1 once msink >> M_gas_all.
+        if(smbh .and. mass_smbh_seed > 0.0) then
+           f_d_torque = M_d_torque / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
+        else
+           f_d_torque = M_d_torque / (M_gas_all + msink(isink) + tiny(0.0_dp))
+        endif
         f_d_torque  = max(min(f_d_torque, 1.0_dp), 0.0_dp)
         ! Gaseous fraction of disc: f_gas = M_gas_d / M_d
         f_gas_torque = M_gas_d / (M_d_torque + tiny(0.0_dp))
