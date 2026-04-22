@@ -1352,8 +1352,14 @@ subroutine compute_accretion_rate(write_sinks)
         else
            boost2=abs(acc_sink_boost)
         endif
+        ! BH mass for formula (used by both Bondi and torque channels)
+        if(smbh .and. mass_smbh_seed > 0.0)then
+           Md2_eff = msmbh(isink)
+        else
+           Md2_eff = msink(isink)
+        endif
         ! Bondi channel from hot phase
-        dMbondi2 = 4.d0*3.1415926d0*(factG*msink(isink))**2*rho_hot &
+        dMbondi2 = 4.d0*3.1415926d0*(factG*Md2_eff)**2*rho_hot &
              & / (cs2_hot+vrel2_hot+tiny(0.0_dp))**1.5d0 * boost2
         ! Cold phase effective properties (density-weighted over cold-flagged particles)
         ! Torque channel: AA17/HQ11 formula (AGN notes Eq. 133)
@@ -1375,12 +1381,6 @@ subroutine compute_accretion_rate(write_sinks)
         f0_torque    = 0.31d0 * f_d_torque**2 &
              &        * (M_d_torque * scale_m / (1d9 * 2d33))**(-1d0/3d0)
         supply_factor = 1.0d0 / (1.0d0 + f0_torque / f_gas_torque)
-        ! BH mass for formula
-        if(smbh .and. mass_smbh_seed > 0.0)then
-           Md2_eff = msmbh(isink)
-        else
-           Md2_eff = msink(isink)
-        endif
         ! Torque rate in M_sun/yr (AA17 Eq. 133, AGN notes Eq. 133)
         dMt_msunyr = alpha_T &
              & * f_d_torque**chi_d &
