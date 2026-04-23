@@ -413,6 +413,7 @@ subroutine collect_acczone_avg(ilevel)
   wc2=0d0; wv2=0d0; r2sink=0d0; wsigma2=0d0; wvr2=0d0; wvphi2=0d0
   wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0; wcold_mass=0d0; wtotal_mass=0d0
   whot_cs2=0d0; whot_v2=0d0; wcold_vphi2=0d0; wcold_cs2=0d0
+  wrot_mass=0d0; wnorot_w=0d0; wnorot_rho=0d0; wnorot_cs2=0d0; wnorot_v2=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -498,6 +499,11 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(whot_v2,    whot_v2_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wcold_vphi2,wcold_vphi2_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wcold_cs2,  wcold_cs2_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wrot_mass,   wrot_mass_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wnorot_w,    wnorot_w_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wnorot_rho,  wnorot_rho_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wnorot_cs2,  wnorot_cs2_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     call MPI_ALLREDUCE(wnorot_v2,   wnorot_v2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
 #else
      wden_new=wden
      wvol_new=wvol
@@ -516,6 +522,9 @@ subroutine collect_acczone_avg(ilevel)
      wtotal_mass_new=wtotal_mass
      whot_cs2_new=whot_cs2  ;  whot_v2_new=whot_v2
      wcold_vphi2_new=wcold_vphi2;  wcold_cs2_new=wcold_cs2
+     wrot_mass_new=wrot_mass
+     wnorot_w_new=wnorot_w  ;  wnorot_rho_new=wnorot_rho
+     wnorot_cs2_new=wnorot_cs2;  wnorot_v2_new=wnorot_v2
 #endif
   endif
   
@@ -769,6 +778,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     whot_v2(isink)    = whot_v2(isink)    + weight*hot_w_loc*d*v2
                     wcold_vphi2(isink)= wcold_vphi2(isink)+ weight*cold_w_loc*d*vphi2_loc
                     wcold_cs2(isink)  = wcold_cs2(isink)  + weight*cold_w_loc*d*cs2
+                    ! Rotation-only partition (S_rot / 1-S_rot); weights sum to 1 by construction
+                    wrot_mass(isink)  = wrot_mass(isink)  + S_rot_loc*d
+                    wnorot_w(isink)   = wnorot_w(isink)   + weight*(1.0d0-S_rot_loc)
+                    wnorot_rho(isink) = wnorot_rho(isink) + weight*(1.0d0-S_rot_loc)*d
+                    wnorot_cs2(isink) = wnorot_cs2(isink) + weight*(1.0d0-S_rot_loc)*d*cs2
+                    wnorot_v2(isink)  = wnorot_v2(isink)  + weight*(1.0d0-S_rot_loc)*d*v2
                  endif
               endif
            endif
@@ -1237,6 +1252,8 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::vphi2_eff,vr2_eff,chi,S_switch,dMtorque_overdt,Md_eff,R0_eff,fd_eff
   real(dp)::rho_hot,cs2_hot,vrel2_hot,boost2,dMbondi2,dMtorque2,fd2_eff,Md2_eff,R0_eff2
   real(dp)::M_gas_d,M_d_torque,M_gas_all,f_d_torque,f_gas_torque,f0_torque,supply_factor,dMt_msunyr
+  real(dp)::M_gas_d_rot,M_d_rot,f_d_rot,f_gas_rot,f0_rot,supply_factor_rot,dMt_rot_msunyr
+  real(dp)::rho_norot,cs2_norot,vrel2_norot,dMbondi_norot,dMtorque_rot
 
   ! Gravitational constant
   factG=1d0
@@ -1410,6 +1427,37 @@ subroutine compute_accretion_rate(write_sinks)
         dMsink_overdt(isink)  = dMtorque2 + dMbondi2
         dMtorque2_sink(isink) = dMtorque2
         dMbondi2_sink(isink)  = dMbondi2
+        ! Rotation-only partition (diagnostic, not applied to dMsink_overdt)
+        ! Non-rotating Bondi channel
+        rho_norot   = wnorot_rho_new(isink) / (wnorot_w_new(isink)  + tiny(0.0_dp))
+        cs2_norot   = wnorot_cs2_new(isink) / (wnorot_rho_new(isink) + tiny(0.0_dp))
+        vrel2_norot = wnorot_v2_new(isink)  / (wnorot_rho_new(isink) + tiny(0.0_dp))
+        cs2_norot   = max(cs2_norot, smallc**2)
+        dMbondi_norot = 4.d0*3.1415926d0*(factG*Md2_eff)**2*rho_norot &
+             & / (cs2_norot+vrel2_norot+tiny(0.0_dp))**1.5d0 * boost2
+        ! Rotating torque channel (AA17 formula, same as dMtorque2)
+        M_gas_d_rot  = wrot_mass_new(isink) * dx_min**3
+        M_d_rot      = M_gas_d_rot + msink(isink)
+        f_gas_rot    = M_gas_d_rot / (M_d_rot + tiny(0.0_dp))
+        f_gas_rot    = max(f_gas_rot, tiny(0.0_dp))
+        if(smbh .and. mass_smbh_seed > 0.0) then
+           f_d_rot   = M_d_rot / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
+        else
+           f_d_rot   = M_d_rot / (M_gas_all + msink(isink) + tiny(0.0_dp))
+        endif
+        f_d_rot      = max(min(f_d_rot, 1.0_dp), 0.0_dp)
+        f0_rot       = 0.31d0 * f_d_rot**2 &
+             &       * (M_d_rot * scale_m / (1d9 * 2d33))**(-1d0/3d0)
+        supply_factor_rot = 1.0d0 / (1.0d0 + f0_rot / f_gas_rot)
+        dMt_rot_msunyr = alpha_T &
+             & * f_d_rot**chi_d &
+             & * (Md2_eff * scale_m / (1d8 * 2d33))**(1d0/6d0) &
+             & * (M_d_rot * scale_m / (1d9 * 2d33)) &
+             & * (R0_eff2 * scale_l / (100d0 * 3.086d18))**(-1.5d0) &
+             & * supply_factor_rot
+        dMtorque_rot = max(dMt_rot_msunyr, 0.0d0) * (2d33 / scale_m) * (scale_t / 3.156d7)
+        dMtorque_rot_sink(isink) = dMtorque_rot
+        dMbondi_norot_sink(isink) = dMbondi_norot
      endif
 
      if(smbh.and.mass_smbh_seed>0.0)then

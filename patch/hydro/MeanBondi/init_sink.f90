@@ -94,6 +94,18 @@ subroutine init_sink
   allocate(wcold_cs2_new(1:nsinkmax))
   allocate(dMtorque2_sink(1:nsinkmax));  dMtorque2_sink=0.d0
   allocate(dMbondi2_sink(1:nsinkmax)) ;  dMbondi2_sink=0.d0
+  allocate(dMtorque_rot_sink(1:nsinkmax));  dMtorque_rot_sink=0.d0
+  allocate(dMbondi_norot_sink(1:nsinkmax)); dMbondi_norot_sink=0.d0
+  allocate(wrot_mass(1:nsinkmax))    ;  wrot_mass=0.d0
+  allocate(wrot_mass_new(1:nsinkmax))
+  allocate(wnorot_w(1:nsinkmax))     ;  wnorot_w=0.d0
+  allocate(wnorot_rho(1:nsinkmax))   ;  wnorot_rho=0.d0
+  allocate(wnorot_cs2(1:nsinkmax))   ;  wnorot_cs2=0.d0
+  allocate(wnorot_v2(1:nsinkmax))    ;  wnorot_v2=0.d0
+  allocate(wnorot_w_new(1:nsinkmax))
+  allocate(wnorot_rho_new(1:nsinkmax))
+  allocate(wnorot_cs2_new(1:nsinkmax))
+  allocate(wnorot_v2_new(1:nsinkmax))
   allocate(msink_new(1:nsinkmax))
   allocate(msmbh_new(1:nsinkmax))
   allocate(msmbh_all(1:nsinkmax))

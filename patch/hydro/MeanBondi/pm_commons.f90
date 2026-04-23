@@ -29,6 +29,10 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::whot_cs2, whot_v2, whot_cs2_new, whot_v2_new
   real(dp),allocatable,dimension(:)    ::wcold_vphi2, wcold_cs2, wcold_vphi2_new, wcold_cs2_new
   real(dp),allocatable,dimension(:)    ::dMtorque2_sink, dMbondi2_sink
+  real(dp),allocatable,dimension(:)    ::dMtorque_rot_sink, dMbondi_norot_sink
+  real(dp),allocatable,dimension(:)    ::wrot_mass, wrot_mass_new
+  real(dp),allocatable,dimension(:)    ::wnorot_w, wnorot_rho, wnorot_cs2, wnorot_v2
+  real(dp),allocatable,dimension(:)    ::wnorot_w_new, wnorot_rho_new, wnorot_cs2_new, wnorot_v2_new
   real(dp),allocatable,dimension(:)    ::v2sink, c2sink, r2sink
   real(dp),allocatable,dimension(:)    ::wsigma2, sigma2sink,wsigma2_new
   real(dp),allocatable,dimension(:,:)  ::wmom,wmom_new
