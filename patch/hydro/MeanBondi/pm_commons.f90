@@ -30,6 +30,9 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wcold_vphi2, wcold_cs2, wcold_vphi2_new, wcold_cs2_new
   real(dp),allocatable,dimension(:)    ::dMtorque2_sink, dMbondi2_sink
   real(dp),allocatable,dimension(:)    ::dMtorque_rot_sink, dMbondi_norot_sink
+  real(dp),allocatable,dimension(:)    ::sigma2_coll_sink
+  real(dp),allocatable,dimension(:)    ::wsigma2_coll, wsigma2_coll_w
+  real(dp),allocatable,dimension(:)    ::wsigma2_coll_new, wsigma2_coll_w_new
   real(dp),allocatable,dimension(:)    ::wrot_mass, wrot_mass_new
   real(dp),allocatable,dimension(:)    ::wnorot_w, wnorot_rho, wnorot_cs2, wnorot_v2
   real(dp),allocatable,dimension(:)    ::wnorot_w_new, wnorot_rho_new, wnorot_cs2_new, wnorot_v2_new

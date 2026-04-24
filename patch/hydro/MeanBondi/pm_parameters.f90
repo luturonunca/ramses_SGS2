@@ -78,6 +78,7 @@ module pm_parameters
   logical::sink_descent=.false.             ! Switch for the sink descent
   real(dp)::gamma_grad_descent=0.0d0        ! Step for the gradient descent
   real(dp)::fudge_graddescent=1.0d0         ! Fudge factor for the for the BB gradient descent
+  integer::n_res_influence=3                ! Number of cells to consider r_inf resolved (disables GD)
 
   character(LEN=15)::agn_acc_method='mass'
   character(LEN=15)::agn_inj_method='volume'

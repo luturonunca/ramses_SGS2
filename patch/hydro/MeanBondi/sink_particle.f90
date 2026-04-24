@@ -414,6 +414,8 @@ subroutine collect_acczone_avg(ilevel)
   wcold_w=0d0; whot_w=0d0; wcold_rho=0d0; whot_rho=0d0; wcold_mass=0d0; wtotal_mass=0d0
   whot_cs2=0d0; whot_v2=0d0; wcold_vphi2=0d0; wcold_cs2=0d0
   wrot_mass=0d0; wnorot_w=0d0; wnorot_rho=0d0; wnorot_cs2=0d0; wnorot_v2=0d0
+  ! Collisionless sigma accumulation (only when gradient descent is active)
+  if(sink_descent) wsigma2_coll=0d0; if(sink_descent) wsigma2_coll_w=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -476,6 +478,34 @@ subroutine collect_acczone_avg(ilevel)
   end do
   ! End loop over cpus
 
+  ! Loop over star+DM particles to accumulate collisionless velocity dispersion
+  if(sink_descent .and. nsink>0)then
+     ip=0
+     do icpu=1,ncpu
+        igrid=headl(icpu,ilevel)
+        do jgrid=1,numbl(icpu,ilevel)
+           npart1=numbp(igrid)
+           if(npart1>0)then
+              ipart=headp(igrid)
+              do jpart=1,npart1
+                 next_part=nextp(ipart)
+                 if(is_star(typep(ipart)).or.is_DM(typep(ipart)))then
+                    ip=ip+1
+                    ind_part(ip)=ipart
+                    if(ip==nvector)then
+                       call collect_sigma_coll_np(ind_part,ip,ilevel)
+                       ip=0
+                    endif
+                 endif
+                 ipart=next_part
+              enddo
+           endif
+           igrid=next(igrid)
+        enddo
+     enddo
+     if(ip>0)call collect_sigma_coll_np(ind_part,ip,ilevel)
+  endif
+
   if(nsink>0)then
 #ifndef WITHOUTMPI
      call MPI_ALLREDUCE(wden,wden_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -504,6 +534,10 @@ subroutine collect_acczone_avg(ilevel)
      call MPI_ALLREDUCE(wnorot_rho,  wnorot_rho_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wnorot_cs2,  wnorot_cs2_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      call MPI_ALLREDUCE(wnorot_v2,   wnorot_v2_new,   nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     if(sink_descent)then
+        call MPI_ALLREDUCE(wsigma2_coll,  wsigma2_coll_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+        call MPI_ALLREDUCE(wsigma2_coll_w,wsigma2_coll_w_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     endif
 #else
      wden_new=wden
      wvol_new=wvol
@@ -525,6 +559,10 @@ subroutine collect_acczone_avg(ilevel)
      wrot_mass_new=wrot_mass
      wnorot_w_new=wnorot_w  ;  wnorot_rho_new=wnorot_rho
      wnorot_cs2_new=wnorot_cs2;  wnorot_v2_new=wnorot_v2
+     if(sink_descent)then
+        wsigma2_coll_new=wsigma2_coll
+        wsigma2_coll_w_new=wsigma2_coll_w
+     endif
 #endif
   endif
   
@@ -544,6 +582,9 @@ subroutine collect_acczone_avg(ilevel)
      ! Optionally clamp:
      r2sink(isink) = max(r2sink(isink), (dx_min/4.0)**2)
      r2sink(isink) = min(r2sink(isink), (2.0*dx_min)**2)
+     ! Collisionless sigma from star+DM particles (only when sink_descent active)
+     if(sink_descent) &
+          & sigma2_coll_sink(isink) = wsigma2_coll_new(isink) / (wsigma2_coll_w_new(isink) + tiny(0.0_dp))
 
   end do
   
@@ -2116,7 +2157,7 @@ subroutine update_sink(ilevel)
   logical::iyoung,jyoung,overlap,merge_flag
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dteff,dx_loc,scale,dx_min
-  real(dp)::t_larson1,rr,rmax,rmax2,factG,v1_v2,mcom,fsink_norm
+  real(dp)::t_larson1,rr,rmax,rmax2,factG,v1_v2,mcom,fsink_norm,r_inf_sink,fudge_eff
   real(dp),dimension(1:ndim)::xcom,vcom,lcom,r_rel
   logical,dimension(1:ndim)::period
   real(dp),dimension(1:nsink,1:ndim)::xsinkold, fsinkold
@@ -2298,12 +2339,22 @@ subroutine update_sink(ilevel)
            fsink_norm=NORM2(fsink(isink,1:ndim))
            gamma_grad_descent = 0.0d0
            graddescent_over_dt = 0.0d0
+           ! Set effective fudge factor; zero it when r_inf is resolved (disables GD)
+           fudge_eff = fudge_graddescent
+           if(sigma2_coll_sink(isink) > 0.0d0)then
+              if(smbh .and. mass_smbh_seed > 0.0)then
+                 r_inf_sink = factG * msmbh(isink) / sigma2_coll_sink(isink)
+              else
+                 r_inf_sink = factG * msink(isink) / sigma2_coll_sink(isink)
+              endif
+              if(r_inf_sink >= dble(n_res_influence) * dx_min) fudge_eff = 0.0d0
+           endif
            if (.not. new_born(isink))then
               do idim=1,ndim
                  gamma_grad_descent = gamma_grad_descent + (xsink(isink,idim)-xsinkold(isink,idim))*(fsink(isink,idim)-fsinkold(isink,idim))
               enddo
               if(gamma_grad_descent>0)then
-                 gamma_grad_descent = fudge_graddescent*dtnew(ilevel)*SQRT(ABS(gamma_grad_descent)/(NORM2(fsink(isink,1:ndim)-fsinkold(isink,1:ndim)))**2)
+                 gamma_grad_descent = fudge_eff*dtnew(ilevel)*SQRT(ABS(gamma_grad_descent)/(NORM2(fsink(isink,1:ndim)-fsinkold(isink,1:ndim)))**2)
                  ! Require thatthe sink cannot move more than half a grid
                  if(gamma_grad_descent*fsink_norm>dx_min/2.0) then
                     xsink_graddescent(isink,1:ndim) = fsink(isink,1:ndim) * dx_min/2.0/fsink_norm
@@ -2844,6 +2895,7 @@ subroutine read_sink_params()
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
+       n_res_influence,&
        angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T,chi_d,&
        two_channel_accretion_switch,T_cold_crit,n_cold_crit,dT_cold,dn_cold
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
@@ -3350,6 +3402,43 @@ subroutine synchronize_sink_info
 
 end subroutine synchronize_sink_info
 #endif
+!###############################################################################
+!###############################################################################
+!###############################################################################
+!###############################################################################
+subroutine collect_sigma_coll_np(ind_part,np,ilevel)
+  !-----------------------------------------------------------------------------
+  ! Accumulates mass-weighted collisionless velocity dispersion (star+DM) around
+  ! each sink, used to compute the sphere of influence r_inf = G*M_BH/sigma_coll^2
+  ! for the gradient-descent switch.
+  !-----------------------------------------------------------------------------
+  use amr_commons
+  use pm_commons
+  implicit none
+  integer::np,ilevel
+  integer,dimension(1:nvector)::ind_part
+
+  integer::j,isink
+  real(dp)::nx_loc,scale,dx_min,r2,r2_cloud,dv2
+  real(dp),dimension(1:ndim)::dv
+
+  nx_loc  = dble(icoarse_max-icoarse_min+1)
+  scale   = boxlen/nx_loc
+  dx_min  = scale*0.5d0**nlevelmax/aexp
+  r2_cloud = (dble(ir_cloud)*dx_min)**2
+
+  do j=1,np
+     do isink=1,nsink
+        r2 = sum((xp(ind_part(j),1:ndim) - xsink(isink,1:ndim))**2)
+        if(r2 > r2_cloud) cycle
+        dv(1:ndim) = vp(ind_part(j),1:ndim) - vsink(isink,1:ndim)
+        dv2 = sum(dv(1:ndim)**2)
+        wsigma2_coll(isink)   = wsigma2_coll(isink)   + mp(ind_part(j)) * dv2
+        wsigma2_coll_w(isink) = wsigma2_coll_w(isink) + mp(ind_part(j))
+     enddo
+  enddo
+
+end subroutine collect_sigma_coll_np
 !###############################################################################
 !###############################################################################
 !###############################################################################
