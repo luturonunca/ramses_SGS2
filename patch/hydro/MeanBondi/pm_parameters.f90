@@ -41,6 +41,7 @@ module pm_parameters
   real(dp)::alpha_T=1.0d0                            ! Torque channel normalization (epsilon_T in AA17)
   real(dp)::chi_d=2.5d0                              ! Exponent of f_d in torque formula (benchmark 5/2)
   logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
+  logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]
   real(dp)::dT_cold=5.0d3                            ! Sigmoid width in temperature [K]

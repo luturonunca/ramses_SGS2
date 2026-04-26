@@ -1449,17 +1449,23 @@ subroutine compute_accretion_rate(write_sinks)
         M_gas_d     = wcold_mass_new(isink) * dx_min**3
         ! Total gas mass in cloud aperture [code_mass]
         M_gas_all   = wtotal_mass_new(isink) * dx_min**3
-        ! Disc mass: cold disc gas + NSC stellar mass [code_mass]
-        M_d_torque  = M_gas_d + msink(isink)
-        ! Disc fraction following AA17, where f_d arises from gravitational potential
-        ! considerations (disc self-gravity vs enclosed mass). Here msink is the NSC
-        ! stellar mass, which is not necessarily a reliable tracer of the disc potential.
-        ! When smbh is active, the BH mass (Md2_eff = msmbh) is added to M_enc so that
-        ! f_d does not saturate to 1 once msink >> M_gas_all.
-        if(smbh .and. mass_smbh_seed > 0.0) then
-           f_d_torque = M_d_torque / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
+        ! Disc mass and enclosed mass: use actual star particle masses if requested,
+        ! otherwise fall back to msink as NSC proxy (see note on f_d_torque above).
+        if(use_stellar_mass_torque) then
+           M_d_torque = M_gas_d + wstar_rot_mass_new(isink)
+           f_d_torque = M_d_torque / (M_gas_all + wstar_mass_new(isink) + Md2_eff + tiny(0.0_dp))
         else
-           f_d_torque = M_d_torque / (M_gas_all + msink(isink) + tiny(0.0_dp))
+           ! Disc fraction following AA17, where f_d arises from gravitational potential
+           ! considerations (disc self-gravity vs enclosed mass). Here msink is the NSC
+           ! stellar mass, which is not necessarily a reliable tracer of the disc potential.
+           ! When smbh is active, the BH mass (Md2_eff = msmbh) is added to M_enc so that
+           ! f_d does not saturate to 1 once msink >> M_gas_all.
+           M_d_torque = M_gas_d + msink(isink)
+           if(smbh .and. mass_smbh_seed > 0.0) then
+              f_d_torque = M_d_torque / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
+           else
+              f_d_torque = M_d_torque / (M_gas_all + msink(isink) + tiny(0.0_dp))
+           endif
         endif
         f_d_torque  = max(min(f_d_torque, 1.0_dp), 0.0_dp)
         ! Gaseous fraction of disc: f_gas = M_gas_d / M_d
@@ -1491,14 +1497,19 @@ subroutine compute_accretion_rate(write_sinks)
              & / (cs2_norot+vrel2_norot+tiny(0.0_dp))**1.5d0 * boost2
         ! Rotating torque channel (AA17 formula, same as dMtorque2)
         M_gas_d_rot  = wrot_mass_new(isink) * dx_min**3
-        M_d_rot      = M_gas_d_rot + msink(isink)
+        if(use_stellar_mass_torque) then
+           M_d_rot   = M_gas_d_rot + wstar_rot_mass_new(isink)
+           f_d_rot   = M_d_rot / (M_gas_all + wstar_mass_new(isink) + Md2_eff + tiny(0.0_dp))
+        else
+           M_d_rot   = M_gas_d_rot + msink(isink)
+           if(smbh .and. mass_smbh_seed > 0.0) then
+              f_d_rot = M_d_rot / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
+           else
+              f_d_rot = M_d_rot / (M_gas_all + msink(isink) + tiny(0.0_dp))
+           endif
+        endif
         f_gas_rot    = M_gas_d_rot / (M_d_rot + tiny(0.0_dp))
         f_gas_rot    = max(f_gas_rot, tiny(0.0_dp))
-        if(smbh .and. mass_smbh_seed > 0.0) then
-           f_d_rot   = M_d_rot / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
-        else
-           f_d_rot   = M_d_rot / (M_gas_all + msink(isink) + tiny(0.0_dp))
-        endif
         f_d_rot      = max(min(f_d_rot, 1.0_dp), 0.0_dp)
         f0_rot       = 0.31d0 * f_d_rot**2 &
              &       * (M_d_rot * scale_m / (1d9 * 2d33))**(-1d0/3d0)
@@ -2931,7 +2942,8 @@ subroutine read_sink_params()
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
        n_res_influence,&
        angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T,chi_d,&
-       two_channel_accretion_switch,T_cold_crit,n_cold_crit,dT_cold,dn_cold
+       two_channel_accretion_switch,T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
+       use_stellar_mass_torque
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
