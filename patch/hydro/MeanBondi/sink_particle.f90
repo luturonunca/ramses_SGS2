@@ -416,6 +416,9 @@ subroutine collect_acczone_avg(ilevel)
   wrot_mass=0d0; wnorot_w=0d0; wnorot_rho=0d0; wnorot_cs2=0d0; wnorot_v2=0d0
   ! Collisionless sigma accumulation (only when gradient descent is active)
   if(sink_descent) wsigma2_coll=0d0; if(sink_descent) wsigma2_coll_w=0d0
+  ! Stellar mass accumulation (only when two-channel model is active)
+  if(two_channel_accretion_switch) wstar_mass=0d0
+  if(two_channel_accretion_switch) wstar_rot_mass=0d0
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -478,8 +481,8 @@ subroutine collect_acczone_avg(ilevel)
   end do
   ! End loop over cpus
 
-  ! Loop over star+DM particles to accumulate collisionless velocity dispersion
-  if(sink_descent .and. nsink>0)then
+  ! Loop over star+DM particles for sigma_coll (GD switch) and stellar masses (two-channel)
+  if((sink_descent .or. two_channel_accretion_switch) .and. nsink>0)then
      ip=0
      do icpu=1,ncpu
         igrid=headl(icpu,ilevel)
@@ -538,6 +541,10 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wsigma2_coll,  wsigma2_coll_new,  nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
         call MPI_ALLREDUCE(wsigma2_coll_w,wsigma2_coll_w_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      endif
+     if(two_channel_accretion_switch)then
+        call MPI_ALLREDUCE(wstar_mass,    wstar_mass_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+        call MPI_ALLREDUCE(wstar_rot_mass,wstar_rot_mass_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+     endif
 #else
      wden_new=wden
      wvol_new=wvol
@@ -562,6 +569,10 @@ subroutine collect_acczone_avg(ilevel)
      if(sink_descent)then
         wsigma2_coll_new=wsigma2_coll
         wsigma2_coll_w_new=wsigma2_coll_w
+     endif
+     if(two_channel_accretion_switch)then
+        wstar_mass_new=wstar_mass
+        wstar_rot_mass_new=wstar_rot_mass
      endif
 #endif
   endif
@@ -1295,6 +1306,8 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::M_gas_d,M_d_torque,M_gas_all,f_d_torque,f_gas_torque,f0_torque,supply_factor,dMt_msunyr
   real(dp)::M_gas_d_rot,M_d_rot,f_d_rot,f_gas_rot,f0_rot,supply_factor_rot,dMt_rot_msunyr
   real(dp)::rho_norot,cs2_norot,vrel2_norot,dMbondi_norot,dMtorque_rot
+  real(dp)::M_star_cloud,M_star_disc,M_d_star,M_enc_star
+  real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
 
   ! Gravitational constant
   factG=1d0
@@ -1497,8 +1510,29 @@ subroutine compute_accretion_rate(write_sinks)
              & * (R0_eff2 * scale_l / (100d0 * 3.086d18))**(-1.5d0) &
              & * supply_factor_rot
         dMtorque_rot = max(dMt_rot_msunyr, 0.0d0) * (2d33 / scale_m) * (scale_t / 3.156d7)
-        dMtorque_rot_sink(isink) = dMtorque_rot
+        dMtorque_rot_sink(isink)  = dMtorque_rot
         dMbondi_norot_sink(isink) = dMbondi_norot
+        ! AA17 torque rate with physical stellar masses from star particles
+        ! M_d = rotating gas + rotating stars; M_enc = all gas + all stars + BH
+        M_star_cloud = wstar_mass_new(isink)
+        M_star_disc  = wstar_rot_mass_new(isink)
+        M_d_star     = M_gas_d_rot + M_star_disc
+        M_enc_star   = M_gas_all + M_star_cloud + Md2_eff
+        f_gas_star   = M_gas_d_rot / (M_d_star + tiny(0.0_dp))
+        f_gas_star   = max(f_gas_star, tiny(0.0_dp))
+        f_d_star     = M_d_star / (M_enc_star + tiny(0.0_dp))
+        f_d_star     = max(min(f_d_star, 1.0_dp), 0.0_dp)
+        f0_star      = 0.31d0 * f_d_star**2 &
+             &       * (M_d_star * scale_m / (1d9 * 2d33))**(-1d0/3d0)
+        supply_factor_star = 1.0d0 / (1.0d0 + f0_star / f_gas_star)
+        dMt_star_msunyr = alpha_T &
+             & * f_d_star**chi_d &
+             & * (Md2_eff * scale_m / (1d8 * 2d33))**(1d0/6d0) &
+             & * (M_d_star * scale_m / (1d9 * 2d33)) &
+             & * (R0_eff2 * scale_l / (100d0 * 3.086d18))**(-1.5d0) &
+             & * supply_factor_star
+        dMtorque_star = max(dMt_star_msunyr, 0.0d0) * (2d33 / scale_m) * (scale_t / 3.156d7)
+        dMtorque_star_sink(isink) = dMtorque_star
      endif
 
      if(smbh.and.mass_smbh_seed>0.0)then
@@ -3408,9 +3442,11 @@ end subroutine synchronize_sink_info
 !###############################################################################
 subroutine collect_sigma_coll_np(ind_part,np,ilevel)
   !-----------------------------------------------------------------------------
-  ! Accumulates mass-weighted collisionless velocity dispersion (star+DM) around
-  ! each sink, used to compute the sphere of influence r_inf = G*M_BH/sigma_coll^2
-  ! for the gradient-descent switch.
+  ! Accumulates from star+DM particles within ir_cloud*dx_min of each sink:
+  !   - mass-weighted collisionless sigma (star+DM) for the r_inf GD switch
+  !   - total stellar mass and rotationally supported stellar mass (stars only)
+  !     for the AA17 torque rate with physical stellar disc mass
+  ! chi_star = vphi²/(vphi²+vr²) — no cs² since stars are collisionless
   !-----------------------------------------------------------------------------
   use amr_commons
   use pm_commons
@@ -3420,11 +3456,12 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
 
   integer::j,isink
   real(dp)::nx_loc,scale,dx_min,r2,r2_cloud,dv2
-  real(dp),dimension(1:ndim)::dv
+  real(dp)::vr_star,vphi2_star,chi_star,S_rot_star,r_mag
+  real(dp),dimension(1:ndim)::dv,r_vec
 
-  nx_loc  = dble(icoarse_max-icoarse_min+1)
-  scale   = boxlen/nx_loc
-  dx_min  = scale*0.5d0**nlevelmax/aexp
+  nx_loc   = dble(icoarse_max-icoarse_min+1)
+  scale    = boxlen/nx_loc
+  dx_min   = scale*0.5d0**nlevelmax/aexp
   r2_cloud = (dble(ir_cloud)*dx_min)**2
 
   do j=1,np
@@ -3433,8 +3470,25 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
         if(r2 > r2_cloud) cycle
         dv(1:ndim) = vp(ind_part(j),1:ndim) - vsink(isink,1:ndim)
         dv2 = sum(dv(1:ndim)**2)
+        ! Collisionless sigma for GD switch (star + DM)
         wsigma2_coll(isink)   = wsigma2_coll(isink)   + mp(ind_part(j)) * dv2
         wsigma2_coll_w(isink) = wsigma2_coll_w(isink) + mp(ind_part(j))
+        ! Stellar mass quantities for two-channel torque rate (stars only)
+        if(is_star(typep(ind_part(j))))then
+           r_vec(1:ndim) = xp(ind_part(j),1:ndim) - xsink(isink,1:ndim)
+           r_mag = sqrt(r2)
+           if(r_mag > 0.0d0)then
+              vr_star    = sum(dv(1:ndim) * r_vec(1:ndim)) / r_mag
+           else
+              vr_star    = 0.0d0
+           endif
+           vphi2_star = max(dv2 - vr_star**2, 0.0d0)
+           ! chi_star: rotational support without cs² (collisionless)
+           chi_star   = vphi2_star / (vphi2_star + vr_star**2 + tiny(0.0_dp))
+           S_rot_star = 1.0d0 / (1.0d0 + exp(-(chi_star - chi_crit) / delta_chi))
+           wstar_mass(isink)     = wstar_mass(isink)     + mp(ind_part(j))
+           wstar_rot_mass(isink) = wstar_rot_mass(isink) + S_rot_star * mp(ind_part(j))
+        endif
      enddo
   enddo
 
