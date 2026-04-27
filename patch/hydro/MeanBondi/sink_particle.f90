@@ -854,7 +854,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                  r2 = r2 + ( xp(ind_part(j),idim) - xsink(isink, idim) )**2
               end do
               !if (ind_part(j).le.lbound(xp).or.ind_part(j).gt.ubound(xp)) then
-              if ( ind_part(j) <= lbound(xp, 1) .or. ind_part(j) > ubound(xp, 1)) then
+              if ( ind_part(j) < lbound(xp, 1) .or. ind_part(j) > ubound(xp, 1)) then
                  write(*,*) 'Error: ind_part(',j,') out of bounds:', ind_part(j)
                  stop
               endif
