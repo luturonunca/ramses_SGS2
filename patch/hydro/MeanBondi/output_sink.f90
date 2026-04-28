@@ -10,7 +10,7 @@ subroutine output_sink_csv(filename)
   if(verbose)write(*,*)'Entering output_sink_csv'
 
   fileloc=TRIM(filename)
-  open(unit=123,file=TRIM(fileloc),form='formatted',status='replace', recl=600)
+  open(unit=123,file=TRIM(fileloc),form='formatted',status='replace', recl=1500)
   !======================
   ! Write sink properties
   !======================
