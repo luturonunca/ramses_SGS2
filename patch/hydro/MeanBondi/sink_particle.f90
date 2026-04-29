@@ -2984,10 +2984,10 @@ subroutine read_sink_params()
 
   ! Set internal boolean flags from accretion_scheme string.
   ! Valid values:
-  !   'none'              -- no accretion
-  !   'bondi'             -- pure Bondi-Hoyle-Lyttleton
-  !   'bondi_rotsupport'  -- sigmoid blend torque<->Bondi controlled by kinematic chi
-  !   'bondi_twochannel'  -- additive cold-torque + hot-Bondi with full AA17 formula
+  !   'none'               -- no accretion
+  !   'bondi'              -- pure Bondi-Hoyle-Lyttleton
+  !   'bondi_torque_blend' -- sigmoid blend torque<->Bondi controlled by kinematic chi
+  !   'bondi_torque_twoch' -- additive cold-torque + hot-Bondi with full AA17 formula
   select case(trim(accretion_scheme))
   case('none')
      bondi_accretion=.false.
@@ -2997,17 +2997,17 @@ subroutine read_sink_params()
      bondi_accretion=.true.
      angular_momentum_accretion_switch=.false.
      two_channel_accretion_switch=.false.
-  case('bondi_rotsupport')
+  case('bondi_torque_blend')
      bondi_accretion=.true.
      angular_momentum_accretion_switch=.true.
      two_channel_accretion_switch=.false.
-  case('bondi_twochannel')
+  case('bondi_torque_twoch')
      bondi_accretion=.true.
      angular_momentum_accretion_switch=.false.
      two_channel_accretion_switch=.true.
   case default
      if(myid==1)write(*,*)'Unknown accretion_scheme: ',trim(accretion_scheme)
-     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_rotsupport, bondi_twochannel'
+     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_torque_blend, bondi_torque_twoch'
      call clean_stop
   end select
 
