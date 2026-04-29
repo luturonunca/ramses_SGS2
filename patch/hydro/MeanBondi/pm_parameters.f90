@@ -23,7 +23,7 @@ module pm_parameters
                                              ! used also as contraction timescale in creation
   real(dp)::cont_speed=0.                    ! Clump contraction rate
 
-  character(LEN=15)::accretion_scheme='none' ! Sink accretion scheme; options: 'none', 'bondi'
+  character(LEN=20)::accretion_scheme='none' ! Sink accretion scheme; options: 'none', 'bondi', 'bondi_rotsupport', 'bondi_twochannel'
   logical::bondi_accretion=.false.           ! NOT A NAMELIST PARAMETER
   logical::bondi_use_vrel=.true.             ! Use v_rel^2 in the denominator of Bondi formula
 

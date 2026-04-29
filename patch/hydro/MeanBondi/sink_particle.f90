@@ -2936,8 +2936,8 @@ subroutine read_sink_params()
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
        n_res_influence,&
-       angular_momentum_accretion_switch,chi_crit,delta_chi,alpha_T,chi_d,&
-       two_channel_accretion_switch,T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
+       chi_crit,delta_chi,alpha_T,chi_d,&
+       T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        use_stellar_mass_torque
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
@@ -2966,15 +2966,6 @@ subroutine read_sink_params()
      call clean_stop
   end if
 
-  ! Two accretion models cannot run simultaneously:
-  ! angular_momentum_accretion_switch: sigmoid-weighted switch between torque and Bondi channels
-  ! two_channel_accretion_switch: additive two-channel model (cold torque + hot Bondi), no switching
-  if(angular_momentum_accretion_switch .and. two_channel_accretion_switch)then
-     if(myid==1)write(*,*)'ERROR: angular_momentum_accretion_switch and two_channel_accretion_switch'
-     if(myid==1)write(*,*)'cannot both be true. Choose one accretion model and set the other to .false.'
-     call clean_stop
-  end if
-
   if (create_sinks .and. accretion_scheme=='none')then
      if(myid==1)write(*,*)'formation of new sinks without subsequent accretion is pointless.'
      if(myid==1)write(*,*)'Choose accretion_scheme=...!'
@@ -2991,9 +2982,34 @@ subroutine read_sink_params()
      call clean_stop
   end if
 
-
-  ! Check for accretion scheme
-  if (accretion_scheme=='bondi')bondi_accretion=.true.
+  ! Set internal boolean flags from accretion_scheme string.
+  ! Valid values:
+  !   'none'              -- no accretion
+  !   'bondi'             -- pure Bondi-Hoyle-Lyttleton
+  !   'bondi_rotsupport'  -- sigmoid blend torque<->Bondi controlled by kinematic chi
+  !   'bondi_twochannel'  -- additive cold-torque + hot-Bondi with full AA17 formula
+  select case(trim(accretion_scheme))
+  case('none')
+     bondi_accretion=.false.
+     angular_momentum_accretion_switch=.false.
+     two_channel_accretion_switch=.false.
+  case('bondi')
+     bondi_accretion=.true.
+     angular_momentum_accretion_switch=.false.
+     two_channel_accretion_switch=.false.
+  case('bondi_rotsupport')
+     bondi_accretion=.true.
+     angular_momentum_accretion_switch=.true.
+     two_channel_accretion_switch=.false.
+  case('bondi_twochannel')
+     bondi_accretion=.true.
+     angular_momentum_accretion_switch=.false.
+     two_channel_accretion_switch=.true.
+  case default
+     if(myid==1)write(*,*)'Unknown accretion_scheme: ',trim(accretion_scheme)
+     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_rotsupport, bondi_twochannel'
+     call clean_stop
+  end select
 
   ! For sink formation and accretion a threshold must be given
   if (create_sinks .or. (accretion_scheme .ne. 'none'))then
