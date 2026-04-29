@@ -14,10 +14,10 @@ subroutine output_sink_csv(filename)
   !======================
   ! Write sink properties
   !======================
-  write(123,'(" # id,msink,x,y,z,vx,vy,vz,lx,ly,lz,tform,acc_rate_applied,del_mass,rho_gas,cs**2,etherm,vx_gas,vy_gas,vz_gas,mbh,level,dMtorque,dMtorque2,dMbondi2,dMtorque_rot,dMbondi_norot,M_star_cloud,M_star_disc_rot,dMtorque_star ")')
-  write(123,'(" # 1,m,l,l,l,l t**-1,l t**-1,l t**-1,m l**2 t**-1,m l**2 t**-1,m l**2 t**-1,t,m t**-1,m,m l**-3,l**2 t**-2,m l**2 t**-2,l t**-1,l t**-1,l t**-1,m,1,m t**-1,m t**-1,m t**-1,m t**-1,m t**-1,m,m,m t**-1 ")')
+  write(123,'(" # id,msink,x,y,z,vx,vy,vz,lx,ly,lz,tform,acc_rate_applied,del_mass,rho_gas,cs**2,etherm,vx_gas,vy_gas,vz_gas,mbh,level,dMtorque,dMtorque2,dMbondi2,dMtorque_rot,dMbondi_norot,M_star_cloud,M_star_disc_rot,dMtorque_star,dMdc_cold,dMdc_hot ")')
+  write(123,'(" # 1,m,l,l,l,l t**-1,l t**-1,l t**-1,m l**2 t**-1,m l**2 t**-1,m l**2 t**-1,t,m t**-1,m,m l**-3,l**2 t**-2,m l**2 t**-2,l t**-1,l t**-1,l t**-1,m,1,m t**-1,m t**-1,m t**-1,m t**-1,m t**-1,m,m,m t**-1,m t**-1,m t**-1 ")')
   do isink=1,nsink
-     write(123,'(I10,20(A1,ES20.10),A1,I10,8(A1,ES20.10))')idsink(isink),',',msink(isink),&
+     write(123,'(I10,20(A1,ES20.10),A1,I10,10(A1,ES20.10))')idsink(isink),',',msink(isink),&
           ',',xsink(isink,1),',',xsink(isink,2),',',xsink(isink,3),&
           ',',vsink(isink,1),',',vsink(isink,2),',',vsink(isink,3),&
           ',',lsink(isink,1),',',lsink(isink,2),',',lsink(isink,3),&
@@ -28,7 +28,8 @@ subroutine output_sink_csv(filename)
           ',',msmbh(isink),',',sinkint_level,&
           ',',dMtorque_sink(isink),',',dMtorque2_sink(isink),',',dMbondi2_sink(isink),&
           ',',dMtorque_rot_sink(isink),',',dMbondi_norot_sink(isink),&
-          ',',wstar_mass_new(isink),',',wstar_rot_mass_new(isink),',',dMtorque_star_sink(isink)
+          ',',wstar_mass_new(isink),',',wstar_rot_mass_new(isink),',',dMtorque_star_sink(isink),&
+          ',',dMdc_cold_sink(isink),',',dMdc_hot_sink(isink)
   end do
 
   close(123)
