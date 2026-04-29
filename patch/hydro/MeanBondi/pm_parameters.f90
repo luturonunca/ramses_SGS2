@@ -43,6 +43,7 @@ module pm_parameters
   logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
   logical::dutycycle_blend_switch=.false.            ! Switch for duty-cycle cold + hot Bondi (set from accretion_scheme)
   real(dp)::epsilon_dutycycle=0.1d0                  ! Cold gas accretion efficiency for duty-cycle scheme
+  logical::epsilon_fixed=.true.                      ! If true use epsilon_dutycycle directly; if false weight by 1/(1+(j/j_crit)^2)
   logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]

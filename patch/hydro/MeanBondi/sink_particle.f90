@@ -421,7 +421,7 @@ subroutine collect_acczone_avg(ilevel)
   if(two_channel_accretion_switch) wstar_rot_mass=0d0
   ! Duty-cycle blend accumulators
   if(dutycycle_blend_switch)then
-     wdc_cold_mass=0d0; wdc_tot_mass=0d0
+     wdc_cold_mass=0d0; wdc_cold_j2mass=0d0; wdc_tot_mass=0d0
      wdc_hot_w=0d0; wdc_hot_rho=0d0; wdc_hot_cs2=0d0; wdc_hot_v2=0d0
   endif
   ! Loop over cpus
@@ -551,8 +551,9 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wstar_rot_mass,wstar_rot_mass_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      endif
      if(dutycycle_blend_switch)then
-        call MPI_ALLREDUCE(wdc_cold_mass,wdc_cold_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
-        call MPI_ALLREDUCE(wdc_tot_mass, wdc_tot_mass_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdc_cold_mass,  wdc_cold_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdc_cold_j2mass,wdc_cold_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdc_tot_mass,   wdc_tot_mass_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_w,    wdc_hot_w_new,    nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_rho,  wdc_hot_rho_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_cs2,  wdc_hot_cs2_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -588,7 +589,8 @@ subroutine collect_acczone_avg(ilevel)
         wstar_rot_mass_new=wstar_rot_mass
      endif
      if(dutycycle_blend_switch)then
-        wdc_cold_mass_new=wdc_cold_mass; wdc_tot_mass_new=wdc_tot_mass
+        wdc_cold_mass_new=wdc_cold_mass; wdc_cold_j2mass_new=wdc_cold_j2mass
+        wdc_tot_mass_new=wdc_tot_mass
         wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
         wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
      endif
@@ -817,7 +819,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               wv2(isink)=wv2(isink) + (d * v2 * weight)
               wc2(isink)=wc2(isink) + (d * cs2 * weight)
               wsigma2(isink) = wsigma2(isink) + (weight * d * sigma2_local)
-              if(angular_momentum_accretion_switch .or. two_channel_accretion_switch)then
+              if(angular_momentum_accretion_switch .or. two_channel_accretion_switch &
+                   & .or. dutycycle_blend_switch)then
                  ! Decompose velocity into radial and tangential w.r.t. sink position
                  r2=sum((xp(ind_part(j),1:ndim)-xsink(isink,1:ndim))**2)
                  if(r2>0d0)then
@@ -855,16 +858,17 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wnorot_cs2(isink) = wnorot_cs2(isink) + weight*(1.0d0-S_rot_loc)*d*cs2
                     wnorot_v2(isink)  = wnorot_v2(isink)  + weight*(1.0d0-S_rot_loc)*d*v2
                  endif
-              endif
-              if(dutycycle_blend_switch)then
-                 ! Temperature-only sigmoid (no density or rotation condition)
-                 S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
-                 wdc_cold_mass(isink) = wdc_cold_mass(isink) + S_T_loc*d
-                 wdc_tot_mass(isink)  = wdc_tot_mass(isink)  + d
-                 wdc_hot_w(isink)     = wdc_hot_w(isink)     + weight*(1.0d0-S_T_loc)
-                 wdc_hot_rho(isink)   = wdc_hot_rho(isink)   + weight*(1.0d0-S_T_loc)*d
-                 wdc_hot_cs2(isink)   = wdc_hot_cs2(isink)   + weight*(1.0d0-S_T_loc)*d*cs2
-                 wdc_hot_v2(isink)    = wdc_hot_v2(isink)    + weight*(1.0d0-S_T_loc)*d*v2
+                 if(dutycycle_blend_switch)then
+                    ! Temperature-only sigmoid (no density or rotation condition)
+                    S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
+                    wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
+                    wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc
+                    wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d
+                    wdc_hot_w(isink)      = wdc_hot_w(isink)      + weight*(1.0d0-S_T_loc)
+                    wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d
+                    wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2
+                    wdc_hot_v2(isink)     = wdc_hot_v2(isink)     + weight*(1.0d0-S_T_loc)*d*v2
+                 endif
               endif
            endif
            if (mode == 2) then
@@ -1333,6 +1337,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
+  real(dp)::j2_cold_mean,j2_crit,eps_dc
 
   ! Gravitational constant
   factG=1d0
@@ -1586,8 +1591,18 @@ subroutine compute_accretion_rate(write_sinks)
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
         t_ff_bh   = sqrt(R0_dc**3 / (2.0d0*factG*(M_bh_dc  + tiny(0.0_dp))))
+        ! Effective epsilon: fixed or angular-momentum weighted
+        if(epsilon_fixed)then
+           eps_dc = epsilon_dutycycle
+        else
+           ! j_crit = sqrt(G * M_total * R0) -> j_crit^2 = G*(M_enc+M_BH)*R0
+           j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
+           ! mass-weighted mean j^2 of cold gas cells
+           j2_cold_mean = wdc_cold_j2mass_new(isink) / (wdc_cold_mass_new(isink) + tiny(0.0_dp))
+           eps_dc = epsilon_dutycycle / (1.0d0 + j2_cold_mean / (j2_crit + tiny(0.0_dp)))
+        endif
         ! Cold channel: duty-cycle accretion rate
-        dMdc_cold = epsilon_dutycycle * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
+        dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
         dMdc_cold = max(dMdc_cold, 0.0d0)
         ! Hot channel: Bondi with (1-S_T) weighted gas properties
         rho_hot_dc  = wdc_hot_rho_new(isink) / (wdc_hot_w_new(isink)   + tiny(0.0_dp))
@@ -3004,7 +3019,7 @@ subroutine read_sink_params()
        n_res_influence,&
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
-       epsilon_dutycycle,&
+       epsilon_dutycycle,epsilon_fixed,&
        use_stellar_mass_torque
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 

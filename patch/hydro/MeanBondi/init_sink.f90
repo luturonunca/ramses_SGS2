@@ -116,9 +116,11 @@ subroutine init_sink
   allocate(wnorot_rho_new(1:nsinkmax))
   allocate(wnorot_cs2_new(1:nsinkmax))
   allocate(wnorot_v2_new(1:nsinkmax))
-  allocate(wdc_cold_mass(1:nsinkmax)); wdc_cold_mass=0.d0
+  allocate(wdc_cold_mass(1:nsinkmax))  ; wdc_cold_mass=0.d0
   allocate(wdc_cold_mass_new(1:nsinkmax))
-  allocate(wdc_tot_mass(1:nsinkmax)) ; wdc_tot_mass=0.d0
+  allocate(wdc_cold_j2mass(1:nsinkmax)); wdc_cold_j2mass=0.d0
+  allocate(wdc_cold_j2mass_new(1:nsinkmax))
+  allocate(wdc_tot_mass(1:nsinkmax))  ; wdc_tot_mass=0.d0
   allocate(wdc_tot_mass_new(1:nsinkmax))
   allocate(wdc_hot_w(1:nsinkmax))    ; wdc_hot_w=0.d0
   allocate(wdc_hot_w_new(1:nsinkmax))

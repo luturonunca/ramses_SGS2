@@ -37,6 +37,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wsigma2_coll_new, wsigma2_coll_w_new
   real(dp),allocatable,dimension(:)    ::wrot_mass, wrot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_mass, wdc_cold_mass_new
+  real(dp),allocatable,dimension(:)    ::wdc_cold_j2mass, wdc_cold_j2mass_new
   real(dp),allocatable,dimension(:)    ::wdc_tot_mass,  wdc_tot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_w,     wdc_hot_w_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_rho,   wdc_hot_rho_new
