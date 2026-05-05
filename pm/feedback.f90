@@ -2676,6 +2676,7 @@ subroutine bns_merger_enrich(ilevel)
   use pm_commons
   use amr_commons
   use hydro_commons
+  use mpi_mod
   implicit none
   integer,intent(in)::ilevel
   !------------------------------------------------------------------------
