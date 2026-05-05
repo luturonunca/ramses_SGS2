@@ -2690,7 +2690,7 @@ subroutine bns_merger_enrich(ilevel)
   integer::npart1,ind,ind_son,ind_cell,iskip,idim
   integer::ilun,ivar,irad
   integer::info2,dummy_io
-  integer,parameter::mpi_tag=1121
+  integer,parameter::io_tag=1121
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
   real(dp)::mejecta,heavyzloss,mheavyloss
@@ -2722,7 +2722,7 @@ subroutine bns_merger_enrich(ilevel)
 #ifndef WITHOUTMPI
      if(IOGROUPSIZE>0) then
         if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,mpi_tag,&
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,io_tag,&
                 & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
         end if
      endif
