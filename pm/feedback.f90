@@ -69,7 +69,7 @@ subroutine thermal_feedback(ilevel)
         write(ilun,'(A5)',advance='no') 'tag  '
         write(ilun,'(A1)') ' '
         if(bns_enrichment) then
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
         else
            write(ilun,'(A)') '# event id: 0=SF, 1=SN'
         endif
@@ -1404,7 +1404,7 @@ subroutine mechanical_feedback_cell
         write(ilun,'(A5)',advance='no') 'tag  '
         write(ilun,'(A1)') ' '
         if(bns_enrichment) then
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
         else
            write(ilun,'(A)') '# event id: 0=SF, 1=SN'
         endif
@@ -2687,16 +2687,69 @@ subroutine bns_merger_enrich(ilevel)
   !------------------------------------------------------------------------
   integer::igrid,jgrid,ipart,jpart,next_part,icpu
   integer::npart1,ind,ind_son,ind_cell,iskip,idim
+  integer::ilun,ivar,irad
+  integer::info2,dummy_io
+  integer,parameter::mpi_tag=1121
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
   real(dp)::mejecta,heavyzloss,mheavyloss
+  real(dp)::e,uvar
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  character(LEN=80)::filename,filedir,fileloc,filedirini
+  character(LEN=5)::nchar,ncharcpu
+  logical::file_exist
 
   if(numbtot(1,ilevel)==0)return
   if(nstar_tot==0)return
 
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   call mesh_info(ilevel,skip_loc,scale,dx,dx_loc,vol_loc,xc)
+
+  if(sf_log_properties) then
+     call title(ifout-1,nchar)
+     if(IOGROUPSIZEREP>0) then
+        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+        filedirini='output_'//TRIM(nchar)//'/'
+        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+     else
+        filedir='output_'//TRIM(nchar)//'/'
+     endif
+     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+     ilun=myid+103
+     call title(myid,nchar)
+     fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+     if(IOGROUPSIZE>0) then
+        if (mod(myid-1,IOGROUPSIZE)/=0) then
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,mpi_tag,&
+                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+        end if
+     endif
+#endif
+     inquire(file=fileloc,exist=file_exist)
+     if(.not.file_exist) then
+        open(ilun, file=fileloc, form='formatted')
+        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+        enddo
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+        enddo
+        do ivar=1,nvar
+           if(ivar.ge.10) then
+              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+           else
+              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+           endif
+        enddo
+        write(ilun,'(A5)',advance='no') 'tag  '
+        write(ilun,'(A1)') ' '
+        write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+     else
+        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+     endif
+  endif
 
   if(use_proper_time)then
      current_time=texp
@@ -2734,6 +2787,41 @@ subroutine bns_merger_enrich(ilevel)
                     heavyzloss = eu_yield+(1d0-eu_yield)*zp_heavy(ipart)
                     mheavyloss = mejecta*heavyzloss/vol_loc
                     unew(ind_cell,iheavy)=unew(ind_cell,iheavy)+mheavyloss
+                    if(sf_log_properties) then
+                       write(ilun,'(I10)',advance='no') 4
+                       write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
+                       do idim=1,ndim
+                          write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
+                       enddo
+                       do idim=1,ndim
+                          write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
+                       enddo
+                       write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
+                       do ivar=2,nvar
+                          if(ivar.eq.ndim+2)then
+                             e=0.0d0
+                             do idim=1,ndim
+                                e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
+                             enddo
+#if NENER>0
+                             do irad=0,nener-1
+                                e=e+unew(ind_cell,inener+irad)
+                             enddo
+#endif
+#ifdef SOLVERmhd
+                             do idim=1,ndim
+                                e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
+                             enddo
+#endif
+                             uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
+                          else
+                             uvar=unew(ind_cell,ivar)
+                          endif
+                          write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
+                       enddo
+                       write(ilun,'(I10)',advance='no') typep(ipart)%tag
+                       write(ilun,'(A1)') ' '
+                    endif
                     typep(ipart)%tag=2
                  endif
               endif
@@ -2743,6 +2831,8 @@ subroutine bns_merger_enrich(ilevel)
         igrid=next(igrid)
      end do
   end do
+
+  if(sf_log_properties) close(ilun)
 
 end subroutine bns_merger_enrich
 #endif
