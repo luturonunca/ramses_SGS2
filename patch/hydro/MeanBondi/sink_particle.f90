@@ -1680,6 +1680,7 @@ subroutine compute_accretion_rate(write_sinks)
         if(mean_bondi)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
         if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
+        if(constant_eddington)dMsmbh_overdt(isink)=min(dMEDoverdt_smbh(isink),mgas/max(dtnew(levelmin),tiny(0.0_dp)))
         dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
      end if
 
@@ -3070,7 +3071,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_dutycycle,epsilon_fixed,&
-       use_stellar_mass_torque,weighted_depletion
+       use_stellar_mass_torque,weighted_depletion,constant_eddington
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
