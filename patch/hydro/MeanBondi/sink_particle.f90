@@ -1302,6 +1302,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            end if
 
            m_acc=m_acc+m_acc_smbh
+           ! Cap to prevent over-depletion when normalisation is stale (e.g. after star formation)
+           m_acc=min(m_acc,(d-smallr)*vol_loc)
            ! Accrete mass, momentum and gas total energy
            unew(indp(j,ind),1)=unew(indp(j,ind),1)-m_acc/vol_loc
            unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)-m_acc*vv(1:ndim)/vol_loc
