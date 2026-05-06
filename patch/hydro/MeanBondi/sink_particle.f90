@@ -1220,12 +1220,11 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  ! Local thermal cs2 (does not overwrite e, which is needed for energy removal below)
                  cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
                  S_T_dep=1.0d0/(1.0d0+exp((cs2_loc-cs2_cold_code)/dcs2_cold_code))
-                 ! Cold channel: remove from cold gas proportional to S_T * d / rho_cold_mean
-                 m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight*S_T_dep*d &
-                      &        /(wdc_cold_rho_new(isink)+tiny(0.0_dp))
-                 ! Hot channel: remove from hot gas proportional to (1-S_T) * d / rho_hot_mean
-                 m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight*(1.0d0-S_T_dep)*d &
-                      &        /(wdc_hot_rho_new(isink)+tiny(0.0_dp))
+                 ! Use standard spatial normalisation (weight/volume*d/density) to avoid
+                 ! blow-up from near-zero phase-specific denominators; S_T weights the
+                 ! rate split between channels but does not re-normalise the spatial kernel.
+                 m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight/volume*S_T_dep*d/density
+                 m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight/volume*(1.0d0-S_T_dep)*d/density
                  m_acc     =max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
                  m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
               else if(weighted_depletion .and. two_channel_accretion_switch)then
@@ -1245,12 +1244,10 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  S_rot_loc2=1.0d0/(1.0d0+exp(-(chi_loc_dep  -chi_crit)     /delta_chi     ))
                  cold_w_dep=S_T_loc2*S_n_loc2*S_rot_loc2
                  hot_w_dep =(1.0d0-S_T_loc2)*(1.0d0-S_n_loc2)*(1.0d0-S_rot_loc2)
-                 ! Cold (torque) channel: remove from cold-rotating gas
-                 m_acc_cold_dep=dMtorque2_sink(isink)*dtnew(ilevel)*weight*cold_w_dep*d &
-                      &        /(wcold_rho_new(isink)+tiny(0.0_dp))
-                 ! Hot (Bondi) channel: remove from hot-nonrotating gas
-                 m_acc_hot_dep =dMbondi2_sink(isink) *dtnew(ilevel)*weight*hot_w_dep*d &
-                      &        /(whot_rho_new(isink) +tiny(0.0_dp))
+                 ! Use standard spatial normalisation; phase weights concentrate the rate
+                 ! in the correct phase without dividing by a potentially near-zero per-phase density.
+                 m_acc_cold_dep=dMtorque2_sink(isink)*dtnew(ilevel)*weight/volume*cold_w_dep*d/density
+                 m_acc_hot_dep =dMbondi2_sink(isink) *dtnew(ilevel)*weight/volume*hot_w_dep*d/density
                  m_acc     =max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
                  m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
               else
