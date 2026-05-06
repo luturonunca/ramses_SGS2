@@ -32,7 +32,7 @@ module pm_parameters
   real(dp)::mass_merger_vel_check=-1.0       ! Threshold for velocity check in  merging; in Msun; default: don't check
 
   logical::eddington_limit=.false.           ! Switch for Eddington limit for the smbh case
-  logical::constant_eddington=.false.        ! Set dMsmbh exactly to Eddington rate (gas-limited if insufficient)
+  logical::constant_eddington=.false.        ! NOT A NAMELIST PARAMETER — set via accretion_scheme='constant_eddington'
   logical::mean_bondi=.false.                ! Switch for Eddington limit for the smbh case
   logical::bondi_use_turb=.false.            ! for bondi accretion cs2--> cs2+sigma2
   logical::use_bondi_exp_weight=.false.      ! Switch for Eddington limit for the smbh case

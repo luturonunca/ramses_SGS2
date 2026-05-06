@@ -3071,7 +3071,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_dutycycle,epsilon_fixed,&
-       use_stellar_mass_torque,weighted_depletion,constant_eddington
+       use_stellar_mass_torque,weighted_depletion
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -3144,9 +3144,15 @@ subroutine read_sink_params()
      angular_momentum_accretion_switch=.false.
      two_channel_accretion_switch=.false.
      dutycycle_blend_switch=.true.
+  case('constant_eddington')
+     bondi_accretion=.false.
+     angular_momentum_accretion_switch=.false.
+     two_channel_accretion_switch=.false.
+     dutycycle_blend_switch=.false.
+     constant_eddington=.true.
   case default
      if(myid==1)write(*,*)'Unknown accretion_scheme: ',trim(accretion_scheme)
-     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_torque_blend, bondi_torque_twoch, bondi_dutycycle_blend'
+     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_torque_blend, bondi_torque_twoch, bondi_dutycycle_blend, constant_eddington'
      call clean_stop
   end select
 
