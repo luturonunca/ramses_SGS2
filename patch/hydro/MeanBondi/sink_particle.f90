@@ -1279,6 +1279,10 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 
            m_acc     =max(m_acc,0.0_dp)
            m_acc_smbh=max(m_acc_smbh,0.0_dp)
+           ! Cap per-cell before sink accumulation: prevents stale phase normaliser blow-up
+           ! (e.g. wdc_cold_rho~tiny() -> m_acc~1e287 -> msink_new overflow -> NaN -> dt collapse)
+           m_acc     =min(m_acc,     max(0.0_dp,(d-smallr)*vol_loc))
+           m_acc_smbh=min(m_acc_smbh,max(0.0_dp,(d-smallr)*vol_loc))
 
            ! Accreted relative center of mass
            x_acc(1:ndim)=(m_acc+m_acc_smbh)*r_rel(1:ndim)
@@ -1302,7 +1306,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            end if
 
            m_acc=m_acc+m_acc_smbh
-           ! Cap to prevent over-depletion when normalisation is stale (e.g. after star formation)
+           ! Final safety cap: prevent combined depletion from exceeding cell mass
            m_acc=min(m_acc,(d-smallr)*vol_loc)
            ! Accrete mass, momentum and gas total energy
            unew(indp(j,ind),1)=unew(indp(j,ind),1)-m_acc/vol_loc
