@@ -42,6 +42,7 @@ module pm_parameters
   real(dp)::chi_d=2.5d0                              ! Exponent of f_d in torque formula (benchmark 5/2)
   logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
   logical::dutycycle_blend_switch=.false.            ! Switch for duty-cycle cold + hot Bondi (set from accretion_scheme)
+  logical::weighted_depletion=.false.                ! Deplete cold/hot gas proportionally to the phase weight that drove accretion
   real(dp)::epsilon_dutycycle=0.1d0                  ! Cold gas accretion efficiency for duty-cycle scheme
   logical::epsilon_fixed=.true.                      ! If true use epsilon_dutycycle directly; if false weight by 1/(1+(j/j_crit)^2)
   logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates

@@ -423,6 +423,7 @@ subroutine collect_acczone_avg(ilevel)
   if(dutycycle_blend_switch)then
      wdc_cold_mass=0d0; wdc_cold_j2mass=0d0; wdc_tot_mass=0d0
      wdc_hot_w=0d0; wdc_hot_rho=0d0; wdc_hot_cs2=0d0; wdc_hot_v2=0d0
+     wdc_cold_w=0d0; wdc_cold_rho=0d0
   endif
   ! Loop over cpus
   do icpu=1,ncpu
@@ -558,6 +559,8 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wdc_hot_rho,  wdc_hot_rho_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_cs2,  wdc_hot_cs2_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_v2,   wdc_hot_v2_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdc_cold_w,   wdc_cold_w_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdc_cold_rho, wdc_cold_rho_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      endif
 #else
      wden_new=wden
@@ -593,6 +596,7 @@ subroutine collect_acczone_avg(ilevel)
         wdc_tot_mass_new=wdc_tot_mass
         wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
         wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
+        wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
      endif
 #endif
   endif
@@ -868,6 +872,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d
                     wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2
                     wdc_hot_v2(isink)     = wdc_hot_v2(isink)     + weight*(1.0d0-S_T_loc)*d*v2
+                    wdc_cold_w(isink)     = wdc_cold_w(isink)     + weight*S_T_loc
+                    wdc_cold_rho(isink)   = wdc_cold_rho(isink)   + weight*S_T_loc*d
                  endif
               endif
            endif
@@ -1080,6 +1086,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 #endif
   real(dp)::factG,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dx,dx_loc,dx_min,dx_cloud,scale,vol_min,vol_loc,vol_cloud,weight,m_acc,m_acc_smbh
+  real(dp)::S_T_dep,m_acc_cold_dep,m_acc_hot_dep
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim)::xpart
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
@@ -1207,8 +1214,24 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  m_acc_smbh=0.0
               end if
            else
-              m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
-              m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+              if(weighted_depletion .and. dutycycle_blend_switch)then
+                 ! Recompute temperature sigmoid at this cell
+                 e=uold(indp(j,ind),ndim+2)
+                 e=e-0.5d0*d*(vv(1)**2+vv(2)**2+vv(3)**2)
+                 e=e/d
+                 S_T_dep=1.0d0/(1.0d0+exp((max((gamma-1.0d0)*e,smallc**2)-cs2_cold_code)/dcs2_cold_code))
+                 ! Cold channel: remove from cold gas proportional to S_T * d / rho_cold_mean
+                 m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight*S_T_dep*d &
+                      &        /(wdc_cold_rho_new(isink)+tiny(0.0_dp))
+                 ! Hot channel: remove from hot gas proportional to (1-S_T) * d / rho_hot_mean
+                 m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight*(1.0d0-S_T_dep)*d &
+                      &        /(wdc_hot_rho_new(isink) +tiny(0.0_dp))
+                 m_acc     =max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
+                 m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+              else
+                 m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+                 m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+              end if
 
               if(agn.and.msink(isink).gt.0)then
                  acc_ratio=dMsmbh_overdt(isink)/(4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t)
@@ -1599,7 +1622,7 @@ subroutine compute_accretion_rate(write_sinks)
            j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
            ! mass-weighted mean j^2 of cold gas cells
            j2_cold_mean = wdc_cold_j2mass_new(isink) / (wdc_cold_mass_new(isink) + tiny(0.0_dp))
-           eps_dc = epsilon_dutycycle / (1.0d0 + j2_cold_mean / (j2_crit + tiny(0.0_dp)))
+           eps_dc = epsilon_dutycycle / (1.0d0 + (j2_cold_mean / (j2_crit + tiny(0.0_dp)))**2)
         endif
         ! Cold channel: duty-cycle accretion rate
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
@@ -1640,6 +1663,8 @@ subroutine compute_accretion_rate(write_sinks)
      rho_gas(isink)=density
      volume_gas(isink)=volume
      vel_gas(isink,1:ndim)=velocity(1:ndim)
+     rho_cold_sink(isink)=wdc_cold_rho_new(isink)/(wdc_cold_w_new(isink)+tiny(0.0_dp))
+     rho_hot_sink(isink) =wdc_hot_rho_new(isink) /(wdc_hot_w_new(isink) +tiny(0.0_dp))
 
      if (agn.and.dMsink_overdt(isink)>0.0)then
         ! Check whether we should have AGN feedback
@@ -3020,7 +3045,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_dutycycle,epsilon_fixed,&
-       use_stellar_mass_torque
+       use_stellar_mass_torque,weighted_depletion
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)

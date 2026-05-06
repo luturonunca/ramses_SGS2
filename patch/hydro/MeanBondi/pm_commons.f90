@@ -43,6 +43,9 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_hot_rho,   wdc_hot_rho_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_cs2,   wdc_hot_cs2_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_v2,    wdc_hot_v2_new
+  real(dp),allocatable,dimension(:)    ::wdc_cold_w,    wdc_cold_w_new
+  real(dp),allocatable,dimension(:)    ::wdc_cold_rho,  wdc_cold_rho_new
+  real(dp),allocatable,dimension(:)    ::rho_cold_sink, rho_hot_sink
   real(dp),allocatable,dimension(:)    ::dMdc_cold_sink, dMdc_hot_sink
   real(dp),allocatable,dimension(:)    ::wnorot_w, wnorot_rho, wnorot_cs2, wnorot_v2
   real(dp),allocatable,dimension(:)    ::wnorot_w_new, wnorot_rho_new, wnorot_cs2_new, wnorot_v2_new

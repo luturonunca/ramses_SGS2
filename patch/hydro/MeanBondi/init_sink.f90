@@ -130,6 +130,12 @@ subroutine init_sink
   allocate(wdc_hot_cs2_new(1:nsinkmax))
   allocate(wdc_hot_v2(1:nsinkmax))   ; wdc_hot_v2=0.d0
   allocate(wdc_hot_v2_new(1:nsinkmax))
+  allocate(wdc_cold_w(1:nsinkmax))   ; wdc_cold_w=0.d0
+  allocate(wdc_cold_w_new(1:nsinkmax))
+  allocate(wdc_cold_rho(1:nsinkmax)) ; wdc_cold_rho=0.d0
+  allocate(wdc_cold_rho_new(1:nsinkmax))
+  allocate(rho_cold_sink(1:nsinkmax)); rho_cold_sink=0.d0
+  allocate(rho_hot_sink(1:nsinkmax)) ; rho_hot_sink=0.d0
   allocate(dMdc_cold_sink(1:nsinkmax)); dMdc_cold_sink=0.d0
   allocate(dMdc_hot_sink(1:nsinkmax)) ; dMdc_hot_sink=0.d0
   allocate(msink_new(1:nsinkmax))
