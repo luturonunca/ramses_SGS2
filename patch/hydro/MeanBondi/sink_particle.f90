@@ -1086,7 +1086,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 #endif
   real(dp)::factG,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dx,dx_loc,dx_min,dx_cloud,scale,vol_min,vol_loc,vol_cloud,weight,m_acc,m_acc_smbh
-  real(dp)::S_T_dep,m_acc_cold_dep,m_acc_hot_dep
+  real(dp)::cs2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep
+  real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
+  real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim)::xpart
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
@@ -1215,17 +1217,40 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               end if
            else
               if(weighted_depletion .and. dutycycle_blend_switch)then
-                 ! Recompute temperature sigmoid at this cell
-                 e=uold(indp(j,ind),ndim+2)
-                 e=e-0.5d0*d*(vv(1)**2+vv(2)**2+vv(3)**2)
-                 e=e/d
-                 S_T_dep=1.0d0/(1.0d0+exp((max((gamma-1.0d0)*e,smallc**2)-cs2_cold_code)/dcs2_cold_code))
+                 ! Local thermal cs2 (does not overwrite e, which is needed for energy removal below)
+                 cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
+                 S_T_dep=1.0d0/(1.0d0+exp((cs2_loc-cs2_cold_code)/dcs2_cold_code))
                  ! Cold channel: remove from cold gas proportional to S_T * d / rho_cold_mean
                  m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight*S_T_dep*d &
                       &        /(wdc_cold_rho_new(isink)+tiny(0.0_dp))
                  ! Hot channel: remove from hot gas proportional to (1-S_T) * d / rho_hot_mean
                  m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight*(1.0d0-S_T_dep)*d &
-                      &        /(wdc_hot_rho_new(isink) +tiny(0.0_dp))
+                      &        /(wdc_hot_rho_new(isink)+tiny(0.0_dp))
+                 m_acc     =max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
+                 m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+              else if(weighted_depletion .and. two_channel_accretion_switch)then
+                 ! Local thermal cs2
+                 cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
+                 ! Local rotation: reuse r_rel and v_rel already computed above
+                 if(r_len>0.0d0)then
+                    vr_loc_dep=sum(v_rel(1:ndim)*r_rel(1:ndim))/r_len
+                 else
+                    vr_loc_dep=0.0d0
+                 end if
+                 vphi2_loc_dep=max(sum(v_rel(1:ndim)**2)-vr_loc_dep**2,0.0d0)
+                 chi_loc_dep=vphi2_loc_dep/(vphi2_loc_dep+vr_loc_dep**2+cs2_loc+sigma2sink(isink)+tiny(0.0_dp))
+                 ! Triple-sigmoid phase weights (mirror of collect_acczone_avg_np)
+                 S_T_loc2  =1.0d0/(1.0d0+exp((cs2_loc       -cs2_cold_code)/dcs2_cold_code))
+                 S_n_loc2  =1.0d0/(1.0d0+exp(-(d            -d_cold_code)  /dd_cold_code  ))
+                 S_rot_loc2=1.0d0/(1.0d0+exp(-(chi_loc_dep  -chi_crit)     /delta_chi     ))
+                 cold_w_dep=S_T_loc2*S_n_loc2*S_rot_loc2
+                 hot_w_dep =(1.0d0-S_T_loc2)*(1.0d0-S_n_loc2)*(1.0d0-S_rot_loc2)
+                 ! Cold (torque) channel: remove from cold-rotating gas
+                 m_acc_cold_dep=dMtorque2_sink(isink)*dtnew(ilevel)*weight*cold_w_dep*d &
+                      &        /(wcold_rho_new(isink)+tiny(0.0_dp))
+                 ! Hot (Bondi) channel: remove from hot-nonrotating gas
+                 m_acc_hot_dep =dMbondi2_sink(isink) *dtnew(ilevel)*weight*hot_w_dep*d &
+                      &        /(whot_rho_new(isink) +tiny(0.0_dp))
                  m_acc     =max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
                  m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
               else
