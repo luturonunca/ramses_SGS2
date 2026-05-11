@@ -197,6 +197,11 @@ module amr_parameters
                                    ! Set to .false. to run with iheavy enabled but no BNS
                                    ! particles (e.g. baseline tests of HEAVY advection).
   character(len=128)::bns_table_dir=''
+  logical ::fixed_bns_vars=.false. ! Use fixed values instead of drawing from distributions
+  real(dp)::bns_t_sn2  =0.0D0  ! Fixed BNS t_SN2 delay in Myr (used when fixed_bns_vars=.true.)
+  real(dp)::bns_t_merge=0.0D0  ! Fixed BNS merger delay in Myr (used when fixed_bns_vars=.true.)
+  real(dp)::bns_v_kick1=0.0D0  ! Fixed BNS kick1 in km/s (used when fixed_bns_vars=.true.)
+  real(dp)::bns_v_kick2=0.0D0  ! Fixed BNS kick2 in km/s (used when fixed_bns_vars=.true.)
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
   real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa
