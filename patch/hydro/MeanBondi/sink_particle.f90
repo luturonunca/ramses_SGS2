@@ -1225,8 +1225,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  ! rate split between channels but does not re-normalise the spatial kernel.
                  m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight/volume*S_T_dep*d/density
                  m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight/volume*(1.0d0-S_T_dep)*d/density
-                 m_acc     =max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
-                 m_acc_smbh=dMsmbh_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+                 m_acc_smbh=max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
+                 m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
               else if(weighted_depletion .and. two_channel_accretion_switch)then
                  ! Local thermal cs2
                  cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
@@ -1679,8 +1679,12 @@ subroutine compute_accretion_rate(write_sinks)
         dMBHoverdt_smbh(isink)=4.*3.1415926*rho_inf_smbh*r2_smbh*v_bondi
         dMBHoverdt_fraction_smbh(isink)= 4.d0* 3.1415926d0 * (factG * msmbh(isink))**2 *frac_mean
         dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
-        if(bondi_accretion)dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
-        if(mean_bondi)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
+        if(dutycycle_blend_switch)then
+           dMsmbh_overdt(isink)=dMdc_cold_sink(isink)+dMdc_hot_sink(isink)
+        else if(bondi_accretion)then
+           dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
+        end if
+        if(mean_bondi.and..not.dutycycle_blend_switch)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
         if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         if(constant_eddington)dMsmbh_overdt(isink)=min(dMEDoverdt_smbh(isink),mgas/max(dtnew(levelmin),tiny(0.0_dp)))
@@ -1695,7 +1699,7 @@ subroutine compute_accretion_rate(write_sinks)
      rho_cold_sink(isink)=wdc_cold_rho_new(isink)/(wdc_cold_w_new(isink)+tiny(0.0_dp))
      rho_hot_sink(isink) =wdc_hot_rho_new(isink) /(wdc_hot_w_new(isink) +tiny(0.0_dp))
 
-     if (agn.and.dMsink_overdt(isink)>0.0)then
+     if (agn.and.dMsmbh_overdt(isink)>0.0)then
         ! Check whether we should have AGN feedback
         if(T2_min<=0.0)then ! If zero or less, we always deposit feedback
            ok_blast_agn(isink)=.true.
