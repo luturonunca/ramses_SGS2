@@ -55,6 +55,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
 #endif
   integer,parameter::tag=1121
   real(dp)::e,uvar
+  integer::ios_open
 #if NENER>0
   integer::irad
 #endif
@@ -108,7 +109,11 @@ subroutine mechanical_feedback_fine(ilevel,icount)
      endif
      if(.not.unit_open) then
         inquire(file=fileloc,exist=file_exist)
-        open(ilun, file=fileloc, status="unknown", position="append", action="write", form='formatted')
+        open(ilun, file=fileloc, status="unknown", position="append", action="write", form='formatted', IOSTAT=ios_open)
+        if(ios_open/=0)then
+           write(*,*)'>>> sf_log_properties: cannot open ',trim(fileloc),' IOSTAT=',ios_open,' myid=',myid
+           call clean_stop
+        endif
         if(.not.file_exist) then
            write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
            do idim=1,ndim
@@ -549,7 +554,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
 #ifndef WITHOUTMPI
   nSNc_mpi=0
   ! Deal with the stars around the bounary of each cpu (need MPI)
-  if(myid==1) write(*,*) '[diag] before mech_fine_mpi level', ilevel, 'nSN_comm=', nSN_comm
+  write(*,'(A,2I6)') '[diag] mfm-fence rank=', myid, nSN_comm
   call mech_fine_mpi(ilevel)
   if(myid==1) write(*,*) '[diag] after mech_fine_mpi level', ilevel
   call MPI_ALLREDUCE(nSNc,nSNc_mpi,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
@@ -1027,13 +1032,15 @@ subroutine mech_fine_mpi(ilevel)
   !============================================================
   ncpu_send=0;ncpu_recv=0
 
-  nSN_comm_cpu=0 
+  nSN_comm_cpu=0
   nSN_comm_mpi=0
   nSN_comm_mpi(myid)=nSN_comm
   ! compute the total number of communications needed
+  if(myid==1) write(*,*) '[diag] mfm: before allreduce1'
   call MPI_ALLREDUCE(nSN_comm_mpi(1),nSN_comm_cpu(1),ncpu,&
                    & MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
   nSN_tot = sum(nSN_comm_cpu)
+  if(myid==1) write(*,*) '[diag] mfm: after allreduce1, nSN_tot=', nSN_tot
   if(nSN_tot==0) return
 
 
@@ -1060,8 +1067,10 @@ subroutine mech_fine_mpi(ilevel)
 
   ! share the list of communications
   icpuSN_comm_mpi=0
+  if(myid==1) write(*,*) '[diag] mfm: before allreduce2, nSN_tot=', nSN_tot
   call MPI_ALLREDUCE(icpuSN_comm(1,1),icpuSN_comm_mpi(1,1),nSN_tot*2,&
                    & MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+  if(myid==1) write(*,*) '[diag] mfm: after allreduce2'
 
   ncell_send = nSN_comm_cpu(myid)
   ncell_recv = count(icpuSN_comm_mpi(:,2).eq.myid, 1)
@@ -1161,8 +1170,11 @@ subroutine mech_fine_mpi(ilevel)
 
   endif ! ncell_recv >0
 
+  if(myid==1) write(*,*) '[diag] mfm: before waitall_send', ncpu_send
   if(ncpu_send>0)call MPI_WAITALL(ncpu_send,reqsend,statsend,info)
+  if(myid==1) write(*,*) '[diag] mfm: before waitall_recv', ncpu_recv
   if(ncpu_recv>0)call MPI_WAITALL(ncpu_recv,reqrecv,statrecv,info)
+  if(myid==1) write(*,*) '[diag] mfm: after waitalls'
 
 
   !============================================================
@@ -1405,7 +1417,7 @@ subroutine get_number_of_sn2(birth_time,zp_star,id_star,mass0,mass1,nsn,done_sta
   nsn = nsn_ok - nsn_sofar
   if(nsn_tot.eq.0)then
       write(*,*) 'Fatal error: please increase the mass of your star particle'
-      stop
+      call clean_stop
   endif
 
   done_star=.false.
