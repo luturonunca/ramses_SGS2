@@ -411,7 +411,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  kickz_bns(nbns)=kick1_mag*costheta
                  t_sn2_bns(nbns)=current_time+t_sn2_delay
                  vkick2_bns(nbns)=kick2_mag
-                 t_merge_bns(nbns)=current_time+t_merge_delay
+                 t_merge_bns(nbns)=current_time+t_sn2_delay+t_merge_delay
                  m1_bns_val(nbns)=m1_code
                  mbns_val(nbns)=bns_mass_code
                  mp(ind_part(j))=mp(ind_part(j))-bns_mass_code

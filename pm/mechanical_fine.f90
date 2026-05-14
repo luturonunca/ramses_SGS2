@@ -999,7 +999,7 @@ subroutine mech_fine_mpi(ilevel)
   implicit none
 #ifndef WITHOUTMPI
   include 'mpif.h'
-  integer::i,j,info,nSN_tot,icpu,ncpu_send,ncpu_recv,ncc
+  integer::i,j,info,nSN_tot,icpu,ncpu_send,ncpu_recv,ncc,icc
   integer::ncell_recv,ncell_send,cpu2send,cpu2recv,tag,np
   integer::isend_sta,irecv_sta,irecv_end
   real(dp),dimension(:,:),allocatable::SNsend,SNrecv,p_solid
@@ -1107,6 +1107,7 @@ subroutine mech_fine_mpi(ilevel)
 
   ! prepare one variable and send
   if(ncell_send>0)then
+     icc=0
      do icpu=1,ncpu_send
         cpu2send = list2send(icpu)
         ncc=0 ! number of SN host cells that need communications with myid=cpu2send
@@ -1114,18 +1115,19 @@ subroutine mech_fine_mpi(ilevel)
            j=i+isend_sta
            if(icpuSN_comm_mpi(j,2).eq.cpu2send)then
               ncc=ncc+1
-              SNsend(1:3,ncc)=xSN_comm (1:3,i)
-              SNsend(4  ,ncc)=mSN_comm (    i)
-              SNsend(5  ,ncc)=mloadSN_comm (i)
-              SNsend(6:8,ncc)=ploadSN_comm (1:3,i)
-              SNsend(9  ,ncc)=floadSN_comm   (i)
-              if(metal)SNsend(10,ncc)=mZloadSN_comm(i)
+              SNsend(1:3,icc+ncc)=xSN_comm (1:3,i)
+              SNsend(4  ,icc+ncc)=mSN_comm (    i)
+              SNsend(5  ,icc+ncc)=mloadSN_comm (i)
+              SNsend(6:8,icc+ncc)=ploadSN_comm (1:3,i)
+              SNsend(9  ,icc+ncc)=floadSN_comm   (i)
+              if(metal)SNsend(10,icc+ncc)=mZloadSN_comm(i)
            endif
         end do ! i
 
         tag = myid + cpu2send + ncc
-        call MPI_ISEND (SNsend(1:nvarSN,1:ncc),ncc*nvarSN,MPI_DOUBLE_PRECISION, &
-                      & cpu2send-1,tag,MPI_COMM_WORLD,reqsend(icpu),info) 
+        call MPI_ISEND (SNsend(1:nvarSN,icc+1:icc+ncc),ncc*nvarSN,MPI_DOUBLE_PRECISION, &
+                      & cpu2send-1,tag,MPI_COMM_WORLD,reqsend(icpu),info)
+        icc=icc+ncc
      end do ! icpu
 
   endif ! ncell_send>0
