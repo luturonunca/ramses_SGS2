@@ -549,7 +549,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
 #ifndef WITHOUTMPI
   nSNc_mpi=0
   ! Deal with the stars around the bounary of each cpu (need MPI)
+  if(myid==1) write(*,*) '[diag] before mech_fine_mpi level', ilevel, 'nSN_comm=', nSN_comm
   call mech_fine_mpi(ilevel)
+  if(myid==1) write(*,*) '[diag] after mech_fine_mpi level', ilevel
   call MPI_ALLREDUCE(nSNc,nSNc_mpi,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
   nSNc = nSNc_mpi
   if(myid.eq.1.and.nSNc>0.and.log_mfb) then
@@ -631,15 +633,15 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
 
      if(cpu_map(father(igrid)).ne.myid)then  ! sanity check
         print *,'>>> error in mech_fine: myid does not belong to this SNcell???'
-        stop
+        call clean_stop
      endif
      if(ilevel.ne.ilevel2)then !sanity check
         print *,'>>> error in mech_fine: ilevel != ilevel2', ilevel,ilevel2
-        stop
+        call clean_stop
      endif
      if(ind_cell.ne.icell)then !sanity check
         print *,'>>> error in mech_fine: ind_cell != icell???'
-        stop
+        call clean_stop
      endif
 
 
