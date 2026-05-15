@@ -75,7 +75,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   nSNc=0
   if(.not.mech_init)then
      call init_mechanical
-     if(bns_formation) call init_bns_tables()
+     if(bns_formation .and. .not.fixed_bns_vars) call init_bns_tables()
      mech_init=.true.
   endif
   nbns=0
