@@ -174,6 +174,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   mloadSN_comm=0d0;mZloadSN_comm=0d0;iSN_comm=0;floadSN_comm=0d0
 #endif
 
+  write(*,'(A,2I6)') '[diag] mff-partloop start rank=', myid, ilevel
+  flush(6)
+
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -367,7 +370,11 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                           zstar=0.0d0
                           if(metal)zstar=zp(ipart)
                           mass_msun=mp(ipart)*(scale_d*scale_l**3)/2d33
+                          write(*,'(A,I6,A,L1)') '[diag] before bns_draw rank=', myid, ' bns_tables_ready=', bns_tables_ready
+                          flush(6)
                           call bns_draw(mass_msun,zstar,pbns,m1_val,m2_val,kick1_mag,kick2_mag,t_sn2_delay,t_merge_delay)
+                          write(*,'(A,I6,A,E12.4)') '[diag] after bns_draw rank=', myid, ' pbns=', pbns
+                          flush(6)
                           call ranf(localseed,RandNum)
                           if(RandNum<pbns)then
                              nbns=nbns+1
