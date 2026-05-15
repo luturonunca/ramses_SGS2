@@ -140,6 +140,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
      endif
   endif
 
+  write(*,'(A,2I6)') '[diag] mff-A (after sf_log open) rank=', myid, ilevel
+  flush(6)
+
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   scale_msun = (boxlen*scale_l)**3*scale_d/msun2g
@@ -516,6 +519,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
 
   end do ! End loop over cpus
 
+  write(*,'(A,2I6)') '[diag] mff-B (after particle loop) rank=', myid, ilevel
+  flush(6)
+
   if(nbns>0)then
      if(numbp_free<nbns)then
         write(*,*)'No more free memory for BNS particles'
@@ -550,6 +556,9 @@ subroutine mechanical_feedback_fine(ilevel,icount)
      end do
   endif
 
+
+  write(*,'(A,2I6)') '[diag] mff-C (after BNS block) rank=', myid, ilevel
+  flush(6)
 
 #ifndef WITHOUTMPI
   nSNc_mpi=0
