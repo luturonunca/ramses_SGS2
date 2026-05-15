@@ -1685,7 +1685,13 @@ subroutine compute_accretion_rate(write_sinks)
            dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
         end if
         if(mean_bondi.and..not.dutycycle_blend_switch)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
-        if(eddington_limit)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
+        if(eddington_limit)then
+           if(dutycycle_blend_switch)then
+              dMsmbh_overdt(isink)=min(dMdc_cold_sink(isink)+dMdc_hot_sink(isink),dMEDoverdt_smbh(isink))
+           else
+              dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
+           end if
+        end if
         if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         if(constant_eddington)dMsmbh_overdt(isink)=min(dMEDoverdt_smbh(isink),mgas/max(dtnew(levelmin),tiny(0.0_dp)))
         dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
