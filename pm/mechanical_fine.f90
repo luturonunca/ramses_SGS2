@@ -75,6 +75,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   nSNc=0
   if(.not.mech_init)then
      call init_mechanical
+     if(bns_formation) call init_bns_tables()
      mech_init=.true.
   endif
   nbns=0
@@ -140,9 +141,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
      endif
   endif
 
-  write(*,'(A,2I6)') '[diag] mff-A (after sf_log open) rank=', myid, ilevel
-  flush(6)
-
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   scale_msun = (boxlen*scale_l)**3*scale_d/msun2g
@@ -173,9 +171,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   xSN_comm=0d0;ploadSN_comm=0d0;mSN_comm=0d0
   mloadSN_comm=0d0;mZloadSN_comm=0d0;iSN_comm=0;floadSN_comm=0d0
 #endif
-
-  write(*,'(A,2I6)') '[diag] mff-partloop start rank=', myid, ilevel
-  flush(6)
 
   ! Loop over cpus
   do icpu=1,ncpu
@@ -370,11 +365,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                           zstar=0.0d0
                           if(metal)zstar=zp(ipart)
                           mass_msun=mp(ipart)*(scale_d*scale_l**3)/2d33
-                          write(*,'(A,I6,A,L1)') '[diag] before bns_draw rank=', myid, ' bns_tables_ready=', bns_tables_ready
-                          flush(6)
                           call bns_draw(mass_msun,zstar,pbns,m1_val,m2_val,kick1_mag,kick2_mag,t_sn2_delay,t_merge_delay)
-                          write(*,'(A,I6,A,E12.4)') '[diag] after bns_draw rank=', myid, ' pbns=', pbns
-                          flush(6)
                           call ranf(localseed,RandNum)
                           if(RandNum<pbns)then
                              nbns=nbns+1
@@ -526,9 +517,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
 
   end do ! End loop over cpus
 
-  write(*,'(A,2I6)') '[diag] mff-B (after particle loop) rank=', myid, ilevel
-  flush(6)
-
   if(nbns>0)then
      if(numbp_free<nbns)then
         write(*,*)'No more free memory for BNS particles'
@@ -564,15 +552,10 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   endif
 
 
-  write(*,'(A,2I6)') '[diag] mff-C (after BNS block) rank=', myid, ilevel
-  flush(6)
-
 #ifndef WITHOUTMPI
   nSNc_mpi=0
   ! Deal with the stars around the bounary of each cpu (need MPI)
-  write(*,'(A,2I6)') '[diag] mfm-fence rank=', myid, nSN_comm
   call mech_fine_mpi(ilevel)
-  if(myid==1) write(*,*) '[diag] after mech_fine_mpi level', ilevel
   call MPI_ALLREDUCE(nSNc,nSNc_mpi,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
   nSNc = nSNc_mpi
   if(myid.eq.1.and.nSNc>0.and.log_mfb) then
@@ -639,9 +622,6 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
         xc2(idim,i)=xg(ind_grid(i),idim)-skip_loc(idim)+xc(ind_pos_cell(i),idim)
      end do 
   end do
-
-  write(*,'(A,2I6)') '[diag] mech_fine entry rank=', myid, np
-  flush(6)
 
   ! Determine p_solid before redistributing mass (momentum along some solid angle or cell)
   ! - This way is desirable when two adjacent SNe explode simulataenously.
@@ -823,9 +803,6 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
      enddo ! loop over neighboring cells
   enddo ! loop over SN cells
 
-  write(*,'(A,I6)') '[diag] mech_fine loop1 done rank=', myid
-  flush(6)
-
   ! Redistribute mass from the SN cell
   do i=1,np
      icell = ncoarse+ind_grid(i)+(ind_pos_cell(i)-1)*ngridmax
@@ -868,9 +845,6 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
      de_gas(i) = de_gas(i) + (e_new-e_old)
 
   enddo  ! loop over SN cell
-
-  write(*,'(A,I6)') '[diag] mech_fine loop2 done rank=', myid
-  flush(6)
 
   ! Find and save stars affecting across the boundary of a cpu
   do i=1,np
@@ -1017,9 +991,6 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
 
   end do ! loop over SN cell
 
-  write(*,'(A,I6)') '[diag] mech_fine loop3 done rank=', myid
-  flush(6)
-
 end subroutine mech_fine
 !################################################################
 !################################################################
@@ -1062,11 +1033,9 @@ subroutine mech_fine_mpi(ilevel)
   nSN_comm_mpi=0
   nSN_comm_mpi(myid)=nSN_comm
   ! compute the total number of communications needed
-  if(myid==1) write(*,*) '[diag] mfm: before allreduce1'
   call MPI_ALLREDUCE(nSN_comm_mpi(1),nSN_comm_cpu(1),ncpu,&
                    & MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
   nSN_tot = sum(nSN_comm_cpu)
-  if(myid==1) write(*,*) '[diag] mfm: after allreduce1, nSN_tot=', nSN_tot
   if(nSN_tot==0) return
 
 
@@ -1093,10 +1062,8 @@ subroutine mech_fine_mpi(ilevel)
 
   ! share the list of communications
   icpuSN_comm_mpi=0
-  if(myid==1) write(*,*) '[diag] mfm: before allreduce2, nSN_tot=', nSN_tot
   call MPI_ALLREDUCE(icpuSN_comm(1,1),icpuSN_comm_mpi(1,1),nSN_tot*2,&
                    & MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
-  if(myid==1) write(*,*) '[diag] mfm: after allreduce2'
 
   ncell_send = nSN_comm_cpu(myid)
   ncell_recv = count(icpuSN_comm_mpi(:,2).eq.myid, 1)
@@ -1196,11 +1163,8 @@ subroutine mech_fine_mpi(ilevel)
 
   endif ! ncell_recv >0
 
-  if(myid==1) write(*,*) '[diag] mfm: before waitall_send', ncpu_send
   if(ncpu_send>0)call MPI_WAITALL(ncpu_send,reqsend,statsend,info)
-  if(myid==1) write(*,*) '[diag] mfm: before waitall_recv', ncpu_recv
   if(ncpu_recv>0)call MPI_WAITALL(ncpu_recv,reqrecv,statrecv,info)
-  if(myid==1) write(*,*) '[diag] mfm: after waitalls'
 
 
   !============================================================
