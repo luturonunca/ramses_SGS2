@@ -1086,7 +1086,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 #endif
   real(dp)::factG,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dx,dx_loc,dx_min,dx_cloud,scale,vol_min,vol_loc,vol_cloud,weight,m_acc,m_acc_smbh
-  real(dp)::cs2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep
+  real(dp)::cs2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
   real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
   real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
   ! Grid based arrays
@@ -1226,6 +1226,11 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight/volume*S_T_dep*d/density
                  m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight/volume*(1.0d0-S_T_dep)*d/density
                  m_acc_smbh=max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
+                 if(eddington_limit)then
+                    dMtot_dc=dMdc_cold_sink(isink)+dMdc_hot_sink(isink)
+                    if(dMtot_dc>tiny(0.0_dp)) &
+                       m_acc_smbh=m_acc_smbh*min(1.0_dp,dMsmbh_overdt(isink)/dMtot_dc)
+                 end if
                  m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
               else if(weighted_depletion .and. two_channel_accretion_switch)then
                  ! Local thermal cs2
