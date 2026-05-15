@@ -624,7 +624,10 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
      end do 
   end do
 
-  ! Determine p_solid before redistributing mass (momentum along some solid angle or cell) 
+  write(*,'(A,2I6)') '[diag] mech_fine entry rank=', myid, np
+  flush(6)
+
+  ! Determine p_solid before redistributing mass (momentum along some solid angle or cell)
   ! - This way is desirable when two adjacent SNe explode simulataenously.
   ! - if the neighboring cell does not belong to myid, this will be done in mech_fine_mpi
   p_solid=0d0
@@ -804,7 +807,9 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
      enddo ! loop over neighboring cells
   enddo ! loop over SN cells
 
- 
+  write(*,'(A,I6)') '[diag] mech_fine loop1 done rank=', myid
+  flush(6)
+
   ! Redistribute mass from the SN cell
   do i=1,np
      icell = ncoarse+ind_grid(i)+(ind_pos_cell(i)-1)*ngridmax
@@ -848,6 +853,8 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
 
   enddo  ! loop over SN cell
 
+  write(*,'(A,I6)') '[diag] mech_fine loop2 done rank=', myid
+  flush(6)
 
   ! Find and save stars affecting across the boundary of a cpu
   do i=1,np
@@ -993,6 +1000,9 @@ subroutine mech_fine(ind_grid,ind_pos_cell,np,ilevel,mSN_cell,pSN,mZSN_cell,dtef
 
 
   end do ! loop over SN cell
+
+  write(*,'(A,I6)') '[diag] mech_fine loop3 done rank=', myid
+  flush(6)
 
 end subroutine mech_fine
 !################################################################
