@@ -1678,7 +1678,7 @@ subroutine mechanical_feedback_cell
                  if(son(ind_cell)==0)then
                     nSNp=nSNp+1
                     if(bns_sn)then
-                       mejecta=eta_sn*mp(ipart)
+                       mejecta=max(0d0, mp(ipart) - 2d0*M_ns*2d33/(scale_d*scale_l**3))
                        if(vkick2(ipart).ne.0d0)then
                           call ranf(localseed,RandNum)
                           costheta=2.0d0*RandNum-1.0d0
@@ -2787,7 +2787,7 @@ subroutine bns_merger_enrich(ilevel)
                     mejecta    = eta_merger*mp(ipart)
                     heavyzloss = eu_yield+(1d0-eu_yield)*zp_heavy(ipart)
                     mheavyloss = mejecta*heavyzloss/vol_loc
-                    unew(ind_cell,iheavy)=unew(ind_cell,iheavy)+mheavyloss
+                    uold(ind_cell,iheavy)=uold(ind_cell,iheavy)+mheavyloss
                     if(sf_log_properties) then
                        write(ilun,'(I10)',advance='no') 4
                        write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)

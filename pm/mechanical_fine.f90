@@ -133,7 +133,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
            write(ilun,'(A5)',advance='no') 'tag  '
            write(ilun,'(A1)') ' '
            if(bns_enrichment) then
-              write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2'
+              write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
            else
               write(ilun,'(A)') '# event id: 0=SF, 1=SN'
            endif
@@ -295,7 +295,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  ind_cell=iskip+igrid
                  if(son(ind_cell)==0)then  ! leaf cell
                     if(bns_sn)then
-                       mejecta = M_SNII/scale_msun
+                       mejecta = max(0d0, mp(ipart) - 2d0*M_ns*2d33/(scale_d*scale_l**3))
                        if(vkick2(ipart).ne.0d0)then
                           call ranf(localseed,RandNum)
                           costheta=2.0d0*RandNum-1.0d0
