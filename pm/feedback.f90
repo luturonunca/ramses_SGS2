@@ -2836,6 +2836,7 @@ subroutine bns_merger_enrich(ilevel)
   if(sf_log_properties) close(ilun)
 
 end subroutine bns_merger_enrich
+#endif
 
 !################################################################
 !################################################################
