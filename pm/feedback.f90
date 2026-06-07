@@ -2836,6 +2836,210 @@ subroutine bns_merger_enrich(ilevel)
   if(sf_log_properties) close(ilun)
 
 end subroutine bns_merger_enrich
+
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+#if NDIM==3
+subroutine bns_sn2_fine(ilevel)
+  use pm_commons
+  use amr_commons
+  use hydro_commons
+  use mpi_mod
+  implicit none
+  integer,intent(in)::ilevel
+  !------------------------------------------------------------------------
+  ! Scans BNS particles with tag=0 whose SN2 time has been reached.
+  ! Applies natal kick2 to the BNS particle, deposits SN ejecta
+  ! thermally (mass, momentum, energy, metals, delayed-cooling tracer)
+  ! into the host gas cell, and sets tag=1.
+  ! Called every fine step from amr_step, independent of feedback choice.
+  !------------------------------------------------------------------------
+  integer::igrid,jgrid,ipart,jpart,next_part,icpu
+  integer::npart1,ind,ind_son,ind_cell,iskip,idim
+  integer::ilun,ivar
+  integer::info2,dummy_io
+  integer,parameter::io_tag=1121
+  real(dp)::current_time,dx,dx_loc,vol_loc,scale
+  real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
+  real(dp)::mejecta,mejecta_vol,zloss,mzloss,ethermal,ekinetic,ESN
+  real(dp)::vx,vy,vz
+  real(dp)::RandNum,costheta,sintheta,phi
+  real(dp)::e,uvar
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  real(dp),parameter::pi=acos(-1.0d0)
+  character(LEN=80)::filename,filedir,fileloc,filedirini
+  character(LEN=5)::nchar,ncharcpu
+  logical::file_exist
+#if NENER>0
+  integer::irad
+#endif
+
+  if(numbtot(1,ilevel)==0)return
+  if(nstar_tot==0)return
+
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  call mesh_info(ilevel,skip_loc,scale,dx,dx_loc,vol_loc,xc)
+  ESN = 1d51/(10d0*2d33)/scale_v**2
+
+  if(sf_log_properties) then
+     call title(ifout-1,nchar)
+     if(IOGROUPSIZEREP>0) then
+        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+        filedirini='output_'//TRIM(nchar)//'/'
+        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+     else
+        filedir='output_'//TRIM(nchar)//'/'
+     endif
+     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+     ilun=myid+103
+     call title(myid,nchar)
+     fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+     if(IOGROUPSIZE>0) then
+        if (mod(myid-1,IOGROUPSIZE)/=0) then
+           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,io_tag,&
+                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+        end if
+     endif
+#endif
+     inquire(file=fileloc,exist=file_exist)
+     if(.not.file_exist) then
+        open(ilun, file=fileloc, form='formatted')
+        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+        enddo
+        do idim=1,ndim
+           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+        enddo
+        do ivar=1,nvar
+           if(ivar.ge.10) then
+              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+           else
+              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+           endif
+        enddo
+        write(ilun,'(A5)',advance='no') 'tag  '
+        write(ilun,'(A1)') ' '
+        write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+     else
+        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+     endif
+  endif
+
+  if(use_proper_time)then
+     current_time=texp
+  else
+     current_time=t
+  endif
+
+  ! Loop over cpus
+  do icpu=1,ncpu
+     igrid=headl(icpu,ilevel)
+     ! Loop over grids
+     do jgrid=1,numbl(icpu,ilevel)
+        npart1=numbp(igrid)
+        if(npart1>0)then
+           do idim=1,ndim
+              x0(idim)=xg(igrid,idim)-dx-skip_loc(idim)
+           end do
+           ipart=headp(igrid)
+           ! Loop over particles
+           do jpart=1,npart1
+              next_part=nextp(ipart)
+              if(is_bns(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
+                   & t_sn2(ipart).le.current_time)then
+                 ! Find the host cell
+                 ind_son=1
+                 do idim=1,ndim
+                    ind=int((xp(ipart,idim)/scale-x0(idim))/dx)
+                    ind_son=ind_son+ind*2**(idim-1)
+                 end do
+                 iskip=ncoarse+(ind_son-1)*ngridmax
+                 ind_cell=iskip+igrid
+                 if(son(ind_cell)==0)then  ! leaf cell only
+                    mejecta = max(0d0, mp(ipart) - 2d0*M_ns*2d33/(scale_d*scale_l**3))
+                    ! Save pre-kick velocity for gas momentum deposit
+                    vx=vp(ipart,1); vy=vp(ipart,2); vz=vp(ipart,3)
+                    ! Apply natal kick2 to BNS particle
+                    if(vkick2(ipart).ne.0d0)then
+                       call ranf(localseed,RandNum)
+                       costheta=2.0d0*RandNum-1.0d0
+                       call ranf(localseed,RandNum)
+                       phi=2.0d0*pi*RandNum
+                       sintheta=sqrt(max(0.0d0,1.0d0-costheta*costheta))
+                       vp(ipart,1)=vp(ipart,1)+vkick2(ipart)*sintheta*cos(phi)
+                       vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
+                       vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
+                    endif
+                    if(sf_log_properties) then
+                       write(ilun,'(I10)',advance='no') 3
+                       write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
+                       do idim=1,ndim
+                          write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
+                       enddo
+                       do idim=1,ndim
+                          write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
+                       enddo
+                       write(ilun,'(E24.12)',advance='no') uold(ind_cell,1)
+                       do ivar=2,nvar
+                          if(ivar.eq.ndim+2)then
+                             e=0.0d0
+                             do idim=1,ndim
+                                e=e+0.5*uold(ind_cell,idim+1)**2/max(uold(ind_cell,1),smallr)
+                             enddo
+#if NENER>0
+                             do irad=0,nener-1
+                                e=e+uold(ind_cell,inener+irad)
+                             enddo
+#endif
+#ifdef SOLVERmhd
+                             do idim=1,ndim
+                                e=e+0.125d0*(uold(ind_cell,idim+ndim+2)+uold(ind_cell,idim+nvar))**2
+                             enddo
+#endif
+                             uvar=(gamma-1.0)*(uold(ind_cell,ndim+2)-e)*scale_T2
+                          else
+                             uvar=uold(ind_cell,ivar)
+                          endif
+                          write(ilun,'(E24.12)',advance='no') uvar/uold(ind_cell,1)
+                       enddo
+                       write(ilun,'(I10)',advance='no') typep(ipart)%tag
+                       write(ilun,'(A1)') ' '
+                    endif
+                    ! Deposit ejecta into host cell (thermal path, mirrors feedbk)
+                    mejecta_vol = mejecta / vol_loc
+                    ekinetic    = 0.5d0*(vx**2 + vy**2 + vz**2)
+                    ethermal    = mejecta * ESN / vol_loc
+                    uold(ind_cell,1)      = uold(ind_cell,1)      + mejecta_vol
+                    uold(ind_cell,2)      = uold(ind_cell,2)      + mejecta_vol*vx
+                    uold(ind_cell,3)      = uold(ind_cell,3)      + mejecta_vol*vy
+                    uold(ind_cell,4)      = uold(ind_cell,4)      + mejecta_vol*vz
+                    uold(ind_cell,ndim+2) = uold(ind_cell,ndim+2) + mejecta_vol*ekinetic + ethermal
+                    if(metal) then
+                       zloss  = yield + (1d0-yield)*zp(ipart)
+                       mzloss = mejecta_vol * zloss
+                       uold(ind_cell,imetal) = uold(ind_cell,imetal) + mzloss
+                    endif
+                    if(delayed_cooling) then
+                       uold(ind_cell,idelay) = uold(ind_cell,idelay) + mejecta_vol
+                    endif
+                    mp(ipart)          = mp(ipart) - mejecta
+                    typep(ipart)%tag   = 1
+                 endif
+              endif
+              ipart=next_part
+           end do
+        endif
+        igrid=next(igrid)
+     end do
+  end do
+
+  if(sf_log_properties) close(ilun)
+
+end subroutine bns_sn2_fine
 #endif
 !################################################################
 !################################################################

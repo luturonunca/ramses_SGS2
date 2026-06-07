@@ -295,7 +295,8 @@ recursive subroutine amr_step(ilevel,icount)
         call thermal_feedback(ilevel)
      endif
   endif
-  ! BNS merger r-process enrichment: independent of feedback choice
+  ! BNS SN2 and merger enrichment: independent of feedback choice
+  if(bns_formation)  call bns_sn2_fine(ilevel)
   if(bns_enrichment) call bns_merger_enrich(ilevel)
 #endif
 

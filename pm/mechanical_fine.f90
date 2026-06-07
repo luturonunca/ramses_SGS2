@@ -36,7 +36,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
   real(dp),parameter::myr2s=3.1536000d+13
   real(dp),parameter::pi=acos(-1.0d0)
   real(dp)::ttsta,ttend
-  logical::ok,done_star,bns_sn,is_bns_part,is_star_part
+  logical::ok,done_star,is_star_part
   logical,save::mech_init=.false.
   real(dp)::pbns,kick1_mag,t_sn2_delay,kick2_mag,t_merge_delay,m1_val,m2_val,zstar
   real(dp)::mass_msun,bns_mass_code,m1_code,t_delay_unit
@@ -196,22 +196,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ok=.false.
-              is_bns_part = is_bns(typep(ipart))
-              is_star_part = is_star(typep(ipart))
-              ! if(typep(ipart)%family/=FAM_DM) then
-              !    write(*,'(A,1X,I10,1X,I4,1X,L1,1X,L1,1X,ES14.6,1X,ES14.6)') &
-              !         & 'BNS_STAR_CHECK', idp(ipart), typep(ipart)%family, is_bns_part, is_star_part, &
-              !         & current_time, t_sn2(ipart)
-              ! endif
-              ! BNS SN2 eligibility: tag=0 means not yet exploded.
-              ! if(typep(ipart)%family/=FAM_DM) then
-              !    write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
-              !         & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
-              ! endif
-              if(is_bns_part .and. typep(ipart)%tag.eq.0 .and. &
-                   & t_sn2(ipart).le.current_time)then
-                 ok=.true.
-              endif
               ! SN eligibility: stars only, positive idp means not exploded yet.
               if(sn2_real_delay)then
                  ! if tp is younger than t_sne
@@ -256,19 +240,8 @@ subroutine mechanical_feedback_fine(ilevel,icount)
               ! Save next particle   <--- Very important !!!
               next_part=nextp(ipart)
               ok=.false.
-              bns_sn=.false.
-              is_bns_part = is_bns(typep(ipart))
-              ! if(typep(ipart)%family/=FAM_DM) then
-              !    write(*,'(A,1X,L1,1X,I10,1X,ES14.6,1X,ES14.6)') &
-              !         & 'BNS_SN2_GATE', is_bns_part, idp(ipart), t_sn2(ipart), current_time
-              ! endif
-              if(is_bns_part .and. typep(ipart)%tag.eq.0 .and. &
-                   & t_sn2(ipart).le.current_time)then
-                 bns_sn = .true.
-                 ok=.true.
-              endif
               ! SN eligibility: stars only, positive idp means not exploded yet.
-              if((.not.bns_sn) .and. sn2_real_delay)then
+              if(sn2_real_delay)then
                  ! if tp is younger than t_sne
                  if (is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).ge.tyoung) then
@@ -276,7 +249,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                              & mp0(ipart)*scale_msun,mp(ipart)*scale_msun,nsn_star,done_star)
                     if(nsn_star>0)ok=.true.
                  endif
-              else if(.not.bns_sn)then ! single SN event
+              else ! single SN event
                  ! if tp is older than t_sne
                  if (is_star(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                       & tp(ipart).le.tyoung)then
@@ -294,55 +267,7 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                  iskip=ncoarse+(ind_son-1)*ngridmax
                  ind_cell=iskip+igrid
                  if(son(ind_cell)==0)then  ! leaf cell
-                    if(bns_sn)then
-                       mejecta = max(0d0, mp(ipart) - 2d0*M_ns*2d33/(scale_d*scale_l**3))
-                       if(vkick2(ipart).ne.0d0)then
-                          call ranf(localseed,RandNum)
-                          costheta=2.0d0*RandNum-1.0d0
-                          call ranf(localseed,RandNum)
-                          phi=2.0d0*pi*RandNum
-                          sintheta=sqrt(max(0.0d0,1.0d0-costheta*costheta))
-                          vp(ipart,1)=vp(ipart,1)+vkick2(ipart)*sintheta*cos(phi)
-                          vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
-                          vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
-                       endif
-                       if(sf_log_properties) then
-                          write(ilun,'(I10)',advance='no') 3
-                          write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
-                          do idim=1,ndim
-                             write(ilun,'(E24.12)',advance='no') xp(ipart,idim)
-                          enddo
-                          do idim=1,ndim
-                             write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
-                          enddo
-                          write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
-                          do ivar=2,nvar
-                             if(ivar.eq.ndim+2)then
-                                e=0.0d0
-                                do idim=1,ndim
-                                   e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
-                                enddo
-#if NENER>0
-                                do irad=0,nener-1
-                                   e=e+unew(ind_cell,inener+irad)
-                                enddo
-#endif
-#ifdef SOLVERmhd
-                                do idim=1,ndim
-                                   e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
-                                enddo
-#endif
-                                uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
-                             else
-                                uvar=unew(ind_cell,ivar)
-                             endif
-                             write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
-                          enddo
-                          write(ilun,'(I10)',advance='no') typep(ipart)%tag
-                          write(ilun,'(A1)') ' '
-                       endif
-                       typep(ipart)%tag = 1
-                    else if(sn2_real_delay)then
+                    if(sn2_real_delay)then
                        mejecta = M_SNII/scale_msun*nsn_star
                     else
                        mejecta = mp(ipart)*eta_sn
@@ -356,7 +281,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
     
                     mp(ipart)=mp(ipart)-mejecta
 
-                    if(.not.bns_sn) then
                        ! bns_formation gates particle spawning independently of the iheavy scalar.
                        ! bns_enrichment=T + bns_formation=F: HEAVY advects but no BNS are created.
                        ! bns_enrichment=F + bns_formation=T: BNS particles created and drift/kick/SN2
@@ -477,7 +401,6 @@ subroutine mechanical_feedback_fine(ilevel,icount)
                           write(ilun,'(I10)',advance='no') typep(ipart)%tag
                           write(ilun,'(A1)') ' '
                        endif
-                    endif
                 endif
               endif
               ipart=next_part  ! Go to next particle
