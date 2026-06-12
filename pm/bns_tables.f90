@@ -1,12 +1,13 @@
 module bns_tables
   use amr_commons, only: myid
   use amr_parameters, only: dp, bns_table_dir, fixed_bns_vars, &
-       & bns_t_sn2, bns_t_merge, bns_v_kick1, bns_v_kick2, bns_efficiency
+       & bns_t_sn2, bns_t_merge, bns_v_kick1, bns_v_kick2, bns_efficiency, bns_merger_frac
   use pm_commons, only: localseed
   use random, only: ranf
   implicit none
 
   real(dp), allocatable, dimension(:) :: bns_prob
+  real(dp), allocatable, dimension(:) :: bns_frac_merge
   real(dp), allocatable, dimension(:) :: bns_z
   character(len=32), allocatable, dimension(:) :: bns_z_label
   logical :: bns_tables_ready = .false.
@@ -22,10 +23,10 @@ contains
 
   subroutine init_bns_tables()
     integer :: nrows, i, ios
-    real(dp) :: zval, pval
+    real(dp) :: zval, pval, fval
     logical :: ok
     character(len=256) :: line, table_path
-    character(len=32) :: ztxt, ptxt
+    character(len=32) :: ztxt, ptxt, ftxt
     integer :: dir_len
     if (bns_tables_ready) return
     dir_len = len_trim(bns_table_dir)
@@ -58,6 +59,7 @@ contains
     endif
     rewind(bns_table_lu)
     allocate(bns_prob(nrows))
+    allocate(bns_frac_merge(nrows))
     allocate(bns_z(nrows))
     allocate(bns_z_label(nrows))
     i = 0
@@ -66,7 +68,7 @@ contains
        if(ios /= 0) exit
        if(len_trim(line) == 0) cycle
        if(line(1:1) == '#') cycle
-       read(line,*,iostat=ios) ztxt, ptxt
+       read(line,*,iostat=ios) ztxt, ptxt, ftxt
        if(ios /= 0)then
           if(myid==1)write(*,*)'Bad line in BNS efficiency table: ', trim(line)
           call clean_stop
@@ -81,9 +83,15 @@ contains
           if(myid==1)write(*,*)'Bad efficiency in BNS efficiency table: ', trim(line)
           call clean_stop
        endif
+       read(ftxt,*,iostat=ios) fval
+       if(ios /= 0)then
+          if(myid==1)write(*,*)'Bad merger fraction in BNS efficiency table: ', trim(line)
+          call clean_stop
+       endif
        i = i + 1
        bns_z(i) = zval
        bns_prob(i) = pval
+       bns_frac_merge(i) = fval
        bns_z_label(i) = ztxt
     end do
     close(bns_table_lu)
@@ -93,14 +101,19 @@ contains
   subroutine bns_draw(mass, z, p_bns, m1, m2, vk1, vk2, t_sn2, t_merge)
     real(dp), intent(in) :: mass, z
     real(dp), intent(out) :: p_bns, m1, m2, vk1, vk2, t_sn2, t_merge
-    real(dp) :: p_per_msun
+    real(dp) :: p_per_msun, frac_merge, u
     integer :: iz
     if(fixed_bns_vars) then
        p_bns   = max(0.0d0, min(1.0d0, bns_efficiency * mass))
        vk1     = bns_v_kick1
        vk2     = bns_v_kick2
        t_sn2   = bns_t_sn2
-       t_merge = bns_t_merge
+       call ranf(localseed, u)
+       if(u <= bns_merger_frac) then
+          t_merge = bns_t_merge
+       else
+          t_merge = 1.0d30
+       end if
        m1 = 9.0d0
        m2 = 9.0d0
        return
@@ -113,7 +126,13 @@ contains
     call draw_from_hist(vk1_bin_min, vk1_bin_max, vk1_cdf, vk1)
     call draw_from_hist(vk2_bin_min, vk2_bin_max, vk2_cdf, vk2)
     call draw_from_hist(tsn2_bin_min, tsn2_bin_max, tsn2_cdf, t_sn2)
-    call draw_from_hist(tmerge_bin_min, tmerge_bin_max, tmerge_cdf, t_merge)
+    call bns_merge_frac_of_z(z, frac_merge)
+    call ranf(localseed, u)
+    if(u <= frac_merge) then
+       call draw_from_hist(tmerge_bin_min, tmerge_bin_max, tmerge_cdf, t_merge)
+    else
+       t_merge = 1.0d30
+    end if
     m1 = 9.0d0
     m2 = 9.0d0
   end subroutine bns_draw
@@ -145,6 +164,28 @@ contains
        end do
     endif
   end subroutine bns_prob_of_z
+
+  subroutine bns_merge_frac_of_z(z, frac)
+    real(dp), intent(in) :: z
+    real(dp), intent(out) :: frac
+    integer :: i, n
+    real(dp) :: w
+    n = size(bns_z)
+    if(z <= bns_z(1))then
+       frac = bns_frac_merge(1)
+    else if(z >= bns_z(n))then
+       frac = bns_frac_merge(n)
+    else
+       frac = bns_frac_merge(n)
+       do i = 1, n-1
+          if(z >= bns_z(i) .and. z < bns_z(i+1))then
+             w = (z - bns_z(i)) / (bns_z(i+1) - bns_z(i))
+             frac = (1.0d0 - w) * bns_frac_merge(i) + w * bns_frac_merge(i+1)
+             exit
+          endif
+       end do
+    endif
+  end subroutine bns_merge_frac_of_z
 
   subroutine bns_find_z_index(z, iz)
     real(dp), intent(in) :: z

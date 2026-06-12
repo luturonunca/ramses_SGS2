@@ -1,7 +1,7 @@
 subroutine read_hydro_params(nml_ok)
   use amr_commons
   use amr_parameters, only: M_ns, eta_merger, eu_yield, bns_table_dir, &
-       & fixed_bns_vars, bns_t_sn2, bns_t_merge, bns_v_kick1, bns_v_kick2, bns_efficiency
+       & fixed_bns_vars, bns_t_sn2, bns_t_merge, bns_v_kick1, bns_v_kick2, bns_efficiency, bns_merger_frac
   use hydro_commons
   use mpi_mod
   implicit none
@@ -99,7 +99,7 @@ subroutine read_hydro_params(nml_ok)
        & ,sf_log_properties,sf_imf,sf_compressive,bns_enrichment, &
        & bns_formation,  & ! set .false. to enable iheavy without spawning BNS particles
        & bns_table_dir &
-       & ,fixed_bns_vars,bns_t_sn2,bns_t_merge,bns_v_kick1,bns_v_kick2,bns_efficiency
+       & ,fixed_bns_vars,bns_t_sn2,bns_t_merge,bns_v_kick1,bns_v_kick2,bns_efficiency,bns_merger_frac
 
   ! Units parameters
   namelist/units_params/units_density,units_time,units_length
