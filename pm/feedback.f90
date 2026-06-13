@@ -2693,7 +2693,7 @@ subroutine bns_merger_enrich(ilevel)
   integer,parameter::io_tag=1121
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
-  real(dp)::mejecta,heavyzloss,mheavyloss
+  real(dp)::mejecta,heavyzloss,mheavyloss,mejecta_vol,ekinetic
   real(dp)::e,uvar
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   character(LEN=80)::filename,filedir,fileloc,filedirini
@@ -2784,10 +2784,22 @@ subroutine bns_merger_enrich(ilevel)
                  iskip=ncoarse+(ind_son-1)*ngridmax
                  ind_cell=iskip+igrid
                  if(son(ind_cell)==0)then  ! leaf cell only
-                    mejecta    = eta_merger*mp(ipart)
-                    heavyzloss = eu_yield+(1d0-eu_yield)*zp_heavy(ipart)
-                    mheavyloss = mejecta*heavyzloss/vol_loc
-                    uold(ind_cell,iheavy)=uold(ind_cell,iheavy)+mheavyloss
+                    mejecta     = eta_merger*mp(ipart)
+                    mejecta_vol = mejecta/vol_loc
+                    heavyzloss  = eu_yield+(1d0-eu_yield)*zp_heavy(ipart)
+                    mheavyloss  = mejecta_vol*heavyzloss
+                    ekinetic    = 0.0d0
+                    do idim=1,ndim
+                       ekinetic = ekinetic+0.5d0*vp(ipart,idim)**2
+                    end do
+                    uold(ind_cell,1)      = uold(ind_cell,1)      + mejecta_vol
+                    do idim=1,ndim
+                       uold(ind_cell,idim+1) = uold(ind_cell,idim+1) + mejecta_vol*vp(ipart,idim)
+                    end do
+                    uold(ind_cell,ndim+2) = uold(ind_cell,ndim+2) + mejecta_vol*ekinetic
+                    if(metal) uold(ind_cell,imetal) = uold(ind_cell,imetal) + mejecta_vol*zp(ipart)
+                    uold(ind_cell,iheavy) = uold(ind_cell,iheavy) + mheavyloss
+                    mp(ipart) = mp(ipart) - mejecta
                     if(sf_log_properties) then
                        write(ilun,'(I10)',advance='no') 4
                        write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
