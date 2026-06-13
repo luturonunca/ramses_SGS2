@@ -2809,28 +2809,28 @@ subroutine bns_merger_enrich(ilevel)
                        do idim=1,ndim
                           write(ilun,'(E24.12)',advance='no') vp(ipart,idim)
                        enddo
-                       write(ilun,'(E24.12)',advance='no') unew(ind_cell,1)
+                       write(ilun,'(E24.12)',advance='no') uold(ind_cell,1)
                        do ivar=2,nvar
                           if(ivar.eq.ndim+2)then
                              e=0.0d0
                              do idim=1,ndim
-                                e=e+0.5*unew(ind_cell,idim+1)**2/max(unew(ind_cell,1),smallr)
+                                e=e+0.5*uold(ind_cell,idim+1)**2/max(uold(ind_cell,1),smallr)
                              enddo
 #if NENER>0
                              do irad=0,nener-1
-                                e=e+unew(ind_cell,inener+irad)
+                                e=e+uold(ind_cell,inener+irad)
                              enddo
 #endif
 #ifdef SOLVERmhd
                              do idim=1,ndim
-                                e=e+0.125d0*(unew(ind_cell,idim+ndim+2)+unew(ind_cell,idim+nvar))**2
+                                e=e+0.125d0*(uold(ind_cell,idim+ndim+2)+uold(ind_cell,idim+nvar))**2
                              enddo
 #endif
-                             uvar=(gamma-1.0)*(unew(ind_cell,ndim+2)-e)*scale_T2
+                             uvar=(gamma-1.0)*(uold(ind_cell,ndim+2)-e)*scale_T2
                           else
-                             uvar=unew(ind_cell,ivar)
+                             uvar=uold(ind_cell,ivar)
                           endif
-                          write(ilun,'(E24.12)',advance='no') uvar/unew(ind_cell,1)
+                          write(ilun,'(E24.12)',advance='no') uvar/uold(ind_cell,1)
                        enddo
                        write(ilun,'(I10)',advance='no') typep(ipart)%tag
                        write(ilun,'(A1)') ' '
