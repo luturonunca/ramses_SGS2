@@ -285,15 +285,13 @@ recursive subroutine amr_step(ilevel,icount)
   if(rt .and. rt_star) call update_star_RT_feedback(ilevel)
 #endif
 
-  ! Thermal feedback from stars (before dt estimate so CFL sees the kick)
+  ! Mechanical feedback writes to uold: call before set_unew so deposits
+  ! are preserved when set_unew copies uold->unew.
+  ! BNS routines also write to uold: same reasoning, keep before set_unew.
 #if NDIM==3
                                call timer('feedback','start')
-  if(hydro.and.star.and.eta_sn>0)then
-     if(mechanical_feedback>0)then
-        call mechanical_feedback_fine(ilevel,icount)
-     else
-        call thermal_feedback(ilevel)
-     endif
+  if(hydro.and.star.and.eta_sn>0.and.mechanical_feedback>0)then
+     call mechanical_feedback_fine(ilevel,icount)
   endif
   ! BNS SN2 and merger enrichment: independent of feedback choice
   if(bns_formation)  call bns_sn2_fine(ilevel)
@@ -312,6 +310,14 @@ recursive subroutine amr_step(ilevel,icount)
   ! Set unew equal to uold
                                call timer('hydro - set unew','start')
   if(hydro)call set_unew(ilevel)
+
+  ! Thermal/delayed-cooling feedback writes to unew (metals + idelay scalar):
+  ! must come AFTER set_unew or deposits are immediately overwritten.
+#if NDIM==3
+  if(hydro.and.star.and.eta_sn>0.and.mechanical_feedback==0)then
+     call thermal_feedback(ilevel)
+  endif
+#endif
 
 #ifdef RT
   ! Set rtunew equal to rtuold
