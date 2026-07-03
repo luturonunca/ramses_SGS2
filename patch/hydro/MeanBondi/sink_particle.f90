@@ -1265,7 +1265,12 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               end if
 
               if(agn.and.msink(isink).gt.0)then
-                 acc_ratio=dMsmbh_overdt(isink)/(4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t)
+                 if(mass_smbh_seed>0.0)then
+                    acc_ratio=dMsmbh_overdt(isink)/(4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t)
+                 else
+                    ! sink IS the BH: use msink and dMsink_overdt for Eddington ratio
+                    acc_ratio=dMsink_overdt(isink)/(4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t)
+                 end if
                  if (AGN_fbk_mode_switch_threshold > 0.0) then
                     if (acc_ratio > AGN_fbk_mode_switch_threshold) then
                        ! Eddington ratio higher than AGN_fbk_mode_switch_threshold -> energy
@@ -1705,6 +1710,10 @@ subroutine compute_accretion_rate(write_sinks)
         if(eddington_limit.and.mean_bondi)dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
         if(constant_eddington)dMsmbh_overdt(isink)=min(dMEDoverdt_smbh(isink),mgas/max(dtnew(levelmin),tiny(0.0_dp)))
         dMsink_overdt(isink)=max(0.d0,dMBHoverdt(isink)-dMsmbh_overdt(isink))
+     else if(smbh.and.eddington_limit)then
+        ! mass_smbh_seed=0: sink IS the BH; apply Eddington cap using msink
+        dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msink(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
+        dMsink_overdt(isink)=min(dMsink_overdt(isink),dMEDoverdt_smbh(isink))
      end if
 
      ! Store average quantities for diagnostics
