@@ -23,7 +23,7 @@ module pm_parameters
                                              ! used also as contraction timescale in creation
   real(dp)::cont_speed=0.                    ! Clump contraction rate
 
-  character(LEN=25)::accretion_scheme='none' ! Sink accretion scheme; options: 'none', 'bondi', 'bondi_torque_blend', 'bondi_torque_twoch', 'bondi_dutycycle_blend'
+  character(LEN=25)::accretion_scheme='none' ! Sink accretion scheme; options: 'none', 'bondi', 'bondi_torque_blend', 'bondi_torque_twoch', 'freefall'
   logical::bondi_accretion=.false.           ! NOT A NAMELIST PARAMETER
   logical::bondi_use_vrel=.true.             ! Use v_rel^2 in the denominator of Bondi formula
 
@@ -42,10 +42,11 @@ module pm_parameters
   real(dp)::alpha_T=1.0d0                            ! Torque channel normalization (epsilon_T in AA17)
   real(dp)::chi_d=2.5d0                              ! Exponent of f_d in torque formula (benchmark 5/2)
   logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
-  logical::dutycycle_blend_switch=.false.            ! Switch for duty-cycle cold + hot Bondi (set from accretion_scheme)
+  logical::freefall_accretion=.false.                ! Switch for freefall cold + hot Bondi (set from accretion_scheme)
+  logical::tff_include_particles=.false.             ! Include star+DM particle mass in freefall t_ff enclosed mass
   logical::weighted_depletion=.false.                ! Deplete cold/hot gas proportionally to the phase weight that drove accretion
-  real(dp)::epsilon_dutycycle=0.1d0                  ! Cold gas accretion efficiency for duty-cycle scheme
-  logical::epsilon_fixed=.true.                      ! If true use epsilon_dutycycle directly; if false weight by 1/(1+(j/j_crit)^2)
+  real(dp)::epsilon_freefall=0.1d0                  ! Cold gas accretion efficiency for freefall scheme
+  logical::epsilon_fixed=.true.                      ! If true use epsilon_freefall directly; if false weight by 1/(1+(j/j_crit)^2)
   logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]

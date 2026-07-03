@@ -45,6 +45,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_hot_v2,    wdc_hot_v2_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_w,    wdc_cold_w_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_rho,  wdc_cold_rho_new
+  real(dp),allocatable,dimension(:)    ::wff_part_mass, wff_part_mass_new ! star+DM mass in cloud for tff_include_particles
   real(dp),allocatable,dimension(:)    ::rho_cold_sink, rho_hot_sink
   real(dp),allocatable,dimension(:)    ::dMdc_cold_sink, dMdc_hot_sink
   real(dp),allocatable,dimension(:)    ::wnorot_w, wnorot_rho, wnorot_cs2, wnorot_v2

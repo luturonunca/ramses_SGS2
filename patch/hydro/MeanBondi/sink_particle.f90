@@ -392,7 +392,7 @@ subroutine collect_acczone_avg(ilevel)
   dx_min=scale*0.5D0**nlevelmax/aexp
 
   ! Convert two-channel phase thresholds to code units (done each call for cosmo compatibility)
-  if(two_channel_accretion_switch .or. dutycycle_blend_switch)then
+  if(two_channel_accretion_switch .or. freefall_accretion)then
      cs2_cold_code  = T_cold_crit  / scale_T2
      dcs2_cold_code = dT_cold      / scale_T2
      d_cold_code    = n_cold_crit  / scale_nH
@@ -420,10 +420,11 @@ subroutine collect_acczone_avg(ilevel)
   if(two_channel_accretion_switch) wstar_mass=0d0
   if(two_channel_accretion_switch) wstar_rot_mass=0d0
   ! Duty-cycle blend accumulators
-  if(dutycycle_blend_switch)then
+  if(freefall_accretion)then
      wdc_cold_mass=0d0; wdc_cold_j2mass=0d0; wdc_tot_mass=0d0
      wdc_hot_w=0d0; wdc_hot_rho=0d0; wdc_hot_cs2=0d0; wdc_hot_v2=0d0
      wdc_cold_w=0d0; wdc_cold_rho=0d0
+     if(tff_include_particles) wff_part_mass=0d0
   endif
   ! Loop over cpus
   do icpu=1,ncpu
@@ -487,8 +488,8 @@ subroutine collect_acczone_avg(ilevel)
   end do
   ! End loop over cpus
 
-  ! Loop over star+DM particles for sigma_coll (GD switch) and stellar masses (two-channel)
-  if((sink_descent .or. two_channel_accretion_switch) .and. nsink>0)then
+  ! Loop over star+DM particles for sigma_coll (GD switch), stellar masses (two-channel), and freefall enclosed mass
+  if((sink_descent .or. two_channel_accretion_switch .or. (freefall_accretion .and. tff_include_particles)) .and. nsink>0)then
      ip=0
      do icpu=1,ncpu
         igrid=headl(icpu,ilevel)
@@ -551,7 +552,7 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wstar_mass,    wstar_mass_new,    nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
         call MPI_ALLREDUCE(wstar_rot_mass,wstar_rot_mass_new,nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
      endif
-     if(dutycycle_blend_switch)then
+     if(freefall_accretion)then
         call MPI_ALLREDUCE(wdc_cold_mass,  wdc_cold_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_cold_j2mass,wdc_cold_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_tot_mass,   wdc_tot_mass_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -561,6 +562,8 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wdc_hot_v2,   wdc_hot_v2_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_cold_w,   wdc_cold_w_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_cold_rho, wdc_cold_rho_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        if(tff_include_particles) &
+             call MPI_ALLREDUCE(wff_part_mass,wff_part_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      endif
 #else
      wden_new=wden
@@ -591,12 +594,13 @@ subroutine collect_acczone_avg(ilevel)
         wstar_mass_new=wstar_mass
         wstar_rot_mass_new=wstar_rot_mass
      endif
-     if(dutycycle_blend_switch)then
+     if(freefall_accretion)then
         wdc_cold_mass_new=wdc_cold_mass; wdc_cold_j2mass_new=wdc_cold_j2mass
         wdc_tot_mass_new=wdc_tot_mass
         wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
         wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
         wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
+        if(tff_include_particles) wff_part_mass_new=wff_part_mass
      endif
 #endif
   endif
@@ -824,7 +828,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               wc2(isink)=wc2(isink) + (d * cs2 * weight)
               wsigma2(isink) = wsigma2(isink) + (weight * d * sigma2_local)
               if(angular_momentum_accretion_switch .or. two_channel_accretion_switch &
-                   & .or. dutycycle_blend_switch)then
+                   & .or. freefall_accretion)then
                  ! Decompose velocity into radial and tangential w.r.t. sink position
                  r2=sum((xp(ind_part(j),1:ndim)-xsink(isink,1:ndim))**2)
                  if(r2>0d0)then
@@ -862,7 +866,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wnorot_cs2(isink) = wnorot_cs2(isink) + weight*(1.0d0-S_rot_loc)*d*cs2
                     wnorot_v2(isink)  = wnorot_v2(isink)  + weight*(1.0d0-S_rot_loc)*d*v2
                  endif
-                 if(dutycycle_blend_switch)then
+                 if(freefall_accretion)then
                     ! Temperature-only sigmoid (no density or rotation condition)
                     S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
@@ -1216,7 +1220,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  m_acc_smbh=0.0
               end if
            else
-              if(weighted_depletion .and. dutycycle_blend_switch)then
+              if(weighted_depletion .and. freefall_accretion)then
                  ! Local thermal cs2 (does not overwrite e, which is needed for energy removal below)
                  cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
                  S_T_dep=1.0d0/(1.0d0+exp((cs2_loc-cs2_cold_code)/dcs2_cold_code))
@@ -1632,8 +1636,8 @@ subroutine compute_accretion_rate(write_sinks)
         dMtorque_star_sink(isink) = dMtorque_star
      endif
 
-     ! Duty-cycle cold + hot Bondi blend (one temperature sigmoid)
-     if(dutycycle_blend_switch)then
+     ! Freefall cold + hot Bondi (cold gas on free-fall timescale, diffuse on Bondi)
+     if(freefall_accretion)then
         R0_dc   = dble(ir_cloud) * dx_min
         ! BH mass: follow smbh logic
         if(smbh .and. mass_smbh_seed > 0.0)then
@@ -1641,23 +1645,24 @@ subroutine compute_accretion_rate(write_sinks)
         else
            M_bh_dc = msink(isink)
         endif
-        ! Cold gas mass and total enclosed gas mass [code_mass]
+        ! Cold gas mass and total enclosed mass [code_mass]
         M_cold_dc = wdc_cold_mass_new(isink) * dx_min**3
         M_enc_dc  = wdc_tot_mass_new(isink)  * dx_min**3
+        if(tff_include_particles) M_enc_dc = M_enc_dc + wff_part_mass_new(isink)
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
         t_ff_bh   = sqrt(R0_dc**3 / (2.0d0*factG*(M_bh_dc  + tiny(0.0_dp))))
         ! Effective epsilon: fixed or angular-momentum weighted
         if(epsilon_fixed)then
-           eps_dc = epsilon_dutycycle
+           eps_dc = epsilon_freefall
         else
            ! j_crit = sqrt(G * M_total * R0) -> j_crit^2 = G*(M_enc+M_BH)*R0
            j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
            ! mass-weighted mean j^2 of cold gas cells
            j2_cold_mean = wdc_cold_j2mass_new(isink) / (wdc_cold_mass_new(isink) + tiny(0.0_dp))
-           eps_dc = epsilon_dutycycle / (1.0d0 + (j2_cold_mean / (j2_crit + tiny(0.0_dp)))**2)
+           eps_dc = epsilon_freefall / (1.0d0 + (j2_cold_mean / (j2_crit + tiny(0.0_dp)))**2)
         endif
-        ! Cold channel: duty-cycle accretion rate
+        ! Cold channel: freefall accretion rate
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
         dMdc_cold = max(dMdc_cold, 0.0d0)
         ! Hot channel: Bondi with (1-S_T) weighted gas properties
@@ -1684,14 +1689,14 @@ subroutine compute_accretion_rate(write_sinks)
         dMBHoverdt_smbh(isink)=4.*3.1415926*rho_inf_smbh*r2_smbh*v_bondi
         dMBHoverdt_fraction_smbh(isink)= 4.d0* 3.1415926d0 * (factG * msmbh(isink))**2 *frac_mean
         dMEDoverdt_smbh(isink)=4.*3.1415926*6.67d-8*msmbh(isink)*1.66d-24/(0.1*6.652d-25*3d10)*scale_t
-        if(dutycycle_blend_switch)then
+        if(freefall_accretion)then
            dMsmbh_overdt(isink)=dMdc_cold_sink(isink)+dMdc_hot_sink(isink)
         else if(bondi_accretion)then
            dMsmbh_overdt(isink)=dMBHoverdt_smbh(isink)
         end if
-        if(mean_bondi.and..not.dutycycle_blend_switch)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
+        if(mean_bondi.and..not.freefall_accretion)dMsmbh_overdt(isink)=dMBHoverdt_fraction_smbh(isink)
         if(eddington_limit)then
-           if(dutycycle_blend_switch)then
+           if(freefall_accretion)then
               dMsmbh_overdt(isink)=min(dMdc_cold_sink(isink)+dMdc_hot_sink(isink),dMEDoverdt_smbh(isink))
            else
               dMsmbh_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt_smbh(isink))
@@ -3088,7 +3093,7 @@ subroutine read_sink_params()
        n_res_influence,&
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
-       epsilon_dutycycle,epsilon_fixed,&
+       epsilon_freefall,epsilon_fixed,tff_include_particles,&
        use_stellar_mass_torque,weighted_depletion
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
@@ -3156,21 +3161,21 @@ subroutine read_sink_params()
      bondi_accretion=.true.
      angular_momentum_accretion_switch=.false.
      two_channel_accretion_switch=.true.
-     dutycycle_blend_switch=.false.
-  case('bondi_dutycycle_blend')
+     freefall_accretion=.false.
+  case('freefall')
      bondi_accretion=.true.
      angular_momentum_accretion_switch=.false.
      two_channel_accretion_switch=.false.
-     dutycycle_blend_switch=.true.
+     freefall_accretion=.true.
   case('constant_eddington')
      bondi_accretion=.false.
      angular_momentum_accretion_switch=.false.
      two_channel_accretion_switch=.false.
-     dutycycle_blend_switch=.false.
+     freefall_accretion=.false.
      constant_eddington=.true.
   case default
      if(myid==1)write(*,*)'Unknown accretion_scheme: ',trim(accretion_scheme)
-     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_torque_blend, bondi_torque_twoch, bondi_dutycycle_blend, constant_eddington'
+     if(myid==1)write(*,*)'Valid options: none, bondi, bondi_torque_blend, bondi_torque_twoch, freefall, constant_eddington'
      call clean_stop
   end select
 
@@ -3659,6 +3664,9 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
         ! Collisionless sigma for GD switch (star + DM)
         wsigma2_coll(isink)   = wsigma2_coll(isink)   + mp(ind_part(j)) * dv2
         wsigma2_coll_w(isink) = wsigma2_coll_w(isink) + mp(ind_part(j))
+        ! Enclosed particle mass for freefall t_ff (star + DM)
+        if(freefall_accretion .and. tff_include_particles) &
+             wff_part_mass(isink) = wff_part_mass(isink) + mp(ind_part(j))
         ! Stellar mass quantities for two-channel torque rate (stars only)
         if(is_star(typep(ind_part(j))))then
            r_vec(1:ndim) = xp(ind_part(j),1:ndim) - xsink(isink,1:ndim)
