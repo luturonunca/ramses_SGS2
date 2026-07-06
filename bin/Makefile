@@ -54,20 +54,20 @@ endif
 #FFLAGS = -cpp $(DEFINES) -DWITHOUTMPI
 
 # --- MPI, gfortran syntax ------------------------------
-F90 = mpif90 -frecord-marker=4 -O3 -ffree-line-length-none -g -fbacktrace 
-FFLAGS = -x f95-cpp-input $(DEFINES)
+#F90 = mpif90 -frecord-marker=4 -O3 -ffree-line-length-none -g -fbacktrace
+#FFLAGS = -x f95-cpp-input $(DEFINES)
 
-# --- MPI, gfortran DEBUG syntax ------------------------------ 
+# --- MPI, gfortran DEBUG syntax ------------------------------
 #F90 = mpif90 -frecord-marker=4 -ffree-line-length-none -fbacktrace -g -O -fbounds-check -Wuninitialized -Wall
-#FFLAGS = -x f95-cpp-input -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan  $(DEFINES)    
+#FFLAGS = -x f95-cpp-input -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan  $(DEFINES)
 
 # --- MPI, pgf90 syntax ------------------------------
 #F90 = mpif90 -O3
 #FFLAGS = -Mpreprocess $(DEFINES)
 
 # --- MPI, ifort syntax ------------------------------
-#F90 = mpif90
-#FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
+F90 = mpif90
+FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
 
 # --- MPI, ifort syntax, additional checks -----------
 #F90 = mpif90

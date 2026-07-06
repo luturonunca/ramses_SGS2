@@ -11,6 +11,7 @@ recursive subroutine amr_step(ilevel,icount)
   use rt_cooling_module, only: update_UVrates
 #endif
   use mpi_mod
+  use bns_tables
   implicit none
 #ifndef WITHOUTMPI
   integer::mpi_err
@@ -294,6 +295,11 @@ recursive subroutine amr_step(ilevel,icount)
      call mechanical_feedback_fine(ilevel,icount)
   endif
   ! BNS SN2 and merger enrichment: independent of feedback choice
+  ! Eagerly load BNS tables here (not just in mechanical_feedback_fine) so
+  ! every rank reads them at the same synchronized timestep regardless of
+  ! feedback scheme, instead of each rank lazily triggering the read at
+  ! whatever timestep it first forms a BNS-eligible star (see bns_tables.f90).
+  if(bns_formation .and. .not.fixed_bns_vars) call init_bns_tables()
   if(bns_formation)  call bns_sn2_fine(ilevel)
   if(bns_enrichment) call bns_merger_enrich(ilevel)
 #endif
