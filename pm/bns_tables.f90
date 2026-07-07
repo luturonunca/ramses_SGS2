@@ -13,11 +13,15 @@ module bns_tables
   logical :: bns_tables_ready = .false.
   integer, parameter :: bns_table_lu = 17
   integer, parameter :: bns_hist_lu = 18
-  integer :: current_z_index = -1
-  real(dp), allocatable, dimension(:) :: vk1_bin_min, vk1_bin_max, vk1_cdf
-  real(dp), allocatable, dimension(:) :: vk2_bin_min, vk2_bin_max, vk2_cdf
-  real(dp), allocatable, dimension(:) :: tsn2_bin_min, tsn2_bin_max, tsn2_cdf
-  real(dp), allocatable, dimension(:) :: tmerge_bin_min, tmerge_bin_max, tmerge_cdf
+
+  ! One histogram set per metallicity bin, preloaded once in init_bns_tables
+  ! so bns_draw never touches disk from inside the per-particle SN feedback
+  ! loop (particle-to-particle z jumps used to thrash a single-slot cache
+  ! here, forcing repeated file opens every SN event).
+  type bns_hist_t
+     real(dp), allocatable, dimension(:) :: bin_min, bin_max, cdf
+  end type bns_hist_t
+  type(bns_hist_t), allocatable, dimension(:) :: vk1_hist, vk2_hist, tsn2_hist, tmerge_hist
 
 contains
 
@@ -95,6 +99,10 @@ contains
        bns_z_label(i) = ztxt
     end do
     close(bns_table_lu)
+    allocate(vk1_hist(nrows), vk2_hist(nrows), tsn2_hist(nrows), tmerge_hist(nrows))
+    do i = 1, nrows
+       call load_bns_histograms(i)
+    end do
     bns_tables_ready = .true.
   end subroutine init_bns_tables
 
@@ -122,14 +130,13 @@ contains
     call bns_prob_of_z(z, p_per_msun)
     p_bns = max(0.0d0, min(1.0d0, p_per_msun * mass))
     call bns_find_z_index(z, iz)
-    call bns_load_histograms(iz)
-    call draw_from_hist(vk1_bin_min, vk1_bin_max, vk1_cdf, vk1)
-    call draw_from_hist(vk2_bin_min, vk2_bin_max, vk2_cdf, vk2)
-    call draw_from_hist(tsn2_bin_min, tsn2_bin_max, tsn2_cdf, t_sn2)
+    call draw_from_hist(vk1_hist(iz)%bin_min, vk1_hist(iz)%bin_max, vk1_hist(iz)%cdf, vk1)
+    call draw_from_hist(vk2_hist(iz)%bin_min, vk2_hist(iz)%bin_max, vk2_hist(iz)%cdf, vk2)
+    call draw_from_hist(tsn2_hist(iz)%bin_min, tsn2_hist(iz)%bin_max, tsn2_hist(iz)%cdf, t_sn2)
     call bns_merge_frac_of_z(z, frac_merge)
     call ranf(localseed, u)
     if(u <= frac_merge) then
-       call draw_from_hist(tmerge_bin_min, tmerge_bin_max, tmerge_cdf, t_merge)
+       call draw_from_hist(tmerge_hist(iz)%bin_min, tmerge_hist(iz)%bin_max, tmerge_hist(iz)%cdf, t_merge)
     else
        t_merge = 1.0d30
     end if
@@ -207,15 +214,10 @@ contains
     endif
   end subroutine bns_find_z_index
 
-  subroutine bns_load_histograms(iz)
+  subroutine load_bns_histograms(iz)
     integer, intent(in) :: iz
     character(len=256) :: base_dir, path
     integer :: dir_len
-    if(iz == current_z_index) return
-    if(allocated(vk1_bin_min)) deallocate(vk1_bin_min, vk1_bin_max, vk1_cdf)
-    if(allocated(vk2_bin_min)) deallocate(vk2_bin_min, vk2_bin_max, vk2_cdf)
-    if(allocated(tsn2_bin_min)) deallocate(tsn2_bin_min, tsn2_bin_max, tsn2_cdf)
-    if(allocated(tmerge_bin_min)) deallocate(tmerge_bin_min, tmerge_bin_max, tmerge_cdf)
     dir_len = len_trim(bns_table_dir)
     if(dir_len <= 0)then
        if(myid==1)write(*,*)'BNS table directory is empty'
@@ -227,15 +229,14 @@ contains
        base_dir = trim(bns_table_dir)//'/chabrier_Z_'//trim(bns_z_label(iz))
     endif
     path = trim(base_dir)//'/hist_v_kick_sn1.csv'
-    call read_hist_file(path, vk1_bin_min, vk1_bin_max, vk1_cdf)
+    call read_hist_file(path, vk1_hist(iz)%bin_min, vk1_hist(iz)%bin_max, vk1_hist(iz)%cdf)
     path = trim(base_dir)//'/hist_v_kick_sn2.csv'
-    call read_hist_file(path, vk2_bin_min, vk2_bin_max, vk2_cdf)
+    call read_hist_file(path, vk2_hist(iz)%bin_min, vk2_hist(iz)%bin_max, vk2_hist(iz)%cdf)
     path = trim(base_dir)//'/hist_t_sn_2_log_yr.csv'
-    call read_hist_file(path, tsn2_bin_min, tsn2_bin_max, tsn2_cdf, 1.0d-6)
+    call read_hist_file(path, tsn2_hist(iz)%bin_min, tsn2_hist(iz)%bin_max, tsn2_hist(iz)%cdf, 1.0d-6)
     path = trim(base_dir)//'/hist_t_merge_log_yr.csv'
-    call read_hist_file(path, tmerge_bin_min, tmerge_bin_max, tmerge_cdf, 1.0d-6)
-    current_z_index = iz
-  end subroutine bns_load_histograms
+    call read_hist_file(path, tmerge_hist(iz)%bin_min, tmerge_hist(iz)%bin_max, tmerge_hist(iz)%cdf, 1.0d-6)
+  end subroutine load_bns_histograms
 
   subroutine read_hist_file(filename, bin_min, bin_max, cdf, scale)
     character(len=*), intent(in) :: filename
