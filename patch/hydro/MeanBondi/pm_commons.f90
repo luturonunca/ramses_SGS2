@@ -46,6 +46,12 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_cold_w,    wdc_cold_w_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_rho,  wdc_cold_rho_new
   real(dp),allocatable,dimension(:)    ::wff_part_mass, wff_part_mass_new ! star+DM mass in cloud for tff_include_particles
+  ! Spatial hash (cell list) over sink positions, rebuilt each call to
+  ! collect_acczone_avg, so collect_sigma_coll_np only checks sinks whose
+  ! cloud-sized bin is adjacent to a given particle instead of every sink.
+  integer,allocatable,dimension(:)     ::sink_hash_head, sink_hash_next
+  integer,allocatable,dimension(:)     ::sink_bin_ix, sink_bin_iy, sink_bin_iz
+  integer::nsink_hash=0
   real(dp),allocatable,dimension(:)    ::rho_cold_sink, rho_hot_sink
   real(dp),allocatable,dimension(:)    ::dMdc_cold_sink, dMdc_hot_sink
   real(dp),allocatable,dimension(:)    ::wnorot_w, wnorot_rho, wnorot_cs2, wnorot_v2

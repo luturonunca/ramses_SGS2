@@ -136,6 +136,10 @@ subroutine init_sink
   allocate(wdc_cold_rho_new(1:nsinkmax))
   allocate(wff_part_mass(1:nsinkmax))    ; wff_part_mass=0.d0
   allocate(wff_part_mass_new(1:nsinkmax))
+  nsink_hash=2*nsinkmax+1
+  allocate(sink_hash_head(1:nsink_hash)) ; sink_hash_head=0
+  allocate(sink_hash_next(1:nsinkmax))   ; sink_hash_next=0
+  allocate(sink_bin_ix(1:nsinkmax), sink_bin_iy(1:nsinkmax), sink_bin_iz(1:nsinkmax))
   allocate(rho_cold_sink(1:nsinkmax)); rho_cold_sink=0.d0
   allocate(rho_hot_sink(1:nsinkmax)) ; rho_hot_sink=0.d0
   allocate(dMdc_cold_sink(1:nsinkmax)); dMdc_cold_sink=0.d0

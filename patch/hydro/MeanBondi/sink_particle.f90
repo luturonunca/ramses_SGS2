@@ -373,8 +373,9 @@ subroutine collect_acczone_avg(ilevel)
   integer::ilevel
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,npart2,icpu,isink
+  integer::bix,biy,biz,ihash
   integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
-  real(dp)::dx,dx_loc,dx_min,factG,mass,nx_loc,scale
+  real(dp)::dx,dx_loc,dx_min,factG,mass,nx_loc,scale,r_cloud
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -490,6 +491,23 @@ subroutine collect_acczone_avg(ilevel)
 
   ! Loop over star+DM particles for sigma_coll (GD switch), stellar masses (two-channel), and freefall enclosed mass
   if((sink_descent .or. two_channel_accretion_switch .or. (freefall_accretion .and. tff_include_particles)) .and. nsink>0)then
+     ! Build a spatial hash (cell list) of sink positions, binned at the cloud
+     ! radius, so collect_sigma_coll_np only tests sinks in a particle's own
+     ! and neighboring bins instead of every sink (was O(N_part * nsink)).
+     r_cloud = dble(ir_cloud) * dx_min
+     sink_hash_head = 0
+     do isink=1,nsink
+        bix = floor(xsink(isink,1)/r_cloud)
+        biy = 0 ; biz = 0
+        if(ndim>=2) biy = floor(xsink(isink,2)/r_cloud)
+        if(ndim>=3) biz = floor(xsink(isink,3)/r_cloud)
+        sink_bin_ix(isink) = bix
+        sink_bin_iy(isink) = biy
+        sink_bin_iz(isink) = biz
+        ihash = mod(abs(ieor(ieor(bix*73856093,biy*19349663),biz*83492791)), nsink_hash) + 1
+        sink_hash_next(isink) = sink_hash_head(ihash)
+        sink_hash_head(ihash) = isink
+     end do
      ip=0
      do icpu=1,ncpu
         igrid=headl(icpu,ilevel)
@@ -3645,8 +3663,17 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
   ! Accumulates from star+DM particles within ir_cloud*dx_min of each sink:
   !   - mass-weighted collisionless sigma (star+DM) for the r_inf GD switch
   !   - total stellar mass and rotationally supported stellar mass (stars only)
-  !     for the AA17 torque rate with physical stellar disc mass
+  !     for the AA17 torque rate with physical stellar disc mass (two-channel
+  !     scheme only — skipped otherwise, since it is unused dead work then)
   ! chi_star = vphi²/(vphi²+vr²) — no cs² since stars are collisionless
+  !
+  ! Sinks are found through the spatial hash built in collect_acczone_avg
+  ! (bin size = cloud radius): a particle can only be within the cloud
+  ! radius of a sink whose bin is its own or one of its neighbors, so this
+  ! walks those bins instead of testing every sink. A hash bucket can hold
+  ! sinks from unrelated bins (collisions), so each candidate's true bin is
+  ! checked before accepting it — this only costs extra rejected checks, it
+  ! cannot miss a real neighbor or double-count one.
   !-----------------------------------------------------------------------------
   use amr_commons
   use pm_commons
@@ -3655,44 +3682,73 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
   integer,dimension(1:nvector)::ind_part
 
   integer::j,isink
-  real(dp)::nx_loc,scale,dx_min,r2,r2_cloud,dv2
+  integer::bix,biy,biz,dix,diy,diz,dix_lo,dix_hi,diy_lo,diy_hi,diz_lo,diz_hi
+  integer::nbx,nby,nbz,ihash
+  real(dp)::nx_loc,scale,dx_min,r2,r_cloud,r2_cloud,dv2
   real(dp)::vr_star,vphi2_star,chi_star,S_rot_star,r_mag
   real(dp),dimension(1:ndim)::dv,r_vec
 
   nx_loc   = dble(icoarse_max-icoarse_min+1)
   scale    = boxlen/nx_loc
   dx_min   = scale*0.5d0**nlevelmax/aexp
-  r2_cloud = (dble(ir_cloud)*dx_min)**2
+  r_cloud  = dble(ir_cloud)*dx_min
+  r2_cloud = r_cloud**2
+
+  dix_lo=-1 ; dix_hi=1
+  diy_lo=0  ; diy_hi=0
+  diz_lo=0  ; diz_hi=0
+  if(ndim>=2)then ; diy_lo=-1 ; diy_hi=1 ; endif
+  if(ndim>=3)then ; diz_lo=-1 ; diz_hi=1 ; endif
 
   do j=1,np
-     do isink=1,nsink
-        r2 = sum((xp(ind_part(j),1:ndim) - xsink(isink,1:ndim))**2)
-        if(r2 > r2_cloud) cycle
-        dv(1:ndim) = vp(ind_part(j),1:ndim) - vsink(isink,1:ndim)
-        dv2 = sum(dv(1:ndim)**2)
-        ! Collisionless sigma for GD switch (star + DM)
-        wsigma2_coll(isink)   = wsigma2_coll(isink)   + mp(ind_part(j)) * dv2
-        wsigma2_coll_w(isink) = wsigma2_coll_w(isink) + mp(ind_part(j))
-        ! Enclosed particle mass for freefall t_ff (star + DM)
-        if(freefall_accretion .and. tff_include_particles) &
-             wff_part_mass(isink) = wff_part_mass(isink) + mp(ind_part(j))
-        ! Stellar mass quantities for two-channel torque rate (stars only)
-        if(is_star(typep(ind_part(j))))then
-           r_vec(1:ndim) = xp(ind_part(j),1:ndim) - xsink(isink,1:ndim)
-           r_mag = sqrt(r2)
-           if(r_mag > 0.0d0)then
-              vr_star    = sum(dv(1:ndim) * r_vec(1:ndim)) / r_mag
-           else
-              vr_star    = 0.0d0
-           endif
-           vphi2_star = max(dv2 - vr_star**2, 0.0d0)
-           ! chi_star: rotational support without cs² (collisionless)
-           chi_star   = vphi2_star / (vphi2_star + vr_star**2 + tiny(0.0_dp))
-           S_rot_star = 1.0d0 / (1.0d0 + exp(-(chi_star - chi_crit) / delta_chi))
-           wstar_mass(isink)     = wstar_mass(isink)     + mp(ind_part(j))
-           wstar_rot_mass(isink) = wstar_rot_mass(isink) + S_rot_star * mp(ind_part(j))
-        endif
-     enddo
+     bix = floor(xp(ind_part(j),1)/r_cloud)
+     biy = 0 ; biz = 0
+     if(ndim>=2) biy = floor(xp(ind_part(j),2)/r_cloud)
+     if(ndim>=3) biz = floor(xp(ind_part(j),3)/r_cloud)
+
+     do dix=dix_lo,dix_hi
+        nbx = bix+dix
+        do diy=diy_lo,diy_hi
+           nby = biy+diy
+           do diz=diz_lo,diz_hi
+              nbz = biz+diz
+              ihash = mod(abs(ieor(ieor(nbx*73856093,nby*19349663),nbz*83492791)), nsink_hash) + 1
+              isink = sink_hash_head(ihash)
+              do while(isink /= 0)
+                 if(sink_bin_ix(isink)==nbx .and. sink_bin_iy(isink)==nby .and. sink_bin_iz(isink)==nbz)then
+                    r2 = sum((xp(ind_part(j),1:ndim) - xsink(isink,1:ndim))**2)
+                    if(r2 <= r2_cloud)then
+                       dv(1:ndim) = vp(ind_part(j),1:ndim) - vsink(isink,1:ndim)
+                       dv2 = sum(dv(1:ndim)**2)
+                       ! Collisionless sigma for GD switch (star + DM)
+                       wsigma2_coll(isink)   = wsigma2_coll(isink)   + mp(ind_part(j)) * dv2
+                       wsigma2_coll_w(isink) = wsigma2_coll_w(isink) + mp(ind_part(j))
+                       ! Enclosed particle mass for freefall t_ff (star + DM)
+                       if(freefall_accretion .and. tff_include_particles) &
+                            wff_part_mass(isink) = wff_part_mass(isink) + mp(ind_part(j))
+                       ! Stellar mass quantities for two-channel torque rate (stars only)
+                       if(two_channel_accretion_switch .and. is_star(typep(ind_part(j))))then
+                          r_vec(1:ndim) = xp(ind_part(j),1:ndim) - xsink(isink,1:ndim)
+                          r_mag = sqrt(r2)
+                          if(r_mag > 0.0d0)then
+                             vr_star    = sum(dv(1:ndim) * r_vec(1:ndim)) / r_mag
+                          else
+                             vr_star    = 0.0d0
+                          endif
+                          vphi2_star = max(dv2 - vr_star**2, 0.0d0)
+                          ! chi_star: rotational support without cs² (collisionless)
+                          chi_star   = vphi2_star / (vphi2_star + vr_star**2 + tiny(0.0_dp))
+                          S_rot_star = 1.0d0 / (1.0d0 + exp(-(chi_star - chi_crit) / delta_chi))
+                          wstar_mass(isink)     = wstar_mass(isink)     + mp(ind_part(j))
+                          wstar_rot_mass(isink) = wstar_rot_mass(isink) + S_rot_star * mp(ind_part(j))
+                       endif
+                    endif
+                 endif
+                 isink = sink_hash_next(isink)
+              end do
+           end do
+        end do
+     end do
   enddo
 
 end subroutine collect_sigma_coll_np
