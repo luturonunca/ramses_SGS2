@@ -66,12 +66,8 @@ endif
 #FFLAGS = -Mpreprocess $(DEFINES)
 
 # --- MPI, ifort syntax ------------------------------
-#F90 = mpif90
-#FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
-
-# --- MPI, ifort syntax for Xeon phi ------------------------------
-F90 = mpif90 -Wl,-z,noexecstack $(OMPFLAG)
-FFLAGS = -cpp $(DEFINES) -O3 -DNOSYSTEM
+F90 = mpif90
+FFLAGS = -cpp -fast $(DEFINES) -DNOSYSTEM
 
 # --- MPI, ifort syntax, additional checks -----------
 #F90 = mpif90
