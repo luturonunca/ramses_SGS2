@@ -111,7 +111,7 @@ LIBS = $(LIBMPI) $(LIBS_GRACKLE)
 VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../aton:../hydro:../pm:../poisson:../amr:../io
 #############################################################################
 # All objects
-MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o poisson_parameters.o dump_utils.o
+MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o bns_tables.o poisson_parameters.o dump_utils.o
 ifeq ($(GRACKLE),1)
 MODOBJ += grackle_parameters.o
 endif
@@ -122,7 +122,7 @@ AMROBJ = read_params.o init_amr.o init_time.o init_refine.o adaptive_loop.o amr_
          output_amr.o flag_utils.o physical_boundaries.o virtual_boundaries.o refine_utils.o nbors_utils.o \
          hilbert.o load_balance.o title.o sort.o cooling_fine.o units.o light_cone.o movie.o
 # Particle-Mesh objects
-PMOBJ = bns_tables.o init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
+PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o newdt_fine.o particle_tree.o \
         add_list.o remove_list.o star_formation.o sink_particle.o mechanical_commons.o  mechanical_fine.o feedback.o \
 	clump_finder.o clump_merger.o flag_formation_sites.o init_sink.o output_sink.o
 # Poisson solver objects
