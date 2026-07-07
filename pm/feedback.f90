@@ -2698,7 +2698,7 @@ subroutine bns_merger_enrich(ilevel)
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
-  logical::file_exist
+  logical::file_exist,file_opened
 
   if(numbtot(1,ilevel)==0)return
   if(nstar_tot==0)return
@@ -2706,51 +2706,12 @@ subroutine bns_merger_enrich(ilevel)
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
   call mesh_info(ilevel,skip_loc,scale,dx,dx_loc,vol_loc,xc)
 
-  if(sf_log_properties) then
-     call title(ifout-1,nchar)
-     if(IOGROUPSIZEREP>0) then
-        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
-        filedirini='output_'//TRIM(nchar)//'/'
-        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
-     else
-        filedir='output_'//TRIM(nchar)//'/'
-     endif
-     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
-     ilun=myid+103
-     call title(myid,nchar)
-     fileloc=TRIM(filename)//TRIM(nchar)
-#ifndef WITHOUTMPI
-     if(IOGROUPSIZE>0) then
-        if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,io_tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-        end if
-     endif
-#endif
-     inquire(file=fileloc,exist=file_exist)
-     if(.not.file_exist) then
-        open(ilun, file=fileloc, form='formatted')
-        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
-        enddo
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
-        enddo
-        do ivar=1,nvar
-           if(ivar.ge.10) then
-              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
-           else
-              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
-           endif
-        enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
-        write(ilun,'(A1)') ' '
-        write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
-     else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
-     endif
-  endif
+  ! The sf_log_properties file is opened lazily below, on the first actual
+  ! BNS merger event found, instead of eagerly here: most calls to this
+  ! routine (every level, every fine step) find no eligible particle at
+  ! all, and eagerly opening/closing a file on every such no-op call is a
+  ! needless I/O tax at scale.
+  file_opened=.false.
 
   if(use_proper_time)then
      current_time=texp
@@ -2800,6 +2761,52 @@ subroutine bns_merger_enrich(ilevel)
                     if(metal) uold(ind_cell,imetal) = uold(ind_cell,imetal) + mejecta_vol*zp(ipart)
                     uold(ind_cell,iheavy) = uold(ind_cell,iheavy) + mheavyloss
                     mp(ipart) = mp(ipart) - mejecta
+                    if(sf_log_properties .and. .not.file_opened) then
+                       call title(ifout-1,nchar)
+                       if(IOGROUPSIZEREP>0) then
+                          call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+                          filedirini='output_'//TRIM(nchar)//'/'
+                          filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+                       else
+                          filedir='output_'//TRIM(nchar)//'/'
+                       endif
+                       filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+                       ilun=myid+103
+                       call title(myid,nchar)
+                       fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+                       if(IOGROUPSIZE>0) then
+                          if (mod(myid-1,IOGROUPSIZE)/=0) then
+                             call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,io_tag,&
+                                  & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+                          end if
+                       endif
+#endif
+                       inquire(file=fileloc,exist=file_exist)
+                       if(.not.file_exist) then
+                          open(ilun, file=fileloc, form='formatted')
+                          write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+                          do idim=1,ndim
+                             write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+                          enddo
+                          do idim=1,ndim
+                             write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+                          enddo
+                          do ivar=1,nvar
+                             if(ivar.ge.10) then
+                                write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+                             else
+                                write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+                             endif
+                          enddo
+                          write(ilun,'(A5)',advance='no') 'tag  '
+                          write(ilun,'(A1)') ' '
+                          write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+                       else
+                          open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+                       endif
+                       file_opened=.true.
+                    endif
                     if(sf_log_properties) then
                        write(ilun,'(I10)',advance='no') 4
                        write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
@@ -2845,7 +2852,7 @@ subroutine bns_merger_enrich(ilevel)
      end do
   end do
 
-  if(sf_log_properties) close(ilun)
+  if(file_opened) close(ilun)
 
 end subroutine bns_merger_enrich
 #endif
@@ -2884,7 +2891,7 @@ subroutine bns_sn2_fine(ilevel)
   real(dp),parameter::pi=acos(-1.0d0)
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
-  logical::file_exist
+  logical::file_exist,file_opened
 #if NENER>0
   integer::irad
 #endif
@@ -2896,51 +2903,12 @@ subroutine bns_sn2_fine(ilevel)
   call mesh_info(ilevel,skip_loc,scale,dx,dx_loc,vol_loc,xc)
   ESN = 1d51/(10d0*2d33)/scale_v**2
 
-  if(sf_log_properties) then
-     call title(ifout-1,nchar)
-     if(IOGROUPSIZEREP>0) then
-        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
-        filedirini='output_'//TRIM(nchar)//'/'
-        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
-     else
-        filedir='output_'//TRIM(nchar)//'/'
-     endif
-     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
-     ilun=myid+103
-     call title(myid,nchar)
-     fileloc=TRIM(filename)//TRIM(nchar)
-#ifndef WITHOUTMPI
-     if(IOGROUPSIZE>0) then
-        if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,io_tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-        end if
-     endif
-#endif
-     inquire(file=fileloc,exist=file_exist)
-     if(.not.file_exist) then
-        open(ilun, file=fileloc, form='formatted')
-        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
-        enddo
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
-        enddo
-        do ivar=1,nvar
-           if(ivar.ge.10) then
-              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
-           else
-              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
-           endif
-        enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
-        write(ilun,'(A1)') ' '
-        write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
-     else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
-     endif
-  endif
+  ! The sf_log_properties file is opened lazily below, on the first actual
+  ! BNS SN2 event found, instead of eagerly here: most calls to this routine
+  ! (every level, every fine step) find no eligible particle at all, and
+  ! eagerly opening/closing a file on every such no-op call is a needless
+  ! I/O tax at scale.
+  file_opened=.false.
 
   if(use_proper_time)then
      current_time=texp
@@ -2986,6 +2954,52 @@ subroutine bns_sn2_fine(ilevel)
                        vp(ipart,1)=vp(ipart,1)+vkick2(ipart)*sintheta*cos(phi)
                        vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
                        vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
+                    endif
+                    if(sf_log_properties .and. .not.file_opened) then
+                       call title(ifout-1,nchar)
+                       if(IOGROUPSIZEREP>0) then
+                          call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+                          filedirini='output_'//TRIM(nchar)//'/'
+                          filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+                       else
+                          filedir='output_'//TRIM(nchar)//'/'
+                       endif
+                       filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+                       ilun=myid+103
+                       call title(myid,nchar)
+                       fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+                       if(IOGROUPSIZE>0) then
+                          if (mod(myid-1,IOGROUPSIZE)/=0) then
+                             call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,io_tag,&
+                                  & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+                          end if
+                       endif
+#endif
+                       inquire(file=fileloc,exist=file_exist)
+                       if(.not.file_exist) then
+                          open(ilun, file=fileloc, form='formatted')
+                          write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+                          do idim=1,ndim
+                             write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+                          enddo
+                          do idim=1,ndim
+                             write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+                          enddo
+                          do ivar=1,nvar
+                             if(ivar.ge.10) then
+                                write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+                             else
+                                write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+                             endif
+                          enddo
+                          write(ilun,'(A5)',advance='no') 'tag  '
+                          write(ilun,'(A1)') ' '
+                          write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+                       else
+                          open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+                       endif
+                       file_opened=.true.
                     endif
                     if(sf_log_properties) then
                        write(ilun,'(I10)',advance='no') 3
@@ -3050,7 +3064,7 @@ subroutine bns_sn2_fine(ilevel)
      end do
   end do
 
-  if(sf_log_properties) close(ilun)
+  if(file_opened) close(ilun)
 
 end subroutine bns_sn2_fine
 #endif
