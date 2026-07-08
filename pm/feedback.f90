@@ -7,77 +7,26 @@ subroutine thermal_feedback(ilevel)
   use pm_commons
   use amr_commons
   use hydro_commons
-  use mpi_mod
   implicit none
-#ifndef WITHOUTMPI
-  integer::info2,dummy_io
-#endif
   integer::ilevel
   !------------------------------------------------------------------------
   ! This routine computes the thermal energy, the kinetic energy and
   ! the metal mass dumped in the gas by stars (SNII, SNIa, winds).
   ! This routine is called every fine time step.
   !------------------------------------------------------------------------
-  integer::igrid,jgrid,ipart,jpart,next_part,ivar
-  integer::ig,ip,npart1,npart2,icpu,ilun,idim
+  integer::igrid,jgrid,ipart,jpart,next_part
+  integer::ig,ip,npart1,npart2,icpu,ilun
   integer,dimension(1:nvector),save::ind_grid,ind_part,ind_grid_part
-  character(LEN=80)::filename,filedir,fileloc,filedirini
-  character(LEN=5)::nchar,ncharcpu
-  logical::file_exist
-  integer,parameter::tag=1120
+  logical::file_opened
 
-  if(sf_log_properties) then
-     call title(ifout-1,nchar)
-     if(IOGROUPSIZEREP>0) then
-        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
-        filedirini='output_'//TRIM(nchar)//'/'
-        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
-     else
-        filedir='output_'//TRIM(nchar)//'/'
-     endif
-     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
-     ilun=myid+103
-     call title(myid,nchar)
-     fileloc=TRIM(filename)//TRIM(nchar)
-     ! Wait for the token
-#ifndef WITHOUTMPI
-     if(IOGROUPSIZE>0) then
-        if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-        end if
-     endif
-#endif
-
-     inquire(file=fileloc,exist=file_exist)
-     if(.not.file_exist) then
-        open(ilun, file=fileloc, form='formatted')
-        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
-        enddo
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
-        enddo
-        do ivar=1,nvar
-           if(ivar.ge.10) then
-              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
-           else
-              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
-           endif
-        enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
-        write(ilun,'(A1)') ' '
-        if(bns_enrichment) then
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
-        else
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
-        endif
-     else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
-     endif
-  endif
-
+  ! The sf_log_properties file is opened lazily inside feedbk, on the first
+  ! actual event found, instead of eagerly here: most calls to this routine
+  ! (every level, every fine step) find no eligible particle at all, and
+  ! eagerly opening/closing a file on every such no-op call is a needless
+  ! I/O tax at scale - and a source of metadata-server pileups when every
+  ! rank does it at once right after an output boundary.
+  file_opened=.false.
+  ilun=myid+103
 
   if(numbtot(1,ilevel)==0)return
   if(verbose)write(*,111)ilevel
@@ -128,7 +77,7 @@ subroutine thermal_feedback(ilevel)
                  ind_grid_part(ip)=ig
               endif
               if(ip==nvector)then
-                 call feedbk(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+                 call feedbk(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,ilun,file_opened)
                  ip=0
                  ig=0
               end if
@@ -139,11 +88,11 @@ subroutine thermal_feedback(ilevel)
         igrid=next(igrid)   ! Go to next grid
      end do
      ! End loop over grids
-     if(ip>0)call feedbk(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel)
+     if(ip>0)call feedbk(ind_grid,ind_part,ind_grid_part,ig,ip,ilevel,ilun,file_opened)
   end do
   ! End loop over cpus
 
-  if(sf_log_properties) close(ilun)
+  if(file_opened) close(ilun)
 
 111 format('   Entering thermal_feedback for level ',I2)
 
@@ -154,14 +103,16 @@ end subroutine thermal_feedback
 !################################################################
 !################################################################
 #if NDIM==3
-subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
+subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
   use amr_commons
   use pm_commons
   use hydro_commons
   use bns_tables
   use random
+  use mpi_mod
   implicit none
-  integer::ng,np,ilevel
+  integer::ng,np,ilevel,ilun
+  logical::file_opened
   integer,dimension(1:nvector)::ind_grid
   integer,dimension(1:nvector)::ind_grid_part,ind_part
   !-----------------------------------------------------------------------
@@ -169,7 +120,14 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   ! dumps mass, momentum and energy in the nearest grid cell using array
   ! unew.
   !-----------------------------------------------------------------------
-  integer::i,j,idim,nx_loc,ivar,ilun,ipart
+  integer::i,j,idim,nx_loc,ivar,ipart
+#ifndef WITHOUTMPI
+  integer::info2,dummy_io
+#endif
+  integer,parameter::tag=1120
+  character(LEN=80)::filename,filedir,fileloc,filedirini
+  character(LEN=5)::nchar,ncharcpu
+  logical::file_exist
   real(kind=8)::RandNum
   real(dp)::SN_BOOST,mstar,dx_min,vol_min
   real(dp)::t0,ESN,mejecta,zloss,e,uvar
@@ -204,7 +162,6 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
   integer::irad
 #endif
 
-  if(sf_log_properties) ilun=myid+103
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
 
@@ -415,6 +372,55 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  m1_bns_val(nbns)=m1_code
                  mbns_val(nbns)=bns_mass_code
                  mp(ind_part(j))=mp(ind_part(j))-bns_mass_code
+                 if(sf_log_properties .and. .not.file_opened) then
+                    call title(ifout-1,nchar)
+                    if(IOGROUPSIZEREP>0) then
+                       call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+                       filedirini='output_'//TRIM(nchar)//'/'
+                       filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+                    else
+                       filedir='output_'//TRIM(nchar)//'/'
+                    endif
+                    filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+                    call title(myid,nchar)
+                    fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+                    if(IOGROUPSIZE>0) then
+                       if (mod(myid-1,IOGROUPSIZE)/=0) then
+                          call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
+                               & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+                       end if
+                    endif
+#endif
+                    inquire(file=fileloc,exist=file_exist)
+                    if(.not.file_exist) then
+                       open(ilun, file=fileloc, form='formatted')
+                       write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+                       do idim=1,ndim
+                          write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+                       enddo
+                       do idim=1,ndim
+                          write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+                       enddo
+                       do ivar=1,nvar
+                          if(ivar.ge.10) then
+                             write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+                          else
+                             write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+                          endif
+                       enddo
+                       write(ilun,'(A5)',advance='no') 'tag  '
+                       write(ilun,'(A1)') ' '
+                       if(bns_enrichment) then
+                          write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+                       else
+                          write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+                       endif
+                    else
+                       open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+                    endif
+                    file_opened=.true.
+                 endif
                  if(sf_log_properties) then
                     write(ilun,'(I10)',advance='no') 2
                     write(ilun,'(2I10,E24.12)',advance='no') idp(ind_part(j)),ilevel,mp(ind_part(j))
@@ -464,6 +470,55 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel)
                  mzloss(j)=0d0
                  ethermal(j)=0d0
               endif
+           endif
+           if(sf_log_properties .and. .not.file_opened) then
+              call title(ifout-1,nchar)
+              if(IOGROUPSIZEREP>0) then
+                 call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+                 filedirini='output_'//TRIM(nchar)//'/'
+                 filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+              else
+                 filedir='output_'//TRIM(nchar)//'/'
+              endif
+              filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+              call title(myid,nchar)
+              fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+              if(IOGROUPSIZE>0) then
+                 if (mod(myid-1,IOGROUPSIZE)/=0) then
+                    call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
+                         & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+                 end if
+              endif
+#endif
+              inquire(file=fileloc,exist=file_exist)
+              if(.not.file_exist) then
+                 open(ilun, file=fileloc, form='formatted')
+                 write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+                 do idim=1,ndim
+                    write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+                 enddo
+                 do idim=1,ndim
+                    write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+                 enddo
+                 do ivar=1,nvar
+                    if(ivar.ge.10) then
+                       write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+                    else
+                       write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+                    endif
+                 enddo
+                 write(ilun,'(A5)',advance='no') 'tag  '
+                 write(ilun,'(A1)') ' '
+                 if(bns_enrichment) then
+                    write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+                 else
+                    write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+                 endif
+              else
+                 open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+              endif
+              file_opened=.true.
            endif
            if(sf_log_properties) then
               write(ilun,'(I10)',advance='no') 1
