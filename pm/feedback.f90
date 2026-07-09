@@ -1402,7 +1402,7 @@ subroutine mechanical_feedback_cell
   real(dp),parameter::pi=acos(-1.0d0)
   character(LEN=80)::filename,filedir,fileloc,filedirini
   character(LEN=5)::nchar,ncharcpu
-  logical::file_exist
+  logical::file_exist,file_opened
   integer,parameter::tag=1120
 
   if(.not. hydro)return
@@ -1416,57 +1416,14 @@ subroutine mechanical_feedback_cell
   ttsta = MPI_WTIME()
 #endif
 
-  if(sf_log_properties) then
-     call title(ifout-1,nchar)
-     if(IOGROUPSIZEREP>0) then
-        call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
-        filedirini='output_'//TRIM(nchar)//'/'
-        filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
-     else
-        filedir='output_'//TRIM(nchar)//'/'
-     endif
-     filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
-     ilun=myid+103
-     call title(myid,nchar)
-     fileloc=TRIM(filename)//TRIM(nchar)
-     ! Wait for the token
-#ifndef WITHOUTMPI
-     if(IOGROUPSIZE>0) then
-        if (mod(myid-1,IOGROUPSIZE)/=0) then
-           call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
-                & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
-        end if
-     endif
-#endif
-
-     inquire(file=fileloc,exist=file_exist)
-     if(.not.file_exist) then
-        open(ilun, file=fileloc, form='formatted')
-        write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
-        enddo
-        do idim=1,ndim
-           write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
-        enddo
-        do ivar=1,nvar
-           if(ivar.ge.10) then
-              write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
-           else
-              write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
-           endif
-        enddo
-        write(ilun,'(A5)',advance='no') 'tag  '
-        write(ilun,'(A1)') ' '
-        if(bns_enrichment) then
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
-        else
-           write(ilun,'(A)') '# event id: 0=SF, 1=SN'
-        endif
-     else
-        open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
-     endif
-  endif
+  ! The sf_log_properties file is opened lazily below, on the first actual
+  ! event found, instead of eagerly here: most calls to this routine (every
+  ! level, every fine step) find no eligible particle at all, and eagerly
+  ! opening/closing a file on every such no-op call is a needless I/O tax
+  ! at scale - and a source of metadata-server pileups when every rank does
+  ! it at once right after an output boundary.
+  file_opened=.false.
+  ilun=myid+103
 
   ! Conversion factor from user units to cgs units
   call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -1744,6 +1701,55 @@ subroutine mechanical_feedback_cell
                           vp(ipart,2)=vp(ipart,2)+vkick2(ipart)*sintheta*sin(phi)
                           vp(ipart,3)=vp(ipart,3)+vkick2(ipart)*costheta
                        endif
+                       if(sf_log_properties .and. .not.file_opened) then
+                          call title(ifout-1,nchar)
+                          if(IOGROUPSIZEREP>0) then
+                             call title(((myid-1)/IOGROUPSIZEREP)+1,ncharcpu)
+                             filedirini='output_'//TRIM(nchar)//'/'
+                             filedir='output_'//TRIM(nchar)//'/group_'//TRIM(ncharcpu)//'/'
+                          else
+                             filedir='output_'//TRIM(nchar)//'/'
+                          endif
+                          filename=TRIM(filedir)//'stars_'//TRIM(nchar)//'.out'
+                          call title(myid,nchar)
+                          fileloc=TRIM(filename)//TRIM(nchar)
+#ifndef WITHOUTMPI
+                          if(IOGROUPSIZE>0) then
+                             if (mod(myid-1,IOGROUPSIZE)/=0) then
+                                call MPI_RECV(dummy_io,1,MPI_INTEGER,myid-1-1,tag,&
+                                     & MPI_COMM_WORLD,MPI_STATUS_IGNORE,info2)
+                             end if
+                          endif
+#endif
+                          inquire(file=fileloc,exist=file_exist)
+                          if(.not.file_exist) then
+                             open(ilun, file=fileloc, form='formatted')
+                             write(ilun,'(A24)',advance='no') '# event id  ilevel  mp  '
+                             do idim=1,ndim
+                                write(ilun,'(A2,I1,A2)',advance='no') 'xp',idim,'  '
+                             enddo
+                             do idim=1,ndim
+                                write(ilun,'(A2,I1,A2)',advance='no') 'vp',idim,'  '
+                             enddo
+                             do ivar=1,nvar
+                                if(ivar.ge.10) then
+                                   write(ilun,'(A1,I2,A2)',advance='no') 'u',ivar,'  '
+                                else
+                                   write(ilun,'(A1,I1,A2)',advance='no') 'u',ivar,'  '
+                                endif
+                             enddo
+                             write(ilun,'(A5)',advance='no') 'tag  '
+                             write(ilun,'(A1)') ' '
+                             if(bns_enrichment) then
+                                write(ilun,'(A)') '# event id: 0=SF, 1=SN, 2=BNS form, 3=BNS SN2, 4=BNS merger'
+                             else
+                                write(ilun,'(A)') '# event id: 0=SF, 1=SN'
+                             endif
+                          else
+                             open(ilun, file=fileloc, status="old", position="append", action="write", form='formatted')
+                          endif
+                          file_opened=.true.
+                       endif
                        if(sf_log_properties) then
                           write(ilun,'(I10)',advance='no') 3
                           write(ilun,'(2I10,E24.12)',advance='no') idp(ipart),ilevel,mp(ipart)
@@ -1941,7 +1947,7 @@ subroutine mechanical_feedback_cell
      write(*,*) 'Time elapsed in mechanical_feedback_cell [s]', sngl(ttend-ttsta)
   endif
 #endif
-  if(sf_log_properties) close(ilun)
+  if(file_opened) close(ilun)
 
 end subroutine mechanical_feedback_cell
 !################################################################
