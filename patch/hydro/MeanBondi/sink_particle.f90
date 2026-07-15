@@ -504,7 +504,7 @@ subroutine collect_acczone_avg(ilevel)
         sink_bin_ix(isink) = bix
         sink_bin_iy(isink) = biy
         sink_bin_iz(isink) = biz
-        ihash = mod(abs(ieor(ieor(bix*73856093,biy*19349663),biz*83492791)), nsink_hash) + 1
+        ihash = modulo(ieor(ieor(bix*73856093,biy*19349663),biz*83492791), nsink_hash) + 1
         sink_hash_next(isink) = sink_hash_head(ihash)
         sink_hash_head(ihash) = isink
      end do
@@ -3712,7 +3712,7 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
            nby = biy+diy
            do diz=diz_lo,diz_hi
               nbz = biz+diz
-              ihash = mod(abs(ieor(ieor(nbx*73856093,nby*19349663),nbz*83492791)), nsink_hash) + 1
+              ihash = modulo(ieor(ieor(nbx*73856093,nby*19349663),nbz*83492791), nsink_hash) + 1
               isink = sink_hash_head(ihash)
               do while(isink /= 0)
                  if(sink_bin_ix(isink)==nbx .and. sink_bin_iy(isink)==nby .and. sink_bin_iz(isink)==nbz)then
