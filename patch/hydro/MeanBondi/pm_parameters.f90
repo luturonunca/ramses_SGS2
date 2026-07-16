@@ -46,8 +46,9 @@ module pm_parameters
   logical::tff_include_particles=.false.             ! Include star+DM particle mass in freefall t_ff enclosed mass
   logical::weighted_depletion=.false.                ! Deplete cold/hot gas proportionally to the phase weight that drove accretion
   real(dp)::epsilon_freefall=0.1d0                  ! Cold gas accretion efficiency for freefall scheme
-  logical::epsilon_fixed=.true.                      ! If true use epsilon_freefall directly; if false weight by 1/(1+(j2/j2_crit)^eps_dc_pow)
-  real(dp)::eps_dc_pow=1.0d0                         ! Exponent on (j2/j2_crit) in the angular-momentum suppression; <1 suppresses sub-critical (r<1) gas harder
+  logical::epsilon_fixed=.true.                      ! If true use epsilon_freefall directly; if false weight by sigmoid(r_crit_dc,delta_dc) in r=j/j_crit
+  real(dp)::r_crit_dc=1.0d0                          ! Sigmoid midpoint in r=j/j_crit; r=1 is where the centrifugal (circularization) radius R_c=j^2/GM equals R0, the physical ballistic-infall limit
+  real(dp)::delta_dc=0.1d0                           ! Sigmoid width in r, smoothing the ideal ballistic cutoff for non-ballistic effects (turbulence, torques, pressure)
   logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]

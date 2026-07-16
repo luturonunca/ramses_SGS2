@@ -1420,7 +1420,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
-  real(dp)::j2_cold_mean,j2_crit,eps_dc
+  real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc
 
   ! Gravitational constant
   factG=1d0
@@ -1683,7 +1683,16 @@ subroutine compute_accretion_rate(write_sinks)
            j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
            ! mass-weighted mean j^2 of cold gas cells
            j2_cold_mean = wdc_cold_j2mass_new(isink) / (wdc_cold_mass_new(isink) + tiny(0.0_dp))
-           eps_dc = epsilon_freefall / (1.0d0 + (j2_cold_mean / (j2_crit + tiny(0.0_dp)))**eps_dc_pow)
+           ! r_dc = j/j_crit; sigmoid switch (same style as chi_crit/delta_chi). j_crit is
+           ! defined so that R_c(j_crit) = j_crit^2/G(M_enc+M_BH) = R0, i.e. r_dc^2 = R_c/R0
+           ! (Cassen & Moosman 1981; Terebey, Shu & Cassen 1984 centrifugal/circularization
+           ! radius). r_dc<1 -> R_c<R0: gas can reach R0 ballistically. r_dc>1 -> R_c>R0: gas
+           ! circularizes before reaching R0 and cannot accrete without shedding angular
+           ! momentum first (torques/shocks), so r_crit_dc=1 is the physical ballistic-infall
+           ! limit, not a free tuning knob; delta_dc only smooths that ideal cutoff for
+           ! non-ballistic effects (turbulence, pressure support).
+           r_dc   = sqrt(j2_cold_mean / (j2_crit + tiny(0.0_dp)))
+           eps_dc = epsilon_freefall / (1.0d0 + exp((r_dc - r_crit_dc) / delta_dc))
         endif
         ! Cold channel: freefall accretion rate
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
@@ -3120,7 +3129,7 @@ subroutine read_sink_params()
        n_res_influence,&
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
-       epsilon_freefall,epsilon_fixed,eps_dc_pow,tff_include_particles,&
+       epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
        use_stellar_mass_torque,weighted_depletion
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
