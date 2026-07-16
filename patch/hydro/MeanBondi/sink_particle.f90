@@ -1683,7 +1683,7 @@ subroutine compute_accretion_rate(write_sinks)
            j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
            ! mass-weighted mean j^2 of cold gas cells
            j2_cold_mean = wdc_cold_j2mass_new(isink) / (wdc_cold_mass_new(isink) + tiny(0.0_dp))
-           eps_dc = epsilon_freefall / (1.0d0 + (j2_cold_mean / (j2_crit + tiny(0.0_dp)))**2)
+           eps_dc = epsilon_freefall / (1.0d0 + (j2_cold_mean / (j2_crit + tiny(0.0_dp)))**eps_dc_pow)
         endif
         ! Cold channel: freefall accretion rate
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
@@ -3120,7 +3120,7 @@ subroutine read_sink_params()
        n_res_influence,&
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
-       epsilon_freefall,epsilon_fixed,tff_include_particles,&
+       epsilon_freefall,epsilon_fixed,eps_dc_pow,tff_include_particles,&
        use_stellar_mass_torque,weighted_depletion
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
@@ -3162,6 +3162,11 @@ subroutine read_sink_params()
 
   if (mass_sink_seed <= 0)then
      if(myid==1)write(*,*)'Sink seed mass is not specified. Exiting.'
+     call clean_stop
+  end if
+
+  if (epsilon_freefall > 1.0)then
+     if(myid==1)write(*,*)'epsilon_freefall must not exceed 1 (unphysical efficiency). Exiting.'
      call clean_stop
   end if
 
