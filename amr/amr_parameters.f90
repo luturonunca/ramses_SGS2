@@ -204,6 +204,7 @@ module amr_parameters
   real(dp)::bns_v_kick2=0.0D0  ! Fixed BNS kick2 in km/s (used when fixed_bns_vars=.true.)
   real(dp)::bns_efficiency=0.0D0 ! Fixed BNS formation efficiency in BNS/Msun (used when fixed_bns_vars=.true.; no table needed)
   real(dp)::bns_merger_frac=1.0D0 ! Fixed fraction of BNS that merge within Hubble time (used when fixed_bns_vars=.true.)
+  logical ::disable_bns_kicks=.false. ! Force BNS kick1/kick2 velocities to zero, independent of fixed_bns_vars/table draws
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
   real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa

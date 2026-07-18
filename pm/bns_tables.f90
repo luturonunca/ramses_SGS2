@@ -1,7 +1,8 @@
 module bns_tables
   use amr_commons, only: myid
   use amr_parameters, only: dp, bns_table_dir, fixed_bns_vars, &
-       & bns_t_sn2, bns_t_merge, bns_v_kick1, bns_v_kick2, bns_efficiency, bns_merger_frac
+       & bns_t_sn2, bns_t_merge, bns_v_kick1, bns_v_kick2, bns_efficiency, bns_merger_frac, &
+       & disable_bns_kicks
   use pm_commons, only: localseed
   use random, only: ranf
   implicit none
@@ -122,6 +123,10 @@ contains
        else
           t_merge = 1.0d30
        end if
+       if(disable_bns_kicks) then
+          vk1 = 0.0d0
+          vk2 = 0.0d0
+       end if
        m1 = 9.0d0
        m2 = 9.0d0
        return
@@ -132,6 +137,10 @@ contains
     call bns_find_z_index(z, iz)
     call draw_from_hist(vk1_hist(iz)%bin_min, vk1_hist(iz)%bin_max, vk1_hist(iz)%cdf, vk1)
     call draw_from_hist(vk2_hist(iz)%bin_min, vk2_hist(iz)%bin_max, vk2_hist(iz)%cdf, vk2)
+    if(disable_bns_kicks) then
+       vk1 = 0.0d0
+       vk2 = 0.0d0
+    end if
     call draw_from_hist(tsn2_hist(iz)%bin_min, tsn2_hist(iz)%bin_max, tsn2_hist(iz)%cdf, t_sn2)
     call bns_merge_frac_of_z(z, frac_merge)
     call ranf(localseed, u)
