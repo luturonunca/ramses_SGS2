@@ -711,9 +711,27 @@ subroutine collect_acczone_avg(ilevel)
 #ifndef WITHOUTMPI
              call MPI_ALLREDUCE(wfrac, wfrac_new, nsinkmax, MPI_DOUBLE_PRECISION,MPI_SUM, MPI_COMM_WORLD, info)
              call MPI_ALLREDUCE(wfvol, wfvol_new, nsinkmax, MPI_DOUBLE_PRECISION, MPI_SUM,MPI_COMM_WORLD, info)
+             if(freefall_accretion)then
+                call MPI_ALLREDUCE(wdc_cold_mass,  wdc_cold_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_cold_j2mass,wdc_cold_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_tot_mass,   wdc_tot_mass_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_hot_w,    wdc_hot_w_new,    nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_hot_rho,  wdc_hot_rho_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_hot_cs2,  wdc_hot_cs2_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_hot_v2,   wdc_hot_v2_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_cold_w,   wdc_cold_w_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_cold_rho, wdc_cold_rho_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+             endif
 #else
              wfrac_new=wfrac
              wfvol_new=wfvol
+             if(freefall_accretion)then
+                wdc_cold_mass_new=wdc_cold_mass; wdc_cold_j2mass_new=wdc_cold_j2mass
+                wdc_tot_mass_new=wdc_tot_mass
+                wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
+                wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
+                wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
+             endif
 #endif
         endif
         do isink=1,nsink
