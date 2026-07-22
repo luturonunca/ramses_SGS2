@@ -884,7 +884,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wnorot_cs2(isink) = wnorot_cs2(isink) + weight*(1.0d0-S_rot_loc)*d*cs2
                     wnorot_v2(isink)  = wnorot_v2(isink)  + weight*(1.0d0-S_rot_loc)*d*v2
                  endif
-                 if(freefall_accretion)then
+                 if(freefall_accretion .and. .not. use_bondi_exp_weight)then
                     ! Temperature-only sigmoid (no density or rotation condition)
                     S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
@@ -919,6 +919,25 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
               ! Accumulate
               wfrac(isink) = wfrac(isink) + weight * fraction
               wfvol(isink) = wfvol(isink) + weight
+
+              if(freefall_accretion)then
+                 if(r2>0d0)then
+                    vr_loc=sum((vv(1:ndim)-vsink(isink,1:ndim))*(xp(ind_part(j),1:ndim)-xsink(isink,1:ndim)))/sqrt(r2)
+                 else
+                    vr_loc=0d0
+                 endif
+                 vphi2_loc=max(v2-vr_loc**2,0d0)
+                 S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
+                 wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight_exp
+                 wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc*weight_exp
+                 wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight_exp
+                 wdc_hot_w(isink)      = wdc_hot_w(isink)      + weight*(1.0d0-S_T_loc)*weight_exp
+                 wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d*weight_exp
+                 wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2*weight_exp
+                 wdc_hot_v2(isink)     = wdc_hot_v2(isink)     + weight*(1.0d0-S_T_loc)*d*v2*weight_exp
+                 wdc_cold_w(isink)     = wdc_cold_w(isink)     + weight*S_T_loc*weight_exp
+                 wdc_cold_rho(isink)   = wdc_cold_rho(isink)   + weight*S_T_loc*d*weight_exp
+              endif
            endif
 
         endif
