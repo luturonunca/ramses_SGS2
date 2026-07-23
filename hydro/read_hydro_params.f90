@@ -88,7 +88,8 @@ subroutine read_hydro_params(nml_ok)
        & ,M_ns,eta_merger,eu_yield &
        & ,f_w,mass_gmc,kappa_IR,delayed_cooling,momentum_feedback &
        & ,ir_feedback,ir_eff,t_diss,t_sne,mass_star_max,mass_sne_min &
-       & ,mechanical_feedback,sn2_real_delay
+       & ,mechanical_feedback,sn2_real_delay &
+       & ,phi_snIa,E_SNIa,t_ini_snIa,t_fin_snIa,fFe_ccsn,fMg_ccsn
 
   ! Cooling / basic chemistry parameters
   namelist/cooling_params/cooling,metal,isothermal,haardt_madau,J21 &
@@ -101,7 +102,7 @@ subroutine read_hydro_params(nml_ok)
        & bns_formation,  & ! set .false. to enable iheavy without spawning BNS particles
        & bns_table_dir &
        & ,fixed_bns_vars,bns_t_sn2,bns_t_merge,bns_v_kick1,bns_v_kick2,bns_efficiency,bns_merger_frac &
-       & ,disable_bns_kicks
+       & ,disable_bns_kicks,snIa_enrichment,snIa
 
   ! Units parameters
   namelist/units_params/units_density,units_time,units_length
@@ -253,6 +254,8 @@ subroutine read_hydro_params(nml_ok)
   endif
   ! bns_enrichment only makes sense when metal enrichment and star formation are enabled
   if((.not.metal).or.(.not.star)) bns_enrichment=.false.
+  ! snIa_enrichment only makes sense when metal enrichment and star formation are enabled
+  if((.not.metal).or.(.not.star)) snIa_enrichment=.false.
 
   !--------------------------------------------------
   ! Check for metal
@@ -265,6 +268,25 @@ subroutine read_hydro_params(nml_ok)
 #else
   if(metal.and.bns_enrichment.and.nvar<(ndim+4))then
      if(myid==1)write(*,*)'Error: bns_enrichment needs nvar >= ndim+4'
+     if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
+     nml_ok=.false.
+#endif
+#ifdef SOLVERmhd
+  else if(metal.and.snIa_enrichment.and.bns_enrichment.and.nvar<(ndim+9))then
+     if(myid==1)write(*,*)'Error: snIa_enrichment with bns_enrichment needs nvar >= ndim+9'
+     if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
+     nml_ok=.false.
+  else if(metal.and.snIa_enrichment.and.(.not.bns_enrichment).and.nvar<(ndim+8))then
+     if(myid==1)write(*,*)'Error: snIa_enrichment needs nvar >= ndim+8'
+     if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
+     nml_ok=.false.
+#else
+  else if(metal.and.snIa_enrichment.and.bns_enrichment.and.nvar<(ndim+6))then
+     if(myid==1)write(*,*)'Error: snIa_enrichment with bns_enrichment needs nvar >= ndim+6'
+     if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
+     nml_ok=.false.
+  else if(metal.and.snIa_enrichment.and.(.not.bns_enrichment).and.nvar<(ndim+5))then
+     if(myid==1)write(*,*)'Error: snIa_enrichment needs nvar >= ndim+5'
      if(myid==1)write(*,*)'Modify hydro_parameters.f90 and recompile'
      nml_ok=.false.
 #endif
@@ -480,9 +502,16 @@ subroutine read_hydro_params(nml_ok)
   imetal=inener+nener
   iheavy=imetal
   if(bns_enrichment) iheavy=imetal+1
+  iFe=iheavy
+  iMg=iheavy
+  if(snIa_enrichment)then
+     iFe=iheavy+1
+     iMg=iheavy+2
+  endif
   idelay=imetal
   if(metal)idelay=imetal+1
   if(bns_enrichment)idelay=imetal+2
+  if(bns_enrichment.or.snIa_enrichment) idelay=iMg+1
   ivirial1=idelay
   ivirial2=idelay
   if(delayed_cooling)then
@@ -504,6 +533,8 @@ subroutine read_hydro_params(nml_ok)
 #endif
      if(metal)           write(*,*) '   imetal   = ',imetal
      if(bns_enrichment)  write(*,*) '   iheavy   = ',iheavy
+     if(snIa_enrichment) write(*,*) '   iFe      = ',iFe
+     if(snIa_enrichment) write(*,*) '   iMg      = ',iMg
      if(delayed_cooling) write(*,*) '   idelay   = ',idelay
      if(sf_virial)then
         write(*,*) '   ivirial1 = ',ivirial1

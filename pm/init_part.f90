@@ -97,6 +97,12 @@
         allocate(zp_heavy(npartmax))
         zp_heavy=0.0
      end if
+     if(snIa_enrichment)then
+        allocate(zp_Fe(npartmax))
+        allocate(zp_Mg(npartmax))
+        zp_Fe=0.0
+        zp_Mg=0.0
+     end if
   end if
 
   !--------------------
@@ -203,6 +209,13 @@
            ! Read r-process enrichment
            read(ilun)xdp
            zp_heavy(1:npart2)=xdp
+        end if
+        if(snIa_enrichment)then
+           ! Read Fe/Mg enrichment
+           read(ilun)xdp
+           zp_Fe(1:npart2)=xdp
+           read(ilun)xdp
+           zp_Mg(1:npart2)=xdp
         end if
         ! Read BNS timing/kick fields
         read(ilun)xdp
@@ -891,6 +904,10 @@ contains
           end if
           if(bns_enrichment)then
              zp_heavy(ipart)=0d0
+          end if
+          if(snIa_enrichment)then
+             zp_Fe(ipart)=0d0
+             zp_Mg(ipart)=0d0
           end if
        end do
     end if

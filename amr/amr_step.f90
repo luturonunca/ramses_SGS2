@@ -302,6 +302,7 @@ recursive subroutine amr_step(ilevel,icount)
   if(bns_formation .and. .not.fixed_bns_vars) call init_bns_tables()
   if(bns_formation)  call bns_sn2_fine(ilevel)
   if(bns_enrichment) call bns_merger_enrich(ilevel)
+  if(snIa) call snIa_fine(ilevel)
 #endif
 
   !----------------------

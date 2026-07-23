@@ -91,6 +91,8 @@ module hydro_parameters
   ! Passive variables index
   integer::imetal=6
   integer::iheavy=6
+  integer::iFe=6
+  integer::iMg=6
   integer::idelay=6
   integer::ixion=6
   integer::ichem=6

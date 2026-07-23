@@ -205,6 +205,19 @@ module amr_parameters
   real(dp)::bns_efficiency=0.0D0 ! Fixed BNS formation efficiency in BNS/Msun (used when fixed_bns_vars=.true.; no table needed)
   real(dp)::bns_merger_frac=1.0D0 ! Fixed fraction of BNS that merge within Hubble time (used when fixed_bns_vars=.true.)
   logical ::disable_bns_kicks=.false. ! Force BNS kick1/kick2 velocities to zero, independent of fixed_bns_vars/table draws
+  logical ::snIa_enrichment=.false. ! Enable SNIa Fe/Mg passive scalars (iFe, iMg).
+                                    ! Must be .true. for iFe/iMg to be allocated, advected,
+                                    ! inherited by stars, and written to outputs.
+  logical ::snIa=.false.       ! Enable delayed SNIa mass/energy/metal injection from star
+                                    ! particles. Gates injection independently of the Fe/Mg
+                                    ! scalars: snIa_enrichment=F + snIa=T deposits mass/energy/
+                                    ! imetal but skips iFe/iMg (mirrors bns_formation/bns_enrichment).
+  real(dp)::phi_snIa=2.35D-3   ! SNIa DTD amplitude in Gyr/(yr*10^10 Msun), Maoz+ 2012
+  real(dp)::E_SNIa=1.0D51      ! SNIa energy release per explosion, in erg
+  real(dp)::t_ini_snIa=5.0D7   ! SNIa DTD lower time cut, in yr
+  real(dp)::t_fin_snIa=1.37D10 ! SNIa DTD upper time cut, in yr
+  real(dp)::fFe_ccsn=0.04D0    ! CCSN Fe mass fraction of ejected metals (IMF-averaged)
+  real(dp)::fMg_ccsn=0.06D0    ! CCSN Mg mass fraction of ejected metals (IMF-averaged)
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
   real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa

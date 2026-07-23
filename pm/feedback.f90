@@ -131,6 +131,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
   real(kind=8)::RandNum
   real(dp)::SN_BOOST,mstar,dx_min,vol_min
   real(dp)::t0,ESN,mejecta,zloss,e,uvar
+  real(dp)::Zejecta_Fe,Zejecta_Mg
   real(dp)::ERAD,RAD_BOOST,tauIR,msne_min,mstar_max,eta_sn2
   real(dp)::delta_x,tau_factor,rad_factor
   real(dp)::dx,dx_loc,scale,birth_time,current_time
@@ -153,6 +154,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
   ! Particle based arrays
   logical,dimension(1:nvector),save::ok
   real(dp),dimension(1:nvector),save::mloss,mzloss,ethermal,ekinetic,dteff
+  real(dp),dimension(1:nvector),save::mFeloss,mMgloss
   real(dp),dimension(1:nvector),save::vol_loc
   real(dp),dimension(1:nvector,1:ndim),save::x
   integer ,dimension(1:nvector,1:ndim),save::id,igd,icd
@@ -301,6 +303,8 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
      mloss(j)=0d0
      mzloss(j)=0d0
      ethermal(j)=0d0
+     mFeloss(j)=0d0
+     mMgloss(j)=0d0
   end do
   nbns=0
 
@@ -326,6 +330,12 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
            if(metal)then
               zloss=yield+(1d0-yield)*zp(ind_part(j))
               mzloss(j)=mzloss(j)+mejecta*zloss/vol_loc(j)
+              if(snIa_enrichment)then
+                 Zejecta_Fe=fFe_ccsn+(1d0-fFe_ccsn)*zp_Fe(ind_part(j))
+                 Zejecta_Mg=fMg_ccsn+(1d0-fMg_ccsn)*zp_Mg(ind_part(j))
+                 mFeloss(j)=mFeloss(j)+mejecta*Zejecta_Fe/vol_loc(j)
+                 mMgloss(j)=mMgloss(j)+mejecta*Zejecta_Mg/vol_loc(j)
+              endif
            endif
            ! Reduce star particle mass
            mp(ind_part(j))=mp(ind_part(j))-mejecta
@@ -465,10 +475,14 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
                  mloss(j)=SN_BOOST*mloss(j)
                  mzloss(j)=SN_BOOST*mzloss(j)
                  ethermal(j)=SN_BOOST*ethermal(j)
+                 mFeloss(j)=SN_BOOST*mFeloss(j)
+                 mMgloss(j)=SN_BOOST*mMgloss(j)
               else
                  mloss(j)=0d0
                  mzloss(j)=0d0
                  ethermal(j)=0d0
+                 mFeloss(j)=0d0
+                 mMgloss(j)=0d0
               endif
            endif
            if(sf_log_properties .and. .not.file_opened) then
@@ -639,6 +653,12 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
      do j=1,np
         unew(indp(j),imetal)=unew(indp(j),imetal)+mzloss(j)
      end do
+     if(snIa_enrichment)then
+        do j=1,np
+           unew(indp(j),iFe)=unew(indp(j),iFe)+mFeloss(j)
+           unew(indp(j),iMg)=unew(indp(j),iMg)+mMgloss(j)
+        end do
+     endif
   endif
 
   ! Add delayed cooling switch variable
@@ -2945,6 +2965,7 @@ subroutine bns_sn2_fine(ilevel)
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
   real(dp)::mejecta,mejecta_vol,zloss,mzloss,ethermal,ekinetic,ESN
+  real(dp)::mFeloss,mMgloss
   real(dp)::vx,vy,vz
   real(dp)::RandNum,costheta,sintheta,phi
   real(dp)::e,uvar
@@ -3110,6 +3131,15 @@ subroutine bns_sn2_fine(ilevel)
                        zloss  = yield + (1d0-yield)*zp(ipart)
                        mzloss = mejecta_vol * zloss
                        uold(ind_cell,imetal) = uold(ind_cell,imetal) + mzloss
+                       if(snIa_enrichment) then
+                          ! No zp_Fe/zp_Mg recycling term here: BNS particles don't
+                          ! inherit zp_Fe/zp_Mg from their parent star (unlike zp/zp_heavy),
+                          ! so the companion's own SN2 uses the flat CCSN fraction only.
+                          mFeloss = mejecta_vol * fFe_ccsn
+                          mMgloss = mejecta_vol * fMg_ccsn
+                          uold(ind_cell,iFe) = uold(ind_cell,iFe) + mFeloss
+                          uold(ind_cell,iMg) = uold(ind_cell,iMg) + mMgloss
+                       endif
                     endif
                     if(delayed_cooling) then
                        uold(ind_cell,idelay) = uold(ind_cell,idelay) + mejecta_vol
@@ -3128,6 +3158,125 @@ subroutine bns_sn2_fine(ilevel)
   if(file_opened) close(ilun)
 
 end subroutine bns_sn2_fine
+#endif
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+#if NDIM==3
+subroutine snIa_fine(ilevel)
+  use pm_commons
+  use amr_commons
+  use hydro_commons
+  use snIa_yield
+  implicit none
+  integer,intent(in)::ilevel
+  !------------------------------------------------------------------------
+  ! Scans all star particles and deposits a continuous SNIa mass/energy/
+  ! Fe/Mg contribution every fine step, from the analytic integral of the
+  ! Maoz+2012 t^-1 delay-time distribution over the particle's age window
+  ! for this step (no discrete stochastic event sampling: the expected
+  ! ejecta is smeared continuously in time, mirroring how feedbk already
+  ! deposits CCSN mass loss continuously rather than as discrete SNe).
+  ! Called every fine step from amr_step, independent of feedback choice.
+  !------------------------------------------------------------------------
+  integer::igrid,jgrid,ipart,jpart,next_part,icpu
+  integer::npart1,ind,ind_son,ind_cell,iskip,idim
+  real(dp)::current_time,dx,dx_loc,vol_loc,scale,dteff
+  real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
+  real(dp)::t_ini_code,t_fin_code,age1,age2,lo,hi
+  real(dp)::mass_msun,nsnIa_star,mejecta,mejecta_vol,ekinetic,ethermal
+  real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
+  real(dp),parameter::sec_per_yr=365.d0*24.d0*3600.d0
+
+  if(.not.snIa)return
+  if(numbtot(1,ilevel)==0)return
+  if(nstar_tot==0)return
+
+  call init_snIa_yield()
+
+  call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
+  call mesh_info(ilevel,skip_loc,scale,dx,dx_loc,vol_loc,xc)
+
+  if(use_proper_time)then
+     current_time=texp
+     dteff=dtnew(ilevel)*aexp**2
+     t_ini_code=t_ini_snIa*sec_per_yr/(scale_t/aexp**2)
+     t_fin_code=t_fin_snIa*sec_per_yr/(scale_t/aexp**2)
+  else
+     current_time=t
+     dteff=dtnew(ilevel)
+     t_ini_code=t_ini_snIa*sec_per_yr/scale_t
+     t_fin_code=t_fin_snIa*sec_per_yr/scale_t
+  endif
+
+  ! Loop over cpus
+  do icpu=1,ncpu
+     igrid=headl(icpu,ilevel)
+     ! Loop over grids
+     do jgrid=1,numbl(icpu,ilevel)
+        npart1=numbp(igrid)
+        if(npart1>0)then
+           do idim=1,ndim
+              x0(idim)=xg(igrid,idim)-dx-skip_loc(idim)
+           end do
+           ipart=headp(igrid)
+           ! Loop over particles
+           do jpart=1,npart1
+              next_part=nextp(ipart)
+              if(is_star(typep(ipart)))then
+                 ! Age window covered by this step, in code time units
+                 age2=current_time-tp(ipart)
+                 age1=age2-dteff
+                 lo=max(age1,t_ini_code)
+                 hi=min(age2,t_fin_code)
+                 if(hi.gt.lo)then
+                    ! Analytic integral of dN/dt = (phi_snIa/10) / t over [lo,hi]
+                    mass_msun=mp(ipart)*(scale_d*scale_l**3)/2d33
+                    nsnIa_star=mass_msun*(phi_snIa/1.0d1)*(log(hi)-log(lo))
+                    if(nsnIa_star>0d0)then
+                       ! Find the host cell
+                       ind_son=1
+                       do idim=1,ndim
+                          ind=int((xp(ipart,idim)/scale-x0(idim))/dx)
+                          ind_son=ind_son+ind*2**(idim-1)
+                       end do
+                       iskip=ncoarse+(ind_son-1)*ngridmax
+                       ind_cell=iskip+igrid
+                       if(son(ind_cell)==0)then  ! leaf cell only
+                          mejecta = mejecta_Ia/(scale_d*scale_l**3)*2d33*nsnIa_star
+                          mejecta = min(mejecta, mp(ipart))
+                          mejecta_vol = mejecta/vol_loc
+                          ekinetic    = 0.5d0*(vp(ipart,1)**2+vp(ipart,2)**2+vp(ipart,3)**2)
+                          ! Energy scales with the actual event count, not with mejecta:
+                          ! total energy = E_SNIa [erg] * nsnIa_star, converted to code
+                          ! energy density (unlike ESN in feedbk/bns_sn2_fine, which scales
+                          ! with ejecta mass via a fixed "erg per 10 Msun" reference that
+                          ! doesn't apply here).
+                          ethermal    = E_SNIa*nsnIa_star/(scale_d*scale_l**3*scale_v**2)/vol_loc
+                          uold(ind_cell,1)      = uold(ind_cell,1)      + mejecta_vol
+                          uold(ind_cell,2)      = uold(ind_cell,2)      + mejecta_vol*vp(ipart,1)
+                          uold(ind_cell,3)      = uold(ind_cell,3)      + mejecta_vol*vp(ipart,2)
+                          uold(ind_cell,4)      = uold(ind_cell,4)      + mejecta_vol*vp(ipart,3)
+                          uold(ind_cell,ndim+2) = uold(ind_cell,ndim+2) + mejecta_vol*ekinetic + ethermal
+                          if(metal) uold(ind_cell,imetal) = uold(ind_cell,imetal) + mejecta_vol
+                          if(snIa_enrichment)then
+                             uold(ind_cell,iFe) = uold(ind_cell,iFe) + mejecta_vol*f_Fe_Ia
+                             uold(ind_cell,iMg) = uold(ind_cell,iMg) + mejecta_vol*f_Mg_Ia
+                          endif
+                          mp(ipart) = mp(ipart) - mejecta
+                       endif
+                    endif
+                 endif
+              endif
+              ipart=next_part
+           end do
+        endif
+        igrid=next(igrid)
+     end do
+  end do
+
+end subroutine snIa_fine
 #endif
 !################################################################
 !################################################################

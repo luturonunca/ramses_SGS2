@@ -84,6 +84,12 @@ subroutine add_free(ind_part,np)
            zp_heavy(ind_part(j))=0.0
         end do
      end if
+     if(snIa_enrichment)then
+        do j=1,np
+           zp_Fe(ind_part(j))=0.0
+           zp_Mg(ind_part(j))=0.0
+        end do
+     end if
   end if
 
   do j=1,np
@@ -163,6 +169,14 @@ subroutine add_free_cond(ind_part,ok,np)
         do j=1,np
            if(ok(j))then
               zp_heavy(ind_part(j))=0.0
+           endif
+        end do
+     end if
+     if(snIa_enrichment)then
+        do j=1,np
+           if(ok(j))then
+              zp_Fe(ind_part(j))=0.0
+              zp_Mg(ind_part(j))=0.0
            endif
         end do
      end if

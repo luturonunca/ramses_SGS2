@@ -58,6 +58,8 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::tp       ! Birth epoch
   real(dp),allocatable,dimension(:)    ::zp       ! Birth metallicity
   real(dp),allocatable,dimension(:)    ::zp_heavy ! Birth r-process scalar
+  real(dp),allocatable,dimension(:)    ::zp_Fe    ! Birth Fe scalar
+  real(dp),allocatable,dimension(:)    ::zp_Mg    ! Birth Mg scalar
   real(dp),allocatable,dimension(:)    ::vkick1   ! BNS first kick velocity
   real(dp),allocatable,dimension(:)    ::t_sn2    ! BNS second SN time
   real(dp),allocatable,dimension(:)    ::vkick2   ! BNS second kick velocity

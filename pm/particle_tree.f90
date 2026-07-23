@@ -670,8 +670,12 @@ subroutine virtual_tree_fine(ilevel)
   ! Calculate how many particle properties are being transferred
   particle_data_width = twondim+1
   if(star.or.sink) then
-     if(bns_enrichment) then
+     if(bns_enrichment.and.snIa_enrichment) then
+        particle_data_width=twondim+6
+     else if(bns_enrichment) then
         particle_data_width=twondim+4
+     else if(snIa_enrichment) then
+        particle_data_width=twondim+5
      else if(metal) then
         particle_data_width=twondim+3
      else
@@ -904,6 +908,16 @@ subroutine fill_comm(ind_part,ind_com,ind_list,np,ilevel,icpu)
         end do
        current_property = current_property+1
      end if
+     if(snIa_enrichment)then
+        do i=1,np
+           reception(icpu,ilevel)%up(ind_com(i),current_property)=zp_Fe(ind_part(i))
+        end do
+        current_property = current_property+1
+        do i=1,np
+           reception(icpu,ilevel)%up(ind_com(i),current_property)=zp_Mg(ind_part(i))
+        end do
+        current_property = current_property+1
+     end if
   end if
   do i=1,np
      reception(icpu,ilevel)%up(ind_com(i),current_property)=vkick1(ind_part(i))
@@ -1009,6 +1023,16 @@ subroutine empty_comm(ind_com,np,ilevel,icpu)
            zp_heavy(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
         end do
        current_property = current_property+1
+     end if
+     if(snIa_enrichment)then
+        do i=1,np
+           zp_Fe(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+        end do
+        current_property = current_property+1
+        do i=1,np
+           zp_Mg(ind_part(i))=emission(icpu,ilevel)%up(ind_com(i),current_property)
+        end do
+        current_property = current_property+1
      end if
   end if
   do i=1,np
