@@ -148,7 +148,7 @@ module amr_parameters
   integer ::ndebris=1         ! Supernovae debris particle number
   real(dp)::mass_gmc=-1.0     ! Stochastic exploding GMC mass
   real(dp)::z_ave  =0.0D0     ! Average metal abundance
-  real(dp)::z_ave_heavy=0.0D0 ! Average heavy abundance
+  real(dp)::z_ave_eu=0.0D0    ! Average Eu abundance
   real(dp)::z_ave_Fe=0.0D0    ! Average Fe abundance
   real(dp)::z_ave_Mg=0.0D0    ! Average Mg abundance
   real(dp)::B_ave  =0.0D0     ! Average magnetic field
