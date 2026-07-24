@@ -270,6 +270,8 @@ subroutine init_flow_fine(ilevel)
               ! Default value for metals
               if(cosmo.and.ivar==imetal.and.metal)init_array=z_ave*0.02 ! from solar units
               if(cosmo.and.ivar==iheavy.and.metal.and.bns_enrichment)init_array=z_ave_heavy*0.02 ! from solar units
+              if(cosmo.and.ivar==iFe.and.metal.and.snIa_enrichment)init_array=z_ave_Fe*0.02 ! from solar units
+              if(cosmo.and.ivar==iMg.and.metal.and.snIa_enrichment)init_array=z_ave_Mg*0.02 ! from solar units
               ! Default value for ionization fraction
               if(cosmo)xval=sqrt(omega_m)/(h0/100.*omega_b) ! From the book of Peebles p. 173
               if(cosmo.and.ivar==ixion.and.aton)init_array=1.2d-5*xval
