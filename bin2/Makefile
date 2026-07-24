@@ -5,7 +5,7 @@
 NVECTOR = 32
 NDIM = 3
 NPRE = 8
-NVAR = 10 
+NVAR = 12
 NENER = 0
 SOLVER = hydro
 PATCH =
