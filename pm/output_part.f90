@@ -184,7 +184,7 @@ subroutine backup_part(filename, filename_desc)
               xdp(ipart) = zp_heavy(i)
            end if
         end do
-        call generic_dump("bns_enrichment", ivar, xdp, unit_out, dump_info, unit_info)
+        call generic_dump("Eu", ivar, xdp, unit_out, dump_info, unit_info)
      end if
      if (snIa_enrichment) then
         ipart = 0
@@ -194,7 +194,7 @@ subroutine backup_part(filename, filename_desc)
               xdp(ipart) = zp_Fe(i)
            end if
         end do
-        call generic_dump("Fe_fraction", ivar, xdp, unit_out, dump_info, unit_info)
+        call generic_dump("Fe", ivar, xdp, unit_out, dump_info, unit_info)
         ipart = 0
         do i = 1, npartmax
            if (levelp(i) > 0) then
@@ -202,7 +202,7 @@ subroutine backup_part(filename, filename_desc)
               xdp(ipart) = zp_Mg(i)
            end if
         end do
-        call generic_dump("Mg_fraction", ivar, xdp, unit_out, dump_info, unit_info)
+        call generic_dump("Mg", ivar, xdp, unit_out, dump_info, unit_info)
      end if
      ipart = 0
      do i = 1, npartmax
