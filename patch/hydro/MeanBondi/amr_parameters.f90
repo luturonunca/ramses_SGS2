@@ -243,6 +243,9 @@ module amr_parameters
   real(kind=8)::tendmov=0.,aendmov=0.
   real(kind=8),allocatable,dimension(:)::amovout,tmovout
   logical::movie=.false.
+  integer::sink_follow_id=0 ! If >0, movie camera follows this sink id instead of the
+                             ! xcentre_frame/ycentre_frame/zcentre_frame polynomial path,
+                             ! resolving through mergers via sink_mergers.txt
   integer::nw_frame=512 ! prev: nx_frame, width of frame in pixels
   integer::nh_frame=512 ! prev: ny_frame, height of frame in pixels
   integer::levelmax_frame=0
