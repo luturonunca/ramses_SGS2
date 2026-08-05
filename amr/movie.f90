@@ -70,6 +70,11 @@ subroutine output_frame()
   real(dp)::xpc,ypc
   logical::opened,cube_face=.true.
   character(len=1)::temp_string
+  ! Sink-follow camera (sink_follow_id>0): resolved once per call, reused for every proj_ind
+  logical::sink_follow_found=.false.,file_exist_merge,file_exist_track,follow_changed
+  integer::id_follow_now,k_follow,lost_id_follow,survivor_id_follow,ierr_follow
+  real(dp)::xsink_follow,ysink_follow,zsink_follow,msink_follow
+  character(len=100)::fileloc_follow
   integer,dimension(6,8)::lind = reshape((/1, 2, 3, 4, 1, 3, 2, 4,    &
                                            5, 6, 7, 8, 5, 7, 6, 8,    &
                                            1, 5, 2, 6, 1, 2, 5, 6,    &
@@ -109,11 +114,52 @@ subroutine output_frame()
   ! Only one projection available in 2D
   if((ndim.eq.2).and.(trim(proj_axis).ne.'z')) proj_axis = 'z'
 
+  ! Resolve the sink-follow camera once per call (same for every proj_ind below):
+  ! walk sink_mergers.txt forward from sink_follow_id until it either lands on a
+  ! currently-alive sink id or on one with no further merge recorded (never formed,
+  ! or gone with no living descendant) -- either way sink_follow_found stays false.
+  if(sink.and.sink_follow_id>0)then
+     id_follow_now = sink_follow_id
+     inquire(file='sink_mergers.txt',exist=file_exist_merge)
+     if(file_exist_merge)then
+        follow_changed=.true.
+        do while(follow_changed)
+           follow_changed=.false.
+           open(789,file='sink_mergers.txt',status='old',action='read',form='formatted')
+           read(789,*,iostat=ierr_follow) ! skip header line
+           do
+              read(789,*,iostat=ierr_follow) lost_id_follow,survivor_id_follow
+              if(ierr_follow/=0)exit
+              if(lost_id_follow==id_follow_now)then
+                 id_follow_now=survivor_id_follow
+                 follow_changed=.true.
+              endif
+           end do
+           close(789)
+        end do
+     endif
+     sink_follow_found=.false.
+     do k_follow=1,nsink
+        if(idsink(k_follow)==id_follow_now)then
+           sink_follow_found=.true.
+           xsink_follow=xsink(k_follow,1)
+           ysink_follow=xsink(k_follow,2)
+           zsink_follow=xsink(k_follow,3)
+           msink_follow=msink(k_follow)
+           exit
+        endif
+     end do
+  endif
+
  do proj_ind=1,LEN(trim(proj_axis))
   opened=.false.
 
   if(imov<1)imov=1
   if(imov>imovout)return
+
+  ! Following a sink that isn't alive right now (not yet formed, or merged away
+  ! with no living descendant): skip this frame entirely rather than render one.
+  if(sink_follow_id>0 .and. .not.sink_follow_found) cycle
 
   ! Determine the filename, dir, etc
   if(myid==1)write(*,*)'Computing and dumping movie frame'
@@ -237,6 +283,22 @@ subroutine output_frame()
   yr     = (365.*24.*3600.)/scale_t
   if(cosmo) yr = yr*aexp**2
 
+  ! Trace the followed sink's resolved identity/mass/position in this movie's own
+  ! folder -- one line per frame, alongside the existing sink_/info_ dumps above.
+  if(sink_follow_id>0 .and. myid==1)then
+     fileloc_follow = trim(moviedir)//'sink_track.txt'
+     inquire(file=fileloc_follow,exist=file_exist_track)
+     if(file_exist_track)then
+        open(791,file=fileloc_follow,status='old',position='append',action='write',form='formatted')
+     else
+        open(791,file=fileloc_follow,form='formatted')
+        write(791,'(A)')'# imov  aexp  t  current_id  mass_Msol  x  y  z'
+     endif
+     write(791,'(I6,1X,1PE14.6,1X,1PE14.6,1X,I8,4(1X,1PE14.6))') &
+          imov,aexp,t,id_follow_now,msink_follow/msol,xsink_follow,ysink_follow,zsink_follow
+     close(791)
+  endif
+
   ! Local constants
   nx_loc=(icoarse_max-icoarse_min+1)
   skip_loc=(/0.0d0,0.0d0,0.0d0/)
@@ -254,7 +316,17 @@ subroutine output_frame()
       timer = t
   endif
   ! Compute frame boundaries
-  if(proj_axis(proj_ind:proj_ind).eq.'x')then
+  if(sink_follow_id>0)then
+    ! Same x/y/z permutation as the polynomial branches below, just sourced from
+    ! the resolved sink's current position instead of the time polynomial.
+    if(proj_axis(proj_ind:proj_ind).eq.'x')then
+      xcen=ysink_follow; ycen=zsink_follow; zcen=xsink_follow
+    elseif(proj_axis(proj_ind:proj_ind).eq.'y')then
+      xcen=xsink_follow; ycen=zsink_follow; zcen=ysink_follow
+    else
+      xcen=xsink_follow; ycen=ysink_follow; zcen=zsink_follow
+    endif
+  elseif(proj_axis(proj_ind:proj_ind).eq.'x')then
     xcen=ycentre_frame(proj_ind*4-3)+ycentre_frame(proj_ind*4-2)*timer+ycentre_frame(proj_ind*4-1)*timer**2+ycentre_frame(proj_ind*4)*timer**3
     ycen=zcentre_frame(proj_ind*4-3)+zcentre_frame(proj_ind*4-2)*timer+zcentre_frame(proj_ind*4-1)*timer**2+zcentre_frame(proj_ind*4)*timer**3
     zcen=xcentre_frame(proj_ind*4-3)+xcentre_frame(proj_ind*4-2)*timer+xcentre_frame(proj_ind*4-1)*timer**2+xcentre_frame(proj_ind*4)*timer**3
