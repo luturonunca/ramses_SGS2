@@ -46,6 +46,14 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_cold_w,    wdc_cold_w_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_rho,  wdc_cold_rho_new
   real(dp),allocatable,dimension(:)    ::wff_part_mass, wff_part_mass_new ! star+DM mass in cloud for tff_include_particles
+  ! Per-level storage for the freefall reservoir sums above: collect_acczone_avg(ilevel) is
+  ! called once per level and resets/rebuilds wdc_*_new from scratch each time, so without a
+  ! level dimension only the most-recently-processed level's contribution survives to
+  ! compute_accretion_rate instead of the sum over the whole accretion zone (mirrors
+  ! weighted_density(isink,ilevel) below).
+  real(dp),allocatable,dimension(:,:)  ::wdc_cold_mass_lvl, wdc_cold_j2mass_lvl, wdc_tot_mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::wdc_hot_w_lvl, wdc_hot_rho_lvl, wdc_hot_cs2_lvl, wdc_hot_v2_lvl
+  real(dp),allocatable,dimension(:,:)  ::wff_part_mass_lvl
   ! Spatial hash (cell list) over sink positions, rebuilt each call to
   ! collect_acczone_avg, so collect_sigma_coll_np only checks sinks whose
   ! cloud-sized bin is adjacent to a given particle instead of every sink.

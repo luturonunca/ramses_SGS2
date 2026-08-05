@@ -741,6 +741,23 @@ subroutine collect_acczone_avg(ilevel)
         end do
   endif
 
+  ! Stash this level's freefall reservoir sums before the next call to
+  ! collect_acczone_avg (for a different ilevel) resets wdc_*_new to zero;
+  ! compute_accretion_rate sums these across levels the same way it already
+  ! does for weighted_density/weighted_volume/weighted_ethermal.
+  if(freefall_accretion.and.nsink>0)then
+     do isink=1,nsink
+        wdc_cold_mass_lvl(isink,ilevel)   = wdc_cold_mass_new(isink)
+        wdc_cold_j2mass_lvl(isink,ilevel) = wdc_cold_j2mass_new(isink)
+        wdc_tot_mass_lvl(isink,ilevel)    = wdc_tot_mass_new(isink)
+        wdc_hot_w_lvl(isink,ilevel)       = wdc_hot_w_new(isink)
+        wdc_hot_rho_lvl(isink,ilevel)     = wdc_hot_rho_new(isink)
+        wdc_hot_cs2_lvl(isink,ilevel)     = wdc_hot_cs2_new(isink)
+        wdc_hot_v2_lvl(isink,ilevel)      = wdc_hot_v2_new(isink)
+        if(tff_include_particles) wff_part_mass_lvl(isink,ilevel) = wff_part_mass_new(isink)
+     end do
+  endif
+
 111 format('   Entering collect_acczone_avg for level ',I2)
 
 end subroutine collect_acczone_avg
@@ -1458,6 +1475,9 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
   real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc
+  ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
+  real(dp)::wdc_cold_mass_tot,wdc_cold_j2mass_tot,wdc_tot_mass_tot
+  real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
 
   ! Gravitational constant
   factG=1d0
@@ -1698,6 +1718,22 @@ subroutine compute_accretion_rate(write_sinks)
 
      ! Freefall cold + hot Bondi (cold gas on free-fall timescale, diffuse on Bondi)
      if(freefall_accretion)then
+        ! Sum this sink's reservoir over all levels (collect_acczone_avg resets/rebuilds
+        ! wdc_*_new on a per-level basis, so the per-level stash must be re-summed here
+        ! the same way weighted_density/weighted_volume/weighted_ethermal are above).
+        wdc_cold_mass_tot=0d0; wdc_cold_j2mass_tot=0d0; wdc_tot_mass_tot=0d0
+        wdc_hot_w_tot=0d0; wdc_hot_rho_tot=0d0; wdc_hot_cs2_tot=0d0; wdc_hot_v2_tot=0d0
+        wff_part_mass_tot=0d0
+        do i=levelmin,nlevelmax
+           wdc_cold_mass_tot   = wdc_cold_mass_tot   + wdc_cold_mass_lvl(isink,i)
+           wdc_cold_j2mass_tot = wdc_cold_j2mass_tot + wdc_cold_j2mass_lvl(isink,i)
+           wdc_tot_mass_tot    = wdc_tot_mass_tot    + wdc_tot_mass_lvl(isink,i)
+           wdc_hot_w_tot       = wdc_hot_w_tot       + wdc_hot_w_lvl(isink,i)
+           wdc_hot_rho_tot     = wdc_hot_rho_tot     + wdc_hot_rho_lvl(isink,i)
+           wdc_hot_cs2_tot     = wdc_hot_cs2_tot     + wdc_hot_cs2_lvl(isink,i)
+           wdc_hot_v2_tot      = wdc_hot_v2_tot      + wdc_hot_v2_lvl(isink,i)
+           wff_part_mass_tot   = wff_part_mass_tot   + wff_part_mass_lvl(isink,i)
+        end do
         R0_dc   = dble(ir_cloud) * dx_min
         ! BH mass: follow smbh logic
         if(smbh .and. mass_smbh_seed > 0.0)then
@@ -1706,9 +1742,9 @@ subroutine compute_accretion_rate(write_sinks)
            M_bh_dc = msink(isink)
         endif
         ! Cold gas mass and total enclosed mass [code_mass]
-        M_cold_dc = wdc_cold_mass_new(isink) * dx_min**3
-        M_enc_dc  = wdc_tot_mass_new(isink)  * dx_min**3
-        if(tff_include_particles) M_enc_dc = M_enc_dc + wff_part_mass_new(isink)
+        M_cold_dc = wdc_cold_mass_tot * dx_min**3
+        M_enc_dc  = wdc_tot_mass_tot  * dx_min**3
+        if(tff_include_particles) M_enc_dc = M_enc_dc + wff_part_mass_tot
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
         t_ff_bh   = sqrt(R0_dc**3 / (2.0d0*factG*(M_bh_dc  + tiny(0.0_dp))))
@@ -1719,7 +1755,7 @@ subroutine compute_accretion_rate(write_sinks)
            ! j_crit = sqrt(G * M_total * R0) -> j_crit^2 = G*(M_enc+M_BH)*R0
            j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
            ! mass-weighted mean j^2 of cold gas cells
-           j2_cold_mean = wdc_cold_j2mass_new(isink) / (wdc_cold_mass_new(isink) + tiny(0.0_dp))
+           j2_cold_mean = wdc_cold_j2mass_tot / (wdc_cold_mass_tot + tiny(0.0_dp))
            ! r_dc = j/j_crit; sigmoid switch (same style as chi_crit/delta_chi). j_crit is
            ! defined so that R_c(j_crit) = j_crit^2/G(M_enc+M_BH) = R0, i.e. r_dc^2 = R_c/R0
            ! (Cassen & Moosman 1981; Terebey, Shu & Cassen 1984 centrifugal/circularization
@@ -1735,9 +1771,9 @@ subroutine compute_accretion_rate(write_sinks)
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
         dMdc_cold = max(dMdc_cold, 0.0d0)
         ! Hot channel: Bondi with (1-S_T) weighted gas properties
-        rho_hot_dc  = wdc_hot_rho_new(isink) / (wdc_hot_w_new(isink)   + tiny(0.0_dp))
-        cs2_hot_dc  = wdc_hot_cs2_new(isink) / (wdc_hot_rho_new(isink) + tiny(0.0_dp))
-        v2_hot_dc   = wdc_hot_v2_new(isink)  / (wdc_hot_rho_new(isink) + tiny(0.0_dp))
+        rho_hot_dc  = wdc_hot_rho_tot / (wdc_hot_w_tot   + tiny(0.0_dp))
+        cs2_hot_dc  = wdc_hot_cs2_tot / (wdc_hot_rho_tot + tiny(0.0_dp))
+        v2_hot_dc   = wdc_hot_v2_tot  / (wdc_hot_rho_tot + tiny(0.0_dp))
         cs2_hot_dc  = max(cs2_hot_dc, smallc**2)
         if(star .and. acc_sink_boost < 0.0)then
            boost2=max((rho_hot_dc/(boost_threshold_density/scale_nH))**2,1.0_dp)
@@ -2429,6 +2465,7 @@ subroutine update_sink(ilevel)
   real(dp),dimension(1:ndim)::xcom,vcom,lcom,r_rel
   logical,dimension(1:ndim)::period
   real(dp),dimension(1:nsink,1:ndim)::xsinkold, fsinkold
+  logical::file_exist_merge
 
 #if NDIM==3
 
@@ -2505,6 +2542,18 @@ subroutine update_sink(ilevel)
                        write(*,*)msink(jsink)*2d33/(scale_d*scale_l**ndim)
                        write(*,*)xsink(jsink,1:ndim)
                     endif
+                    ! Persist loser->survivor so a movie camera following idsink(jsink)
+                    ! can resolve what it became later, even across a restart (idsink/xsink
+                    ! carry no history once the merged sink is compacted out below).
+                    inquire(file='sink_mergers.txt',exist=file_exist_merge)
+                    if(file_exist_merge)then
+                       open(790,file='sink_mergers.txt',status='old',position='append',action='write',form='formatted')
+                    else
+                       open(790,file='sink_mergers.txt',form='formatted')
+                       write(790,'(A)')'# lost_id  survivor_id  t'
+                    endif
+                    write(790,'(I8,1X,I8,1X,1PE18.10)')idsink(jsink),idsink(isink),t
+                    close(790)
                  endif
 
                  ! Set new values of remaining sink (keep one with larger index)
