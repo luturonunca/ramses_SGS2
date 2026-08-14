@@ -49,6 +49,7 @@ module pm_parameters
   logical::epsilon_fixed=.true.                      ! If true use epsilon_freefall directly; if false weight by sigmoid(r_crit_dc,delta_dc) in r=j/j_crit
   real(dp)::r_crit_dc=1.0d0                          ! Sigmoid midpoint in r=j/j_crit; r=1 is where the centrifugal (circularization) radius R_c=j^2/GM equals R0, the physical ballistic-infall limit
   real(dp)::delta_dc=0.1d0                           ! Sigmoid width in r, smoothing the ideal ballistic cutoff for non-ballistic effects (turbulence, torques, pressure)
+  logical::use_infall_mass=.false.                   ! Mask M_cold_dc per cell by the same r=j/j_crit sigmoid (r_crit_dc,delta_dc) used for eps_dc, instead of only rescaling eps_dc by the mass-weighted mean; j_crit is lagged by one sink update (see j2_crit_sink)
   logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]

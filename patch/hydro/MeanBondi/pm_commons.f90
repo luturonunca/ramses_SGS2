@@ -37,6 +37,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wsigma2_coll_new, wsigma2_coll_w_new
   real(dp),allocatable,dimension(:)    ::wrot_mass, wrot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_mass, wdc_cold_mass_new
+  real(dp),allocatable,dimension(:)    ::wdc_infall_mass, wdc_infall_mass_new ! same as wdc_cold_mass, additionally masked by S_inf_loc when use_infall_mass
   real(dp),allocatable,dimension(:)    ::wdc_cold_j2mass, wdc_cold_j2mass_new
   real(dp),allocatable,dimension(:)    ::wdc_tot_mass,  wdc_tot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_w,     wdc_hot_w_new
@@ -52,6 +53,13 @@ module pm_commons
   ! compute_accretion_rate instead of the sum over the whole accretion zone (mirrors
   ! weighted_density(isink,ilevel) below).
   real(dp),allocatable,dimension(:,:)  ::wdc_cold_mass_lvl, wdc_cold_j2mass_lvl, wdc_tot_mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::wdc_infall_mass_lvl
+  ! j2_crit from the previous sink update, per sink: the per-cell infall mask (S_inf_loc) needs
+  ! j2_crit = G*(M_enc_dc+M_bh_dc)*R0_dc, but that is only known after compute_accretion_rate has
+  ! summed wdc_*_lvl over every level -- strictly after the per-level collection loop that would
+  ! build wdc_infall_mass has already run. Lagging by one sink update breaks that circularity,
+  ! the same way c2sink/sigma2sink/r2sink below are computed once and then reused.
+  real(dp),allocatable,dimension(:)    ::j2_crit_sink
   real(dp),allocatable,dimension(:,:)  ::wdc_hot_w_lvl, wdc_hot_rho_lvl, wdc_hot_cs2_lvl, wdc_hot_v2_lvl
   real(dp),allocatable,dimension(:,:)  ::wff_part_mass_lvl
   ! Spatial hash (cell list) over sink positions, rebuilt each call to

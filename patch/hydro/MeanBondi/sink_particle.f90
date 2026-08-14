@@ -422,7 +422,7 @@ subroutine collect_acczone_avg(ilevel)
   if(two_channel_accretion_switch) wstar_rot_mass=0d0
   ! Duty-cycle blend accumulators
   if(freefall_accretion)then
-     wdc_cold_mass=0d0; wdc_cold_j2mass=0d0; wdc_tot_mass=0d0
+     wdc_cold_mass=0d0; wdc_infall_mass=0d0; wdc_cold_j2mass=0d0; wdc_tot_mass=0d0
      wdc_hot_w=0d0; wdc_hot_rho=0d0; wdc_hot_cs2=0d0; wdc_hot_v2=0d0
      wdc_cold_w=0d0; wdc_cold_rho=0d0
      if(tff_include_particles) wff_part_mass=0d0
@@ -580,6 +580,8 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wdc_hot_v2,   wdc_hot_v2_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_cold_w,   wdc_cold_w_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_cold_rho, wdc_cold_rho_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        if(use_infall_mass) &
+             call MPI_ALLREDUCE(wdc_infall_mass,wdc_infall_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         if(tff_include_particles) &
              call MPI_ALLREDUCE(wff_part_mass,wff_part_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      endif
@@ -618,11 +620,12 @@ subroutine collect_acczone_avg(ilevel)
         wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
         wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
         wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
+        if(use_infall_mass) wdc_infall_mass_new=wdc_infall_mass
         if(tff_include_particles) wff_part_mass_new=wff_part_mass
      endif
 #endif
   endif
-  
+
   do isink=1,nsink
      weighted_density(isink,ilevel)=wden_new(isink)
      weighted_volume(isink,ilevel)=wvol_new(isink)
@@ -721,6 +724,8 @@ subroutine collect_acczone_avg(ilevel)
                 call MPI_ALLREDUCE(wdc_hot_v2,   wdc_hot_v2_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_cold_w,   wdc_cold_w_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_cold_rho, wdc_cold_rho_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                if(use_infall_mass) &
+                     call MPI_ALLREDUCE(wdc_infall_mass,wdc_infall_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
              endif
 #else
              wfrac_new=wfrac
@@ -731,6 +736,7 @@ subroutine collect_acczone_avg(ilevel)
                 wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
                 wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
                 wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
+                if(use_infall_mass) wdc_infall_mass_new=wdc_infall_mass
              endif
 #endif
         endif
@@ -748,6 +754,7 @@ subroutine collect_acczone_avg(ilevel)
   if(freefall_accretion.and.nsink>0)then
      do isink=1,nsink
         wdc_cold_mass_lvl(isink,ilevel)   = wdc_cold_mass_new(isink)
+        if(use_infall_mass) wdc_infall_mass_lvl(isink,ilevel) = wdc_infall_mass_new(isink)
         wdc_cold_j2mass_lvl(isink,ilevel) = wdc_cold_j2mass_new(isink)
         wdc_tot_mass_lvl(isink,ilevel)    = wdc_tot_mass_new(isink)
         wdc_hot_w_lvl(isink,ilevel)       = wdc_hot_w_new(isink)
@@ -784,6 +791,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 #endif
   real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
   real(dp)::chi_loc,S_rot_loc,S_T_loc,S_n_loc,cold_w_loc,hot_w_loc
+  real(dp)::j2_loc,S_inf_loc
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -922,6 +930,14 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                  if(freefall_accretion .and. .not. use_bondi_exp_weight)then
                     ! Temperature-only sigmoid (no density or rotation condition)
                     S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
+                    if(use_infall_mass)then
+                       ! Per-cell ballistic-infall mask, same sigmoid/criterion as eps_dc's r_dc
+                       ! (:1767 below) but applied per cell instead of to the mass-weighted mean;
+                       ! j2_crit_sink is lagged by one sink update (see pm_commons.f90).
+                       j2_loc    = r2*vphi2_loc
+                       S_inf_loc = 1.0d0/(1.0d0+exp((sqrt(j2_loc/(j2_crit_sink(isink)+tiny(0.0_dp))) - r_crit_dc)/delta_dc))
+                       wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*d
+                    endif
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
                     wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc
                     wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d
@@ -963,6 +979,14 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                  endif
                  vphi2_loc=max(v2-vr_loc**2,0d0)
                  S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
+                 if(use_infall_mass)then
+                    ! Per-cell ballistic-infall mask, same sigmoid/criterion as eps_dc's r_dc
+                    ! (:1767 below) but applied per cell instead of to the mass-weighted mean;
+                    ! j2_crit_sink is lagged by one sink update (see pm_commons.f90).
+                    j2_loc    = r2*vphi2_loc
+                    S_inf_loc = 1.0d0/(1.0d0+exp((sqrt(j2_loc/(j2_crit_sink(isink)+tiny(0.0_dp))) - r_crit_dc)/delta_dc))
+                    wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*d*weight_exp
+                 endif
                  wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight_exp
                  wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc*weight_exp
                  wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight_exp
@@ -1476,7 +1500,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
   real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc
   ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
-  real(dp)::wdc_cold_mass_tot,wdc_cold_j2mass_tot,wdc_tot_mass_tot
+  real(dp)::wdc_cold_mass_tot,wdc_infall_mass_tot,wdc_cold_j2mass_tot,wdc_tot_mass_tot
   real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
 
   ! Gravitational constant
@@ -1721,11 +1745,12 @@ subroutine compute_accretion_rate(write_sinks)
         ! Sum this sink's reservoir over all levels (collect_acczone_avg resets/rebuilds
         ! wdc_*_new on a per-level basis, so the per-level stash must be re-summed here
         ! the same way weighted_density/weighted_volume/weighted_ethermal are above).
-        wdc_cold_mass_tot=0d0; wdc_cold_j2mass_tot=0d0; wdc_tot_mass_tot=0d0
+        wdc_cold_mass_tot=0d0; wdc_infall_mass_tot=0d0; wdc_cold_j2mass_tot=0d0; wdc_tot_mass_tot=0d0
         wdc_hot_w_tot=0d0; wdc_hot_rho_tot=0d0; wdc_hot_cs2_tot=0d0; wdc_hot_v2_tot=0d0
         wff_part_mass_tot=0d0
         do i=levelmin,nlevelmax
            wdc_cold_mass_tot   = wdc_cold_mass_tot   + wdc_cold_mass_lvl(isink,i)
+           if(use_infall_mass) wdc_infall_mass_tot = wdc_infall_mass_tot + wdc_infall_mass_lvl(isink,i)
            wdc_cold_j2mass_tot = wdc_cold_j2mass_tot + wdc_cold_j2mass_lvl(isink,i)
            wdc_tot_mass_tot    = wdc_tot_mass_tot    + wdc_tot_mass_lvl(isink,i)
            wdc_hot_w_tot       = wdc_hot_w_tot       + wdc_hot_w_lvl(isink,i)
@@ -1741,19 +1766,29 @@ subroutine compute_accretion_rate(write_sinks)
         else
            M_bh_dc = msink(isink)
         endif
-        ! Cold gas mass and total enclosed mass [code_mass]
-        M_cold_dc = wdc_cold_mass_tot * dx_min**3
+        ! Cold gas mass and total enclosed mass [code_mass]. use_infall_mass replaces the
+        ! unmasked reservoir with the same population additionally weighted by S_inf_loc,
+        ! the per-cell counterpart of the r_dc criterion below (see collect_acczone_avg_np).
+        if(use_infall_mass)then
+           M_cold_dc = wdc_infall_mass_tot * dx_min**3
+        else
+           M_cold_dc = wdc_cold_mass_tot * dx_min**3
+        endif
         M_enc_dc  = wdc_tot_mass_tot  * dx_min**3
         if(tff_include_particles) M_enc_dc = M_enc_dc + wff_part_mass_tot
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
         t_ff_bh   = sqrt(R0_dc**3 / (2.0d0*factG*(M_bh_dc  + tiny(0.0_dp))))
+        ! j_crit = sqrt(G * M_total * R0) -> j_crit^2 = G*(M_enc+M_BH)*R0. Computed unconditionally
+        ! (not just under .not.epsilon_fixed as before) because use_infall_mass's per-cell mask
+        ! also needs it -- stored into j2_crit_sink below for the *next* sink update's collection
+        ! loop, since that loop runs before this step's M_enc_dc/M_bh_dc are known (see
+        ! pm_commons.f90 for why the per-cell mask must lag by one sink update).
+        j2_crit = factG * (M_enc_dc + M_bh_dc) * R0_dc
         ! Effective epsilon: fixed or angular-momentum weighted
         if(epsilon_fixed)then
            eps_dc = epsilon_freefall
         else
-           ! j_crit = sqrt(G * M_total * R0) -> j_crit^2 = G*(M_enc+M_BH)*R0
-           j2_crit     = factG * (M_enc_dc + M_bh_dc) * R0_dc
            ! mass-weighted mean j^2 of cold gas cells
            j2_cold_mean = wdc_cold_j2mass_tot / (wdc_cold_mass_tot + tiny(0.0_dp))
            ! r_dc = j/j_crit; sigmoid switch (same style as chi_crit/delta_chi). j_crit is
@@ -1767,6 +1802,9 @@ subroutine compute_accretion_rate(write_sinks)
            r_dc   = sqrt(j2_cold_mean / (j2_crit + tiny(0.0_dp)))
            eps_dc = epsilon_freefall / (1.0d0 + exp((r_dc - r_crit_dc) / delta_dc))
         endif
+        ! Carry this step's j2_crit forward for use_infall_mass's per-cell mask in the
+        ! *next* sink update (see comment above j2_crit and in pm_commons.f90).
+        j2_crit_sink(isink) = j2_crit
         ! Cold channel: freefall accretion rate
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
         dMdc_cold = max(dMdc_cold, 0.0d0)
@@ -3216,7 +3254,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
-       use_stellar_mass_torque,weighted_depletion
+       use_stellar_mass_torque,weighted_depletion,use_infall_mass
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
