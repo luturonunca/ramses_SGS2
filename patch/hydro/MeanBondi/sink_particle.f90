@@ -1186,7 +1186,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
 #endif
   real(dp)::factG,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::dx,dx_loc,dx_min,dx_cloud,scale,vol_min,vol_loc,vol_cloud,weight,m_acc,m_acc_smbh
-  real(dp)::cs2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
+  real(dp)::cs2_loc,v2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
   real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
   real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
   ! Grid based arrays
@@ -1318,7 +1318,18 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            else
               if(weighted_depletion .and. freefall_accretion)then
                  ! Local thermal cs2 (does not overwrite e, which is needed for energy removal below)
-                 cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
+                 ! Match collect_acczone_avg_np's cs2: subtract velocity relative to the
+                 ! sink (v_rel, already computed above) when bondi_use_vrel, not lab-frame
+                 ! vv -- otherwise a moving sink contaminates cs2_loc with its own bulk
+                 ! motion, misclassifying cells here relative to how they were classified
+                 ! when dMtorque2_sink/dMbondi2_sink (or dMdc_cold_sink/dMdc_hot_sink) were
+                 ! computed, so depletion silently under-removes what the rate intended.
+                 if (bondi_use_vrel) then
+                    v2_loc = sum(v_rel(1:ndim)**2)
+                 else
+                    v2_loc = sum(vv(1:ndim)**2)
+                 endif
+                 cs2_loc=max((gamma-1.0d0)*(e-0.5d0*v2_loc),smallc**2)
                  S_T_dep=1.0d0/(1.0d0+exp((cs2_loc-cs2_cold_code)/dcs2_cold_code))
                  ! Use standard spatial normalisation (weight/volume*d/density) to avoid
                  ! blow-up from near-zero phase-specific denominators; S_T weights the
@@ -1334,7 +1345,18 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
               else if(weighted_depletion .and. two_channel_accretion_switch)then
                  ! Local thermal cs2
-                 cs2_loc=max((gamma-1.0d0)*(e-0.5d0*(vv(1)**2+vv(2)**2+vv(3)**2)),smallc**2)
+                 ! Match collect_acczone_avg_np's cs2: subtract velocity relative to the
+                 ! sink (v_rel, already computed above) when bondi_use_vrel, not lab-frame
+                 ! vv -- otherwise a moving sink contaminates cs2_loc with its own bulk
+                 ! motion, misclassifying cells here relative to how they were classified
+                 ! when dMtorque2_sink/dMbondi2_sink (or dMdc_cold_sink/dMdc_hot_sink) were
+                 ! computed, so depletion silently under-removes what the rate intended.
+                 if (bondi_use_vrel) then
+                    v2_loc = sum(v_rel(1:ndim)**2)
+                 else
+                    v2_loc = sum(vv(1:ndim)**2)
+                 endif
+                 cs2_loc=max((gamma-1.0d0)*(e-0.5d0*v2_loc),smallc**2)
                  ! Local rotation: reuse r_rel and v_rel already computed above
                  if(r_len>0.0d0)then
                     vr_loc_dep=sum(v_rel(1:ndim)*r_rel(1:ndim))/r_len
