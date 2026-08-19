@@ -3231,9 +3231,10 @@ subroutine snIa_fine(ilevel)
                  lo=max(age1,t_ini_code)
                  hi=min(age2,t_fin_code)
                  if(hi.gt.lo)then
-                    ! Analytic integral of dN/dt = (phi_snIa/10) / t over [lo,hi]
+                    ! Analytic integral of dN/dlog10(t) = phi_snIa/10 over [lo,hi]
+                    ! (Maoz & Mannucci 2012 DTD is defined in log10(t), not ln(t))
                     mass_msun=mp(ipart)*(scale_d*scale_l**3)/2d33
-                    nsnIa_star=mass_msun*(phi_snIa/1.0d1)*(log(hi)-log(lo))
+                    nsnIa_star=mass_msun*(phi_snIa/1.0d1)*(log10(hi)-log10(lo))
                     if(nsnIa_star>0d0)then
                        ! Find the host cell
                        ind_son=1
