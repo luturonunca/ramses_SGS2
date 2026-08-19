@@ -89,7 +89,7 @@ subroutine read_hydro_params(nml_ok)
        & ,f_w,mass_gmc,kappa_IR,delayed_cooling,momentum_feedback &
        & ,ir_feedback,ir_eff,t_diss,t_sne,mass_star_max,mass_sne_min &
        & ,mechanical_feedback,sn2_real_delay &
-       & ,phi_snIa,E_SNIa,t_ini_snIa,t_fin_snIa,fFe_ccsn,fMg_ccsn
+       & ,phi_snIa,E_SNIa,t_ini_snIa,t_fin_snIa
 
   ! Cooling / basic chemistry parameters
   namelist/cooling_params/cooling,metal,isothermal,haardt_madau,J21 &

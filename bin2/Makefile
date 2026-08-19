@@ -111,7 +111,7 @@ LIBS = $(LIBMPI) $(LIBS_GRACKLE)
 VPATH = $(shell [ -z $(PATCH) ] || find $(PATCH) -type d):../$(SOLVER):../aton:../hydro:../pm:../poisson:../amr:../io
 #############################################################################
 # All objects
-MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o bns_tables.o snIa_yield.o poisson_parameters.o dump_utils.o
+MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o pm_commons.o bns_tables.o snIa_yield.o snII_yield.o poisson_parameters.o dump_utils.o
 ifeq ($(GRACKLE),1)
 MODOBJ += grackle_parameters.o
 endif

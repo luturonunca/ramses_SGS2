@@ -218,8 +218,8 @@ module amr_parameters
   real(dp)::E_SNIa=1.0D51      ! SNIa energy release per explosion, in erg
   real(dp)::t_ini_snIa=5.0D7   ! SNIa DTD lower time cut, in yr
   real(dp)::t_fin_snIa=1.37D10 ! SNIa DTD upper time cut, in yr
-  real(dp)::fFe_ccsn=0.04D0    ! CCSN Fe mass fraction of ejected metals (IMF-averaged)
-  real(dp)::fMg_ccsn=0.06D0    ! CCSN Mg mass fraction of ejected metals (IMF-averaged)
+  ! CCSN Fe/Mg mass fractions of ejecta come from the metallicity-dependent
+  ! Limongi & Chieffi (2018) table in pm/snII_yield.f90, not a namelist knob.
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
   real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa

@@ -108,6 +108,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
   use pm_commons
   use hydro_commons
   use bns_tables
+  use snII_yield
   use random
   use mpi_mod
   implicit none
@@ -331,8 +332,7 @@ subroutine feedbk(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,ilun,file_opened)
               zloss=yield+(1d0-yield)*zp(ind_part(j))
               mzloss(j)=mzloss(j)+mejecta*zloss/vol_loc(j)
               if(snIa_enrichment)then
-                 Zejecta_Fe=fFe_ccsn+(1d0-fFe_ccsn)*zp_Fe(ind_part(j))
-                 Zejecta_Mg=fMg_ccsn+(1d0-fMg_ccsn)*zp_Mg(ind_part(j))
+                 call snII_yield_FeMg(zp(ind_part(j)),Zejecta_Fe,Zejecta_Mg)
                  mFeloss(j)=mFeloss(j)+mejecta*Zejecta_Fe/vol_loc(j)
                  mMgloss(j)=mMgloss(j)+mejecta*Zejecta_Mg/vol_loc(j)
               endif
@@ -2947,6 +2947,7 @@ subroutine bns_sn2_fine(ilevel)
   use pm_commons
   use amr_commons
   use hydro_commons
+  use snII_yield
   use mpi_mod
   implicit none
   integer,intent(in)::ilevel
@@ -2965,7 +2966,7 @@ subroutine bns_sn2_fine(ilevel)
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
   real(dp)::mejecta,mejecta_vol,zloss,mzloss,ethermal,ekinetic,ESN
-  real(dp)::mFeloss,mMgloss
+  real(dp)::mFeloss,mMgloss,Zejecta_Fe,Zejecta_Mg
   real(dp)::vx,vy,vz
   real(dp)::RandNum,costheta,sintheta,phi
   real(dp)::e,uvar
@@ -3132,11 +3133,9 @@ subroutine bns_sn2_fine(ilevel)
                        mzloss = mejecta_vol * zloss
                        uold(ind_cell,imetal) = uold(ind_cell,imetal) + mzloss
                        if(snIa_enrichment) then
-                          ! No zp_Fe/zp_Mg recycling term here: BNS particles don't
-                          ! inherit zp_Fe/zp_Mg from their parent star (unlike zp/zp_heavy),
-                          ! so the companion's own SN2 uses the flat CCSN fraction only.
-                          mFeloss = mejecta_vol * fFe_ccsn
-                          mMgloss = mejecta_vol * fMg_ccsn
+                          call snII_yield_FeMg(zp(ipart),Zejecta_Fe,Zejecta_Mg)
+                          mFeloss = mejecta_vol * Zejecta_Fe
+                          mMgloss = mejecta_vol * Zejecta_Mg
                           uold(ind_cell,iFe) = uold(ind_cell,iFe) + mFeloss
                           uold(ind_cell,iMg) = uold(ind_cell,iMg) + mMgloss
                        endif
