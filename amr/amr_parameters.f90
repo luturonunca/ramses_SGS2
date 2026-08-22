@@ -218,8 +218,12 @@ module amr_parameters
   real(dp)::E_SNIa=1.0D51      ! SNIa energy release per explosion, in erg
   real(dp)::t_ini_snIa=5.0D7   ! SNIa DTD lower time cut, in yr
   real(dp)::t_fin_snIa=1.37D10 ! SNIa DTD upper time cut, in yr
-  ! CCSN Fe/Mg mass fractions of ejecta come from the metallicity-dependent
-  ! Limongi & Chieffi (2018) table in pm/snII_yield.f90, not a namelist knob.
+  ! CCSN Fe/Mg mass fractions of ejecta now come from the metallicity-dependent
+  ! Limongi & Chieffi (2018) table in pm/snII_yield.f90. fFe_ccsn/fMg_ccsn are
+  ! kept as inert namelist entries only so existing namelist files that still
+  ! set them (deployed run configs) don't crash the NAMELIST reader.
+  real(dp)::fFe_ccsn=0.04D0    ! unused; see pm/snII_yield.f90
+  real(dp)::fMg_ccsn=0.06D0    ! unused; see pm/snII_yield.f90
   ! added by Taysun
   real(dp)::t_ctw=0.0D0       ! Time at which continuous thermal winds are on(need star_particle_winds=.true.)
   real(dp)::A_snIa =0.0D0     ! Fraction of binary system that gives rise toSNIa
