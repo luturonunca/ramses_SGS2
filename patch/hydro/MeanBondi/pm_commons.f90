@@ -37,7 +37,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wsigma2_coll_new, wsigma2_coll_w_new
   real(dp),allocatable,dimension(:)    ::wrot_mass, wrot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_mass, wdc_cold_mass_new
-  real(dp),allocatable,dimension(:)    ::wdc_infall_mass, wdc_infall_mass_new ! same as wdc_cold_mass, additionally masked by S_inf_loc when use_infall_mass
+  real(dp),allocatable,dimension(:)    ::wdc_infall_mass, wdc_infall_mass_new ! same as wdc_cold_mass, additionally masked by S_inf_loc*S_rinf_loc when use_infall_mass
   real(dp),allocatable,dimension(:)    ::wdc_cold_j2mass, wdc_cold_j2mass_new
   real(dp),allocatable,dimension(:)    ::wdc_tot_mass,  wdc_tot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_w,     wdc_hot_w_new
@@ -60,6 +60,14 @@ module pm_commons
   ! build wdc_infall_mass has already run. Lagging by one sink update breaks that circularity,
   ! the same way c2sink/sigma2sink/r2sink below are computed once and then reused.
   real(dp),allocatable,dimension(:)    ::j2_crit_sink
+  ! r_inf^2 = G*(M_enc_dc+M_bh_dc)/v_bondi^2 from the previous sink update, same lag and same
+  ! reason as j2_crit_sink above (v_bondi, hence M_enc_dc/M_bh_dc, is only known once
+  ! compute_accretion_rate has summed the reservoir over every level). Used as a second,
+  ! independent multiplicative mask (S_rinf_loc) restricting wdc_infall_mass to gas within the
+  ! sink's actual gravitational influence radius, on top of the angular-momentum mask (S_inf_loc)
+  ! -- the accretion-zone radius R0_dc=ir_cloud*dx_min is resolution-set and can be much larger
+  ! than where the sink's gravity actually dominates the ambient gas motion.
+  real(dp),allocatable,dimension(:)    ::r2_inf_sink
   real(dp),allocatable,dimension(:,:)  ::wdc_hot_w_lvl, wdc_hot_rho_lvl, wdc_hot_cs2_lvl, wdc_hot_v2_lvl
   real(dp),allocatable,dimension(:,:)  ::wff_part_mass_lvl
   ! Spatial hash (cell list) over sink positions, rebuilt each call to

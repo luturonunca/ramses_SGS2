@@ -791,7 +791,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 #endif
   real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
   real(dp)::chi_loc,S_rot_loc,S_T_loc,S_n_loc,cold_w_loc,hot_w_loc
-  real(dp)::j2_loc,S_inf_loc
+  real(dp)::j2_loc,S_inf_loc,S_rinf_loc
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -936,7 +936,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        ! j2_crit_sink is lagged by one sink update (see pm_commons.f90).
                        j2_loc    = r2*vphi2_loc
                        S_inf_loc = 1.0d0/(1.0d0+exp((sqrt(j2_loc/(j2_crit_sink(isink)+tiny(0.0_dp))) - r_crit_dc)/delta_dc))
-                       wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*d
+                       ! Second, independent gate: is this cell within the sink's actual
+                       ! gravitational influence radius (r2_inf_sink, lagged the same way)?
+                       ! Restricts the reservoir further than R0_dc, which is resolution-set
+                       ! (ir_cloud*dx_min) and can be much larger than r_inf.
+                       S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
+                       wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*d
                     endif
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
                     wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc
@@ -985,7 +990,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     ! j2_crit_sink is lagged by one sink update (see pm_commons.f90).
                     j2_loc    = r2*vphi2_loc
                     S_inf_loc = 1.0d0/(1.0d0+exp((sqrt(j2_loc/(j2_crit_sink(isink)+tiny(0.0_dp))) - r_crit_dc)/delta_dc))
-                    wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*d*weight_exp
+                    ! Second, independent gate: is this cell within the sink's actual
+                    ! gravitational influence radius (r2_inf_sink, lagged the same way)?
+                    ! Restricts the reservoir further than R0_dc, which is resolution-set
+                    ! (ir_cloud*dx_min) and can be much larger than r_inf.
+                    S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
+                    wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*d*weight_exp
                  endif
                  wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight_exp
                  wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc*weight_exp
@@ -1520,7 +1530,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
-  real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc
+  real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc,r2_inf
   ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
   real(dp)::wdc_cold_mass_tot,wdc_infall_mass_tot,wdc_cold_j2mass_tot,wdc_tot_mass_tot
   real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
@@ -1807,6 +1817,13 @@ subroutine compute_accretion_rate(write_sinks)
         ! loop, since that loop runs before this step's M_enc_dc/M_bh_dc are known (see
         ! pm_commons.f90 for why the per-cell mask must lag by one sink update).
         j2_crit = factG * (M_enc_dc + M_bh_dc) * R0_dc
+        ! r_inf^2 = G*(M_enc_dc+M_bh_dc)/v_bondi^2: reuses v_bondi (thermal+relative-bulk speed,
+        ! already respecting bondi_use_vrel) computed earlier in this same isink iteration for
+        ! the main Bondi rate, but with the freefall reservoir's enclosed+BH mass rather than
+        ! msink alone, matching j2_crit's mass term. Stored into r2_inf_sink below for
+        ! use_infall_mass's per-cell radial mask, lagged one sink update for the same
+        ! circularity reason j2_crit is (see pm_commons.f90).
+        r2_inf = (factG * (M_enc_dc + M_bh_dc) / (v_bondi**2 + tiny(0.0_dp)))**2
         ! Effective epsilon: fixed or angular-momentum weighted
         if(epsilon_fixed)then
            eps_dc = epsilon_freefall
@@ -1827,6 +1844,7 @@ subroutine compute_accretion_rate(write_sinks)
         ! Carry this step's j2_crit forward for use_infall_mass's per-cell mask in the
         ! *next* sink update (see comment above j2_crit and in pm_commons.f90).
         j2_crit_sink(isink) = j2_crit
+        r2_inf_sink(isink)  = r2_inf
         ! Cold channel: freefall accretion rate
         dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
         dMdc_cold = max(dMdc_cold, 0.0d0)

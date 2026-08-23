@@ -121,6 +121,7 @@ subroutine init_sink
   allocate(wdc_infall_mass(1:nsinkmax)); wdc_infall_mass=0.d0
   allocate(wdc_infall_mass_new(1:nsinkmax))
   allocate(j2_crit_sink(1:nsinkmax))   ; j2_crit_sink=0.d0
+  allocate(r2_inf_sink(1:nsinkmax))    ; r2_inf_sink=0.d0
   allocate(wdc_cold_j2mass(1:nsinkmax)); wdc_cold_j2mass=0.d0
   allocate(wdc_cold_j2mass_new(1:nsinkmax))
   allocate(wdc_tot_mass(1:nsinkmax))  ; wdc_tot_mass=0.d0
