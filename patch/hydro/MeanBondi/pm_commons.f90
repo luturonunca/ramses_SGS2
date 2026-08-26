@@ -60,9 +60,16 @@ module pm_commons
   ! build wdc_infall_mass has already run. Lagging by one sink update breaks that circularity,
   ! the same way c2sink/sigma2sink/r2sink below are computed once and then reused.
   real(dp),allocatable,dimension(:)    ::j2_crit_sink
-  ! r_inf^2 = G*(M_enc_dc+M_bh_dc)/v_bondi^2 from the previous sink update, same lag and same
-  ! reason as j2_crit_sink above (v_bondi, hence M_enc_dc/M_bh_dc, is only known once
-  ! compute_accretion_rate has summed the reservoir over every level). Used as a second,
+  ! r_inf^2 = G*M_bh_dc/v_bondi_turb^2 from the previous sink update. Unlike j2_crit_sink, this
+  ! one has no gas-mass term (point-mass only -- the standard sphere-of-influence definition,
+  ! avoiding a feedback loop where a wider gate pulls in more enclosed/infall mass, which would
+  ! then widen r_inf further), so v_bondi_turb/M_bh_dc are actually known before the per-cell
+  ! collection loop runs. It is still lagged by one sink update purely because r2_inf_sink is
+  ! only written inside compute_accretion_rate, which runs after this step's collection loop
+  ! that needs the previous value -- a call-order constraint, not a mass circularity. v_bondi_turb
+  ! adds the subgrid turbulent dispersion sigma2sink to v_bondi (c_s^2+v_rel^2+sigma_turb^2,
+  ! Krumholz & McKee 2005), so this radius shrinks with local turbulence rather than only
+  ! bulk/thermal motion. Used as a second,
   ! independent multiplicative mask (S_rinf_loc) restricting wdc_infall_mass to gas within the
   ! sink's actual gravitational influence radius, on top of the angular-momentum mask (S_inf_loc)
   ! -- the accretion-zone radius R0_dc=ir_cloud*dx_min is resolution-set and can be much larger

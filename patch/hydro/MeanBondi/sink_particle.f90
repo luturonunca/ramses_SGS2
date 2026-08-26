@@ -1530,7 +1530,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
-  real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc,r2_inf
+  real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc,r2_inf,v_bondi_turb
   ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
   real(dp)::wdc_cold_mass_tot,wdc_infall_mass_tot,wdc_cold_j2mass_tot,wdc_tot_mass_tot
   real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
@@ -1817,13 +1817,25 @@ subroutine compute_accretion_rate(write_sinks)
         ! loop, since that loop runs before this step's M_enc_dc/M_bh_dc are known (see
         ! pm_commons.f90 for why the per-cell mask must lag by one sink update).
         j2_crit = factG * (M_enc_dc + M_bh_dc) * R0_dc
-        ! r_inf^2 = G*(M_enc_dc+M_bh_dc)/v_bondi^2: reuses v_bondi (thermal+relative-bulk speed,
-        ! already respecting bondi_use_vrel) computed earlier in this same isink iteration for
-        ! the main Bondi rate, but with the freefall reservoir's enclosed+BH mass rather than
-        ! msink alone, matching j2_crit's mass term. Stored into r2_inf_sink below for
-        ! use_infall_mass's per-cell radial mask, lagged one sink update for the same
-        ! circularity reason j2_crit is (see pm_commons.f90).
-        r2_inf = (factG * (M_enc_dc + M_bh_dc) / (v_bondi**2 + tiny(0.0_dp)))**2
+        ! r_inf^2 = G*M_bh_dc/v_bondi_turb^2: turbulent Bondi-Hoyle influence radius, point-mass
+        ! only (no gas-mass term in the numerator, unlike j2_crit above) -- the standard
+        ! sphere-of-influence definition (classical Bondi radius / SMBH r_h=GM/sigma^2), matching
+        ! how r2sink is already defined from msink alone elsewhere in this file. Using only
+        ! M_bh_dc avoids any circularity with the reservoir this radius is used to gate (no
+        ! feedback loop where a wider gate -> more enclosed/infall mass -> wider r_inf); unlike
+        ! j2_crit_sink, both M_bh_dc and v_bondi_turb are already known before this step's
+        ! per-cell collection loop even runs -- r2_inf_sink is still stored/lagged one sink
+        ! update below purely because it is written here in compute_accretion_rate, which runs
+        ! after that collection loop, not because of any mass circularity (see pm_commons.f90).
+        ! v_bondi_turb^2 = c_s^2+v_rel^2+sigma_turb^2 (Krumholz & McKee 2005), built by adding
+        ! sigma2sink -- the same subgrid turbulent-dispersion term already combined with c2sink
+        ! elsewhere in this patch as cs2_eff (see collect_acczone_avg_np and chi/fd_eff above) --
+        ! on top of v_bondi (thermal+relative-bulk speed, already respecting bondi_use_vrel)
+        ! computed earlier in this same isink iteration for the main Bondi rate. Kept as a
+        ! separate variable so the main Bondi channel (r2/rho_inf/dMBHoverdt above) is
+        ! unaffected; only the freefall gate below uses the turbulence-widened velocity.
+        v_bondi_turb = sqrt(v_bondi**2 + sigma2sink(isink))
+        r2_inf = (factG * M_bh_dc / (v_bondi_turb**2 + tiny(0.0_dp)))**2
         ! Effective epsilon: fixed or angular-momentum weighted
         if(epsilon_fixed)then
            eps_dc = epsilon_freefall
