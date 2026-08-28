@@ -772,6 +772,30 @@ subroutine collect_acczone_avg(ilevel)
      end do
   endif
 
+  ! Same fix as the wdc_* stash above, but for the angular_momentum_accretion_switch /
+  ! two_channel_accretion_switch accumulators (see wvr2_lvl etc. comment in pm_commons.f90).
+  if(nsink>0)then
+     do isink=1,nsink
+        wvr2_lvl(isink,ilevel)        = wvr2_new(isink)
+        wvphi2_lvl(isink,ilevel)      = wvphi2_new(isink)
+        wcold_mass_lvl(isink,ilevel)  = wcold_mass_new(isink)
+        wtotal_mass_lvl(isink,ilevel) = wtotal_mass_new(isink)
+        wrot_mass_lvl(isink,ilevel)   = wrot_mass_new(isink)
+        whot_w_lvl(isink,ilevel)      = whot_w_new(isink)
+        whot_rho_lvl(isink,ilevel)    = whot_rho_new(isink)
+        whot_cs2_lvl(isink,ilevel)    = whot_cs2_new(isink)
+        whot_v2_lvl(isink,ilevel)     = whot_v2_new(isink)
+        wnorot_w_lvl(isink,ilevel)    = wnorot_w_new(isink)
+        wnorot_rho_lvl(isink,ilevel)  = wnorot_rho_new(isink)
+        wnorot_cs2_lvl(isink,ilevel)  = wnorot_cs2_new(isink)
+        wnorot_v2_lvl(isink,ilevel)   = wnorot_v2_new(isink)
+        if(two_channel_accretion_switch)then
+           wstar_mass_lvl(isink,ilevel)     = wstar_mass_new(isink)
+           wstar_rot_mass_lvl(isink,ilevel) = wstar_rot_mass_new(isink)
+        endif
+     end do
+  endif
+
 111 format('   Entering collect_acczone_avg for level ',I2)
 
 end subroutine collect_acczone_avg
@@ -1549,6 +1573,11 @@ subroutine compute_accretion_rate(write_sinks)
   ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
   real(dp)::wdc_cold_mass_tot,wdc_infall_mass_tot,wdc_cold_j2mass_tot,wdc_infall_j2mass_tot,wdc_tot_mass_tot
   real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
+  ! Cross-level sums of the torque/blend reservoir (see wvr2_lvl etc. in pm_commons.f90)
+  real(dp)::wvr2_tot,wvphi2_tot,wcold_mass_tot,wtotal_mass_tot
+  real(dp)::wstar_mass_tot,wstar_rot_mass_tot,wrot_mass_tot
+  real(dp)::whot_w_tot,whot_rho_tot,whot_cs2_tot,whot_v2_tot
+  real(dp)::wnorot_w_tot,wnorot_rho_tot,wnorot_cs2_tot,wnorot_v2_tot
 
   ! Gravitational constant
   factG=1d0
@@ -1634,10 +1663,37 @@ subroutine compute_accretion_rate(write_sinks)
      if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt(isink))
      if(eddington_limit.and.mean_bondi)dMsink_overdt(isink)=min(dMBHoverdt_fraction(isink),dMEDoverdt(isink))
 
+     ! Cross-level sums for the torque/blend accumulators (see wvr2_lvl etc. comment in
+     ! pm_commons.f90): collect_acczone_avg resets/rebuilds these *_new arrays per level,
+     ! so they must be re-summed here the same way weighted_density/weighted_volume are above.
+     if(angular_momentum_accretion_switch .or. two_channel_accretion_switch)then
+        wvr2_tot=0d0; wvphi2_tot=0d0; wcold_mass_tot=0d0; wtotal_mass_tot=0d0
+        wstar_mass_tot=0d0; wstar_rot_mass_tot=0d0; wrot_mass_tot=0d0
+        whot_w_tot=0d0; whot_rho_tot=0d0; whot_cs2_tot=0d0; whot_v2_tot=0d0
+        wnorot_w_tot=0d0; wnorot_rho_tot=0d0; wnorot_cs2_tot=0d0; wnorot_v2_tot=0d0
+        do i=levelmin,nlevelmax
+           wvr2_tot            = wvr2_tot            + wvr2_lvl(isink,i)
+           wvphi2_tot          = wvphi2_tot          + wvphi2_lvl(isink,i)
+           wcold_mass_tot      = wcold_mass_tot      + wcold_mass_lvl(isink,i)
+           wtotal_mass_tot     = wtotal_mass_tot     + wtotal_mass_lvl(isink,i)
+           wstar_mass_tot      = wstar_mass_tot      + wstar_mass_lvl(isink,i)
+           wstar_rot_mass_tot  = wstar_rot_mass_tot  + wstar_rot_mass_lvl(isink,i)
+           wrot_mass_tot       = wrot_mass_tot       + wrot_mass_lvl(isink,i)
+           whot_w_tot          = whot_w_tot          + whot_w_lvl(isink,i)
+           whot_rho_tot        = whot_rho_tot        + whot_rho_lvl(isink,i)
+           whot_cs2_tot        = whot_cs2_tot        + whot_cs2_lvl(isink,i)
+           whot_v2_tot         = whot_v2_tot         + whot_v2_lvl(isink,i)
+           wnorot_w_tot        = wnorot_w_tot        + wnorot_w_lvl(isink,i)
+           wnorot_rho_tot      = wnorot_rho_tot      + wnorot_rho_lvl(isink,i)
+           wnorot_cs2_tot      = wnorot_cs2_tot      + wnorot_cs2_lvl(isink,i)
+           wnorot_v2_tot       = wnorot_v2_tot       + wnorot_v2_lvl(isink,i)
+        end do
+     endif
+
      ! Hybrid torque/Bondi accretion model
      if(angular_momentum_accretion_switch)then
-        vphi2_eff = wvphi2_new(isink) / (mgas + tiny(0.0_dp))
-        vr2_eff   = wvr2_new(isink)   / (mgas + tiny(0.0_dp))
+        vphi2_eff = wvphi2_tot / (mgas + tiny(0.0_dp))
+        vr2_eff   = wvr2_tot   / (mgas + tiny(0.0_dp))
         if(sf_virial) then
            chi    = vphi2_eff / (vphi2_eff + vr2_eff + c2 + sigma2sink(isink) + tiny(0.0_dp))
            fd_eff = sqrt(vphi2_eff) / (sqrt(vphi2_eff + c2 + sigma2sink(isink)) + tiny(0.0_dp))
@@ -1663,9 +1719,9 @@ subroutine compute_accretion_rate(write_sinks)
      ! Two-channel additive accretion model (cold torque + hot Bondi)
      if(two_channel_accretion_switch)then
         ! Hot phase effective properties (density-weighted over hot-flagged particles)
-        rho_hot   = whot_rho_new(isink)  / (whot_w_new(isink)   + tiny(0.0_dp))
-        cs2_hot   = whot_cs2_new(isink)  / (whot_rho_new(isink)  + tiny(0.0_dp))
-        vrel2_hot = whot_v2_new(isink)   / (whot_rho_new(isink)  + tiny(0.0_dp))
+        rho_hot   = whot_rho_tot  / (whot_w_tot   + tiny(0.0_dp))
+        cs2_hot   = whot_cs2_tot  / (whot_rho_tot  + tiny(0.0_dp))
+        vrel2_hot = whot_v2_tot   / (whot_rho_tot  + tiny(0.0_dp))
         cs2_hot   = max(cs2_hot, smallc**2)
         ! Resolution-dependent boost (reuses existing acc_sink_boost logic)
         if(star .and. acc_sink_boost < 0.0)then
@@ -1687,14 +1743,14 @@ subroutine compute_accretion_rate(write_sinks)
         ! Aperture radius [code_length]
         R0_eff2     = dble(ir_cloud) * dx_min
         ! Cold disc gas mass (rotationally supported, cold) [code_mass]
-        M_gas_d     = wcold_mass_new(isink) * dx_min**3
+        M_gas_d     = wcold_mass_tot * dx_min**3
         ! Total gas mass in cloud aperture [code_mass]
-        M_gas_all   = wtotal_mass_new(isink) * dx_min**3
+        M_gas_all   = wtotal_mass_tot * dx_min**3
         ! Disc mass and enclosed mass: use actual star particle masses if requested,
         ! otherwise fall back to msink as NSC proxy (see note on f_d_torque above).
         if(use_stellar_mass_torque) then
-           M_d_torque = M_gas_d + wstar_rot_mass_new(isink)
-           f_d_torque = M_d_torque / (M_gas_all + wstar_mass_new(isink) + Md2_eff + tiny(0.0_dp))
+           M_d_torque = M_gas_d + wstar_rot_mass_tot
+           f_d_torque = M_d_torque / (M_gas_all + wstar_mass_tot + Md2_eff + tiny(0.0_dp))
         else
            ! Disc fraction following AA17, where f_d arises from gravitational potential
            ! considerations (disc self-gravity vs enclosed mass). Here msink is the NSC
@@ -1730,17 +1786,17 @@ subroutine compute_accretion_rate(write_sinks)
         dMbondi2_sink(isink)  = dMbondi2
         ! Rotation-only partition (diagnostic, not applied to dMsink_overdt)
         ! Non-rotating Bondi channel
-        rho_norot   = wnorot_rho_new(isink) / (wnorot_w_new(isink)  + tiny(0.0_dp))
-        cs2_norot   = wnorot_cs2_new(isink) / (wnorot_rho_new(isink) + tiny(0.0_dp))
-        vrel2_norot = wnorot_v2_new(isink)  / (wnorot_rho_new(isink) + tiny(0.0_dp))
+        rho_norot   = wnorot_rho_tot / (wnorot_w_tot  + tiny(0.0_dp))
+        cs2_norot   = wnorot_cs2_tot / (wnorot_rho_tot + tiny(0.0_dp))
+        vrel2_norot = wnorot_v2_tot  / (wnorot_rho_tot + tiny(0.0_dp))
         cs2_norot   = max(cs2_norot, smallc**2)
         dMbondi_norot = 4.d0*3.1415926d0*(factG*Md2_eff)**2*rho_norot &
              & / (cs2_norot+vrel2_norot+tiny(0.0_dp))**1.5d0 * boost2
         ! Rotating torque channel (AA17 formula, same as dMtorque2)
-        M_gas_d_rot  = wrot_mass_new(isink) * dx_min**3
+        M_gas_d_rot  = wrot_mass_tot * dx_min**3
         if(use_stellar_mass_torque) then
-           M_d_rot   = M_gas_d_rot + wstar_rot_mass_new(isink)
-           f_d_rot   = M_d_rot / (M_gas_all + wstar_mass_new(isink) + Md2_eff + tiny(0.0_dp))
+           M_d_rot   = M_gas_d_rot + wstar_rot_mass_tot
+           f_d_rot   = M_d_rot / (M_gas_all + wstar_mass_tot + Md2_eff + tiny(0.0_dp))
         else
            M_d_rot   = M_gas_d_rot + msink(isink)
            if(smbh .and. mass_smbh_seed > 0.0) then
@@ -1766,8 +1822,8 @@ subroutine compute_accretion_rate(write_sinks)
         dMbondi_norot_sink(isink) = dMbondi_norot
         ! AA17 torque rate with physical stellar masses from star particles
         ! M_d = rotating gas + rotating stars; M_enc = all gas + all stars + BH
-        M_star_cloud = wstar_mass_new(isink)
-        M_star_disc  = wstar_rot_mass_new(isink)
+        M_star_cloud = wstar_mass_tot
+        M_star_disc  = wstar_rot_mass_tot
         M_d_star     = M_gas_d_rot + M_star_disc
         M_enc_star   = M_gas_all + M_star_cloud + Md2_eff
         f_gas_star   = M_gas_d_rot / (M_d_star + tiny(0.0_dp))

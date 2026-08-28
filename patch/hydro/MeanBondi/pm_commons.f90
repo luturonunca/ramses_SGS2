@@ -78,6 +78,16 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::r2_inf_sink
   real(dp),allocatable,dimension(:,:)  ::wdc_hot_w_lvl, wdc_hot_rho_lvl, wdc_hot_cs2_lvl, wdc_hot_v2_lvl
   real(dp),allocatable,dimension(:,:)  ::wff_part_mass_lvl
+  ! Same per-level storage problem as wdc_*_lvl above, but for the angular_momentum_accretion_switch
+  ! (bondi_torque_blend) and two_channel_accretion_switch (bondi_torque_twoch) accumulators: without
+  ! a level dimension here too, only the most-recently-processed level survives into wvphi2_new,
+  ! wcold_mass_new, etc., silently dropping accretion-zone cells that sit at any other level.
+  real(dp),allocatable,dimension(:,:)  ::wvr2_lvl, wvphi2_lvl
+  real(dp),allocatable,dimension(:,:)  ::wcold_mass_lvl, wtotal_mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::wstar_mass_lvl, wstar_rot_mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::wrot_mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::whot_w_lvl, whot_rho_lvl, whot_cs2_lvl, whot_v2_lvl
+  real(dp),allocatable,dimension(:,:)  ::wnorot_w_lvl, wnorot_rho_lvl, wnorot_cs2_lvl, wnorot_v2_lvl
   ! Spatial hash (cell list) over sink positions, rebuilt each call to
   ! collect_acczone_avg, so collect_sigma_coll_np only checks sinks whose
   ! cloud-sized bin is adjacent to a given particle instead of every sink.
