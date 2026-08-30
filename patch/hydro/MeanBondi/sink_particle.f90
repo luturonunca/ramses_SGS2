@@ -1559,6 +1559,9 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::r2_smbh,rho_inf_smbh
   real(dp),dimension(1:ndim)::velocity
   real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
+  ! Per-sink torque-formula diagnostics (AA17/HQ11 Eq. 133), for the verbose_AGN log print
+  ! in print_sink_properties only -- not stored in pm_commons, so scoped to this call.
+  real(dp),dimension(1:nsinkmax)::M_gas_d_diag,f_d_torque_diag,f_gas_torque_diag,supply_factor_diag
   real(dp)::T2_gas,delta_mass_min
   real(dp)::vphi2_eff,vr2_eff,chi,S_switch,dMtorque_overdt,Md_eff,R0_eff,fd_eff
   real(dp)::rho_hot,cs2_hot,vrel2_hot,boost2,dMbondi2,dMtorque2,fd2_eff,Md2_eff,R0_eff2
@@ -1601,6 +1604,10 @@ subroutine compute_accretion_rate(write_sinks)
      dMBHoverdt_fraction_smbh(isink)=0.0
      dMEDoverdt(isink)=0.0
      dMEDoverdt_smbh(isink)=0.0
+     M_gas_d_diag(isink)=0.0
+     f_d_torque_diag(isink)=0.0
+     f_gas_torque_diag(isink)=0.0
+     supply_factor_diag(isink)=0.0
 
      ! Compute sink sphere average quantities
      density=0.d0; volume=0.d0; velocity=0.d0; ethermal=0d0; frac_sum=0d0; weight_sum=0d0
@@ -1767,11 +1774,23 @@ subroutine compute_accretion_rate(write_sinks)
         f_d_torque  = max(min(f_d_torque, 1.0_dp), 0.0_dp)
         ! Gaseous fraction of disc: f_gas = M_gas_d / M_d
         f_gas_torque = M_gas_d / (M_d_torque + tiny(0.0_dp))
-        f_gas_torque = max(f_gas_torque, tiny(0.0_dp))
+        ! Floored at f_gas_floor (not tiny(0.0_dp)): when the cold rotating gas reservoir
+        ! M_gas_d is near-empty relative to a stellar-dominated M_d_torque, f_gas_torque
+        ! can collapse toward machine epsilon, making f0_torque/f_gas_torque blow up and
+        ! supply_factor swing across dozens of orders of magnitude between snapshots
+        ! (numerical noise, not physical suppression). f_gas_floor bounds that ratio so
+        ! a genuinely gas-poor disc is suppressed to a finite, stable floor instead.
+        f_gas_torque = max(f_gas_torque, f_gas_floor)
         ! Supply suppression scale (AA17 Eq. 5)
         f0_torque    = 0.31d0 * f_d_torque**2 &
              &        * (M_d_torque * scale_m / (1d9 * 2d33))**(-1d0/3d0)
         supply_factor = 1.0d0 / (1.0d0 + f0_torque / f_gas_torque)
+        ! Stash for the verbose_AGN log print (print_sink_properties); M_gas_d_diag kept in
+        ! code units, converted to Msol at print time same as the other logged masses.
+        M_gas_d_diag(isink)      = M_gas_d
+        f_d_torque_diag(isink)   = f_d_torque
+        f_gas_torque_diag(isink) = f_gas_torque
+        supply_factor_diag(isink)= supply_factor
         ! Torque rate in M_sun/yr (AA17 Eq. 133, AGN notes Eq. 133)
         dMt_msunyr = alpha_T &
              & * f_d_torque**chi_d &
@@ -2014,7 +2033,8 @@ subroutine compute_accretion_rate(write_sinks)
   end do
 
   if (write_sinks)then
-     call print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
+     call print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
+          & M_gas_d_diag,f_d_torque_diag,f_gas_torque_diag,supply_factor_diag)
   end if
 
 contains
@@ -2064,13 +2084,17 @@ end subroutine compute_accretion_rate
 !###############################################################################
 !###############################################################################
 !###############################################################################
-subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
+subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
+     & M_gas_d_diag,f_d_torque_diag,f_gas_torque_diag,supply_factor_diag)
   use pm_commons
   use amr_commons
   use hydro_commons
   use mpi_mod
   implicit none
   real(dp),dimension(1:nsinkmax)::dMEDoverdt,dMEDoverdt_smbh
+  ! Torque-formula diagnostics (AA17/HQ11 Eq. 133), only meaningful when
+  ! two_channel_accretion_switch is active; see compute_accretion_rate.
+  real(dp),dimension(1:nsinkmax)::M_gas_d_diag,f_d_torque_diag,f_gas_torque_diag,supply_factor_diag
   integer::i,isink,nx_loc
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v,scale_m
   real(dp)::l_abs,l_max,factG,scale,dx_min
@@ -2128,10 +2152,13 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
             write(*,'(6(1X,1PE14.7))')vel_gas(isink,1:ndim)*scale_v/1e5,vsink(isink,1:ndim)*scale_v/1e5
             if(angular_momentum_accretion_switch) &
                  & write(*,'("   Mdot_torque[Msol/yr]=",1PE12.5)')dMtorque_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
-            if(two_channel_accretion_switch) &
-                 & write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
+            if(two_channel_accretion_switch)then
+                 write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
                  & dMtorque2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600., &
                  & dMbondi2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
+                 write(*,'("   M_gas_d[Msol]=",1PE12.5,"  f_d_torque=",1PE12.5,"  f_gas_torque=",1PE12.5,"  supply_factor=",1PE12.5)') &
+                 & M_gas_d_diag(isink)*scale_m/2d33,f_d_torque_diag(isink),f_gas_torque_diag(isink),supply_factor_diag(isink)
+            endif
           end do
           write(*,'(" ============================================================================================")')
         end if
@@ -2161,10 +2188,13 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2)
                 & (t-tsink(isink))*scale_t/(3600*24*365.25)
            if(angular_momentum_accretion_switch) &
                 & write(*,'("   Mdot_torque[Msol/yr]=",1PE12.5)')dMtorque_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
-           if(two_channel_accretion_switch) &
-                & write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
+           if(two_channel_accretion_switch)then
+                write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
                 & dMtorque2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600., &
                 & dMbondi2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
+                write(*,'("   M_gas_d[Msol]=",1PE12.5,"  f_d_torque=",1PE12.5,"  f_gas_torque=",1PE12.5,"  supply_factor=",1PE12.5)') &
+                & M_gas_d_diag(isink)*scale_m/2d33,f_d_torque_diag(isink),f_gas_torque_diag(isink),supply_factor_diag(isink)
+           endif
         end do
         write(*,'(" =============================================================================================================================================")')
      endif
@@ -3384,7 +3414,7 @@ subroutine read_sink_params()
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
        n_res_influence,&
-       chi_crit,delta_chi,alpha_T,chi_d,&
+       chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
        use_stellar_mass_torque,weighted_depletion,use_infall_mass

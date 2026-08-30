@@ -41,6 +41,7 @@ module pm_parameters
   real(dp)::delta_chi=0.1d0                          ! Sigmoid width
   real(dp)::alpha_T=1.0d0                            ! Torque channel normalization (epsilon_T in AA17)
   real(dp)::chi_d=2.5d0                              ! Exponent of f_d in torque formula (benchmark 5/2)
+  real(dp)::f_gas_floor=1.0d-3                       ! Floor on f_gas_torque (disc gas fraction) in supply_factor, so f0/f_gas_torque stays finite when the cold rotating gas reservoir is near-empty
   logical::two_channel_accretion_switch=.false.      ! Switch for two-channel torque+Bondi accretion
   logical::freefall_accretion=.false.                ! Switch for freefall cold + hot Bondi (set from accretion_scheme)
   logical::tff_include_particles=.false.             ! Include star+DM particle mass in freefall t_ff enclosed mass
