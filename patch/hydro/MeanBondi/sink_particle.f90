@@ -1573,6 +1573,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
   real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc,r2_inf,v_bondi_turb
+  real(dp)::M_enc_torque,r_inf_fd,M_d_floor_val
   ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
   real(dp)::wdc_cold_mass_tot,wdc_infall_mass_tot,wdc_cold_j2mass_tot,wdc_infall_j2mass_tot,wdc_tot_mass_tot
   real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
@@ -1756,8 +1757,8 @@ subroutine compute_accretion_rate(write_sinks)
         ! Disc mass and enclosed mass: use actual star particle masses if requested,
         ! otherwise fall back to msink as NSC proxy (see note on f_d_torque above).
         if(use_stellar_mass_torque) then
-           M_d_torque = M_gas_d + wstar_rot_mass_tot
-           f_d_torque = M_d_torque / (M_gas_all + wstar_mass_tot + Md2_eff + tiny(0.0_dp))
+           M_d_torque   = M_gas_d + wstar_rot_mass_tot
+           M_enc_torque = M_gas_all + wstar_mass_tot + Md2_eff + tiny(0.0_dp)
         else
            ! Disc fraction following AA17, where f_d arises from gravitational potential
            ! considerations (disc self-gravity vs enclosed mass). Here msink is the NSC
@@ -1766,11 +1767,31 @@ subroutine compute_accretion_rate(write_sinks)
            ! f_d does not saturate to 1 once msink >> M_gas_all.
            M_d_torque = M_gas_d + msink(isink)
            if(smbh .and. mass_smbh_seed > 0.0) then
-              f_d_torque = M_d_torque / (M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp))
+              M_enc_torque = M_gas_all + msink(isink) + Md2_eff + tiny(0.0_dp)
            else
-              f_d_torque = M_d_torque / (M_gas_all + msink(isink) + tiny(0.0_dp))
+              M_enc_torque = M_gas_all + msink(isink) + tiny(0.0_dp)
            endif
         endif
+        ! Conditional floor on M_d_torque, motivated by Hopkins & Quataert (2010a):
+        ! their own nuclear re-simulations find the eccentric m=1 nuclear disc becomes
+        ! generic once ~epsilon_nuc*M_BH of gas has been driven into the nuclear region,
+        ! even where that structure is below R0's resolution. Applied only when (i)
+        ! enough gas is actually present to plausibly supply it (M_gas_all>=epsilon_nuc*
+        ! M_BH), (ii) the nuclear disc is unresolved at this aperture (R0>r_inf, the
+        ! BH's turbulent Bondi-Hoyle influence radius), and (iii) the resolved M_d_torque
+        ! undershoots the floor -- so this reclassifies existing unresolved mass as
+        ! potentially disky rather than inventing gas the simulation doesn't have, and
+        ! never exceeds the mass actually enclosed (min() against M_enc_torque).
+        if(fd_floor) then
+           v_bondi_turb  = sqrt(v_bondi**2 + sigma2sink(isink))
+           r_inf_fd      = factG * Md2_eff / (v_bondi_turb**2 + tiny(0.0_dp))
+           M_d_floor_val = epsilon_nuc * Md2_eff
+           if(M_gas_all >= M_d_floor_val .and. R0_eff2 > r_inf_fd &
+                & .and. M_d_torque < M_d_floor_val) then
+              M_d_torque = min(M_enc_torque, M_d_floor_val)
+           endif
+        endif
+        f_d_torque = M_d_torque / M_enc_torque
         f_d_torque  = max(min(f_d_torque, 1.0_dp), 0.0_dp)
         ! Gaseous fraction of disc: f_gas = M_gas_d / M_d
         f_gas_torque = M_gas_d / (M_d_torque + tiny(0.0_dp))
@@ -3414,7 +3435,7 @@ subroutine read_sink_params()
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
        agn_acc_method,agn_inj_method,sink_descent,gamma_grad_descent,fudge_graddescent,&
        n_res_influence,&
-       chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,&
+       chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,fd_floor,epsilon_nuc,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
        use_stellar_mass_torque,weighted_depletion,use_infall_mass
