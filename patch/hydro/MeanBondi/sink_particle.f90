@@ -825,6 +825,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
   real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
   real(dp)::chi_loc,S_rot_loc,S_T_loc,S_n_loc,cold_w_loc,hot_w_loc
   real(dp)::j2_loc,S_inf_loc,S_rinf_loc,S_vin_loc
+  real(dp)::GM_lag,E_loc,ecc_loc,r_p,dx_min_loc
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -840,6 +841,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
   scale=boxlen/dble(nx_loc)
   dx_cloud=(0.5D0**nlevelmax)*scale/aexp/2.0 ! factor of 2 hard-coded
   vol_cloud=dx_cloud**ndim
+  dx_min_loc=2.0d0*dx_cloud ! finest-level cell size (dx_cloud is half of it)
 
   ! Copy cloud particle coordinates
   do idim=1,ndim
@@ -964,11 +966,21 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     ! Temperature-only sigmoid (no density or rotation condition)
                     S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
                     if(use_infall_mass)then
-                       ! Per-cell ballistic-infall mask, same sigmoid/criterion as eps_dc's r_dc
-                       ! (:1767 below) but applied per cell instead of to the mass-weighted mean;
-                       ! j2_crit_sink is lagged by one sink update (see pm_commons.f90).
-                       j2_loc    = r2*vphi2_loc
-                       S_inf_loc = 1.0d0/(1.0d0+exp((sqrt(j2_loc/(j2_crit_sink(isink)+tiny(0.0_dp))) - r_crit_dc)/delta_dc))
+                       ! Per-cell ballistic-infall mask: exact two-integral (E,j) pericenter,
+                       ! not the circular-orbit shortcut. GM_lag backs the lagged enclosed mass
+                       ! out of j2_crit_sink=G*(M_enc+M_bh)*R0 (see pm_commons.f90) instead of
+                       ! storing a dedicated lagged array -- R0=ir_cloud*dx_min is constant.
+                       ! Gate compares pericenter to dx_min_loc (the finest cell, where gravity
+                       ! is already softened / structure is unresolved), not R0: R0 is merely the
+                       ! sampling aperture (this cell is already inside it), so "does its orbit
+                       ! return within R0" is nearly tautological -- dx_min_loc is the scale at
+                       ! which a parcel actually merges with the point-mass sink.
+                       j2_loc = r2*vphi2_loc
+                       GM_lag = j2_crit_sink(isink) / (dble(ir_cloud)*dx_min_loc)
+                       E_loc   = 0.5d0*v2 - GM_lag/sqrt(r2+tiny(0.0_dp))
+                       ecc_loc = sqrt(max(1.0d0 + 2.0d0*E_loc*j2_loc/(GM_lag**2+tiny(0.0_dp)), 0.0d0))
+                       r_p     = (j2_loc/(GM_lag+tiny(0.0_dp))) / (1.0d0+ecc_loc)
+                       S_inf_loc = 1.0d0/(1.0d0+exp((r_p/dx_min_loc - 1.0d0)/delta_dc))
                        ! Second, independent gate: is this cell within the sink's actual
                        ! gravitational influence radius (r2_inf_sink, lagged the same way)?
                        ! Restricts the reservoir further than R0_dc, which is resolution-set
@@ -1030,11 +1042,16 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                  vphi2_loc=max(v2-vr_loc**2,0d0)
                  S_T_loc = 1.0d0/(1.0d0+exp((cs2-cs2_cold_code)/dcs2_cold_code))
                  if(use_infall_mass)then
-                    ! Per-cell ballistic-infall mask, same sigmoid/criterion as eps_dc's r_dc
-                    ! (:1767 below) but applied per cell instead of to the mass-weighted mean;
-                    ! j2_crit_sink is lagged by one sink update (see pm_commons.f90).
-                    j2_loc    = r2*vphi2_loc
-                    S_inf_loc = 1.0d0/(1.0d0+exp((sqrt(j2_loc/(j2_crit_sink(isink)+tiny(0.0_dp))) - r_crit_dc)/delta_dc))
+                    ! Per-cell ballistic-infall mask: exact two-integral (E,j) pericenter -- see
+                    ! the mirrored comment in the mode-1 branch above. GM_lag backs the lagged
+                    ! enclosed mass out of j2_crit_sink; gate compares pericenter to dx_min_loc,
+                    ! not R0 (this cell is already inside R0, so that comparison is near-tautological).
+                    j2_loc = r2*vphi2_loc
+                    GM_lag = j2_crit_sink(isink) / (dble(ir_cloud)*dx_min_loc)
+                    E_loc   = 0.5d0*v2 - GM_lag/sqrt(r2+tiny(0.0_dp))
+                    ecc_loc = sqrt(max(1.0d0 + 2.0d0*E_loc*j2_loc/(GM_lag**2+tiny(0.0_dp)), 0.0d0))
+                    r_p     = (j2_loc/(GM_lag+tiny(0.0_dp))) / (1.0d0+ecc_loc)
+                    S_inf_loc = 1.0d0/(1.0d0+exp((r_p/dx_min_loc - 1.0d0)/delta_dc))
                     ! Second, independent gate: is this cell within the sink's actual
                     ! gravitational influence radius (r2_inf_sink, lagged the same way)?
                     ! Restricts the reservoir further than R0_dc, which is resolution-set
@@ -2215,7 +2232,8 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
         write(*,*)'simulation time [yr] = ',t*scale_t/(3600*24*365.25)
         write(*,'(" ======================================================================&
              &=======================================================================")')
-        write(*,'("   Id     M[Msol]          x             y             z         vx[km/s]      vy[km/s]      vz[km/s]     spin/spmax    Mdot[Msol/y]   age[yr]")')
+        write(*,'("   Id     M[Msol]          x             y             z         vx[km/&
+             &s]      vy[km/s]      vz[km/s]     spin/spmax    Mdot[Msol/y]   age[yr]")')
         write(*,'(" ======================================================================&
              &=======================================================================")')
         do i=nsink,1,-1
