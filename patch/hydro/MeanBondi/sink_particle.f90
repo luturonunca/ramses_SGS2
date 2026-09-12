@@ -728,9 +728,11 @@ subroutine collect_acczone_avg(ilevel)
                 call MPI_ALLREDUCE(wdc_cold_w,   wdc_cold_w_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_cold_rho, wdc_cold_rho_new, nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 if(use_infall_mass) &
-                     call MPI_ALLREDUCE(wdc_infall_mass,wdc_infall_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                     call MPI_ALLREDUCE(wdc_infall_mass,wdc_infall_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,&
+                          & MPI_COMM_WORLD,info)
                 if(use_infall_mass) &
-                     call MPI_ALLREDUCE(wdc_infall_j2mass,wdc_infall_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                     call MPI_ALLREDUCE(wdc_infall_j2mass,wdc_infall_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,&
+                          & MPI_COMM_WORLD,info)
              endif
 #else
              wfrac_new=wfrac
@@ -822,7 +824,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 #endif
   real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
   real(dp)::chi_loc,S_rot_loc,S_T_loc,S_n_loc,cold_w_loc,hot_w_loc
-  real(dp)::j2_loc,S_inf_loc,S_rinf_loc
+  real(dp)::j2_loc,S_inf_loc,S_rinf_loc,S_vin_loc
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -972,11 +974,19 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        ! Restricts the reservoir further than R0_dc, which is resolution-set
                        ! (ir_cloud*dx_min) and can be much larger than r_inf.
                        S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
-                       wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*d
+                       ! Third, independent gate: is this cell actually moving inward right now
+                       ! (vr_loc<0)? S_inf_loc only measures the tangential share of the motion
+                       ! (vphi2_loc=v2-vr_loc**2), so a cell with little spin but an outbound
+                       ! vr_loc (pericenter rebound, turbulent kick) still reads S_inf_loc~1.
+                       ! Same sigmoid style as above; midpoint at the physical vr_loc=0 cutoff,
+                       ! width set by the local thermal+turbulent speed (same cs2+sigma2_local
+                       ! scale chi_loc uses above) instead of a new namelist parameter.
+                       S_vin_loc = 1.0d0/(1.0d0+exp(vr_loc/sqrt(cs2+sigma2_local+tiny(0.0_dp))))
+                       wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d
                        ! Same mask on the j^2 sum, so eps_dc's j2_cold_mean (below) can be built
                        ! from the population M_cold_dc is actually drawn from under use_infall_mass,
                        ! instead of the unmasked wdc_cold_j2mass -- see pm_commons.f90.
-                       wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*d*j2_loc
+                       wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d*j2_loc
                     endif
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
                     wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc
@@ -1030,11 +1040,15 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     ! Restricts the reservoir further than R0_dc, which is resolution-set
                     ! (ir_cloud*dx_min) and can be much larger than r_inf.
                     S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
-                    wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*d*weight_exp
+                    ! Third, independent gate: is this cell actually moving inward right now
+                    ! (vr_loc<0)? See the mirrored comment in the mode-1 branch above -- same
+                    ! sigmoid, midpoint at vr_loc=0, width from the local cs2+sigma2_local scale.
+                    S_vin_loc = 1.0d0/(1.0d0+exp(vr_loc/sqrt(cs2+sigma2_local+tiny(0.0_dp))))
+                    wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d*weight_exp
                     ! Same mask on the j^2 sum, so eps_dc's j2_cold_mean (below) can be built
                     ! from the population M_cold_dc is actually drawn from under use_infall_mass,
                     ! instead of the unmasked wdc_cold_j2mass -- see pm_commons.f90.
-                    wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*d*j2_loc*weight_exp
+                    wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d*j2_loc*weight_exp
                  endif
                  wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight_exp
                  wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc*weight_exp
@@ -1177,7 +1191,8 @@ subroutine grow_sink(ilevel,on_creation)
         ! Accrete to sink variables in the frame of the initial sink position
         xsink(isink,1:ndim)=xsink(isink,1:ndim)+xsink_all(isink,1:ndim)/(msink(isink)+msmbh(isink))
         vsink(isink,1:ndim)=vsink(isink,1:ndim)+vsink_all(isink,1:ndim)/(msink(isink)+msmbh(isink))
-        lsink(isink,1:ndim)=lsink(isink,1:ndim)+lsink_all(isink,1:ndim)-cross(xsink_all(isink,1:ndim),vsink_all(isink,1:ndim))/(msink(isink)+msmbh(isink))
+        lsink(isink,1:ndim)=lsink(isink,1:ndim)+lsink_all(isink,1:ndim) &
+             & -cross(xsink_all(isink,1:ndim),vsink_all(isink,1:ndim))/(msink(isink)+msmbh(isink))
 
         ! Store jump in new sink coordinates
         do lev=levelmin,nlevelmax
@@ -1450,8 +1465,10 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                     end if
                  end if
                  v_AGN = (2*0.1*epsilon_kin/kin_mass_loading)**0.5*3d10 ! in cm/s
-                 fbk_ener_AGN=AGN_fbk_frac_ener*min(delta_mass(isink)*T2_AGN/scale_T2*weight/volume*d/density,T2_max/scale_T2*weight*d) ! mass-weighted
-                 fbk_mom_AGN=AGN_fbk_frac_mom*kin_mass_loading*delta_mass(isink)*v_AGN/scale_v*weight/volume*d/density/(1-cos(3.1415926/180.*cone_opening/2)) ! mass-weighted
+                 fbk_ener_AGN=AGN_fbk_frac_ener*min(delta_mass(isink)*T2_AGN/scale_T2*weight/volume*d/density,&
+                      & T2_max/scale_T2*weight*d) ! mass-weighted
+                 fbk_mom_AGN=AGN_fbk_frac_mom*kin_mass_loading*delta_mass(isink)*v_AGN/scale_v*weight/volume*d/density &
+                      & /(1-cos(3.1415926/180.*cone_opening/2)) ! mass-weighted
               end if
            end if
 
@@ -1514,7 +1531,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                        orth_dist=sqrt(sum((r_rel(1:ndim)-cone_dist*cone_dir(1:ndim))**2))
                        if (orth_dist.le.abs(cone_dist)*tan_theta)then
                           unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)+fbk_mom_AGN*r_rel(1:ndim)/(r_len)/vol_loc
-                          unew(indp(j,ind),ndim+2)=unew(indp(j,ind),ndim+2)+sum(fbk_mom_AGN*r_rel(1:ndim)/(r_len)*vv(1:ndim))/vol_loc
+                          unew(indp(j,ind),ndim+2)=unew(indp(j,ind),ndim+2) &
+                               & +sum(fbk_mom_AGN*r_rel(1:ndim)/(r_len)*vv(1:ndim))/vol_loc
                        end if
                     end if
                  end if
@@ -1522,7 +1540,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  if(rt_AGN)then
                     dert=0.1d0*delta_mass(isink)*(3d10/scale_v)**2
                     do igroup=1,nGroups
-                       Np_inj=dert * group_egy_AGNfrac(igroup) / (scale_evtocode*group_egy(igroup)) / (vol_loc*scale_vol) / scale_Np*weight/volume
+                       Np_inj=dert * group_egy_AGNfrac(igroup) / (scale_evtocode*group_egy(igroup)) &
+                            & / (vol_loc*scale_vol) / scale_Np*weight/volume
                        rtunew(indp(j,ind),iGroups(igroup))=rtunew(indp(j,ind),iGroups(igroup))+Np_inj
                     enddo
                  end if
@@ -2145,7 +2164,8 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
         call quick_sort_dp(xmsink(1),idsink_sort(1),nsink)
         write(*,*)'Number of sink = ',nsink
         write(*,'(" ============================================================================================")')
-        write(*,'(" Id     Mass(Msol) Bondi MeanBondi Edd (Msol/yr)  BH: Mass(Msol)  Bondi MeanBondi Edd (Msol/yr)   x              y              z")')
+        write(*,'(" Id     Mass(Msol) Bondi MeanBondi Edd (Msol/yr)  BH: Mass(Msol)&
+             &  Bondi MeanBondi Edd (Msol/yr)   x              y              z")')
         write(*,'(" ============================================================================================")')
         do i=nsink,max(nsink-30,1),-1
            isink=idsink_sort(i)
@@ -2177,7 +2197,8 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
                  write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
                  & dMtorque2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600., &
                  & dMbondi2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
-                 write(*,'("   M_gas_d[Msol]=",1PE12.5,"  f_d_torque=",1PE12.5,"  f_gas_torque=",1PE12.5,"  supply_factor=",1PE12.5)') &
+                 write(*,'("   M_gas_d[Msol]=",1PE12.5,"  f_d_torque=",1PE12.5,&
+                      &"  f_gas_torque=",1PE12.5,"  supply_factor=",1PE12.5)') &
                  & M_gas_d_diag(isink)*scale_m/2d33,f_d_torque_diag(isink),f_gas_torque_diag(isink),supply_factor_diag(isink)
             endif
           end do
@@ -2192,9 +2213,11 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
         write(*,*)'Number of sink = ',nsink
         write(*,*)'Total mass in sink [Msol] = ',sum(msink(1:nsink))*scale_m/2d33
         write(*,*)'simulation time [yr] = ',t*scale_t/(3600*24*365.25)
-        write(*,'(" =============================================================================================================================================")')
+        write(*,'(" ======================================================================&
+             &=======================================================================")')
         write(*,'("   Id     M[Msol]          x             y             z         vx[km/s]      vy[km/s]      vz[km/s]     spin/spmax    Mdot[Msol/y]   age[yr]")')
-        write(*,'(" =============================================================================================================================================")')
+        write(*,'(" ======================================================================&
+             &=======================================================================")')
         do i=nsink,1,-1
            isink=idsink_sort(i)
            l_abs=(lsink(isink,1)**2+lsink(isink,2)**2+lsink(isink,3)**2)**0.5
@@ -2213,11 +2236,13 @@ subroutine print_sink_properties(dMEDoverdt,dMEDoverdt_smbh,rho_inf,r2, &
                 write(*,'("   Mdot_torque2[Msol/yr]=",1PE12.5,"  Mdot_bondi2[Msol/yr]=",1PE12.5)') &
                 & dMtorque2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600., &
                 & dMbondi2_sink(isink)*scale_m/2d33/(scale_t)*365.*24.*3600.
-                write(*,'("   M_gas_d[Msol]=",1PE12.5,"  f_d_torque=",1PE12.5,"  f_gas_torque=",1PE12.5,"  supply_factor=",1PE12.5)') &
+                write(*,'("   M_gas_d[Msol]=",1PE12.5,"  f_d_torque=",1PE12.5,&
+                     &"  f_gas_torque=",1PE12.5,"  supply_factor=",1PE12.5)') &
                 & M_gas_d_diag(isink)*scale_m/2d33,f_d_torque_diag(isink),f_gas_torque_diag(isink),supply_factor_diag(isink)
            endif
         end do
-        write(*,'(" =============================================================================================================================================")')
+        write(*,'(" ======================================================================&
+             &=======================================================================")')
      endif
   endif
 end subroutine print_sink_properties
@@ -2890,10 +2915,12 @@ subroutine update_sink(ilevel)
            endif
            if (.not. new_born(isink))then
               do idim=1,ndim
-                 gamma_grad_descent = gamma_grad_descent + (xsink(isink,idim)-xsinkold(isink,idim))*(fsink(isink,idim)-fsinkold(isink,idim))
+                 gamma_grad_descent = gamma_grad_descent &
+                      & + (xsink(isink,idim)-xsinkold(isink,idim))*(fsink(isink,idim)-fsinkold(isink,idim))
               enddo
               if(gamma_grad_descent>0)then
-                 gamma_grad_descent = fudge_eff*dtnew(ilevel)*SQRT(ABS(gamma_grad_descent)/(NORM2(fsink(isink,1:ndim)-fsinkold(isink,1:ndim)))**2)
+                 gamma_grad_descent = fudge_eff*dtnew(ilevel) &
+                      & *SQRT(ABS(gamma_grad_descent)/(NORM2(fsink(isink,1:ndim)-fsinkold(isink,1:ndim)))**2)
                  ! Require thatthe sink cannot move more than half a grid
                  if(gamma_grad_descent*fsink_norm>dx_min/2.0) then
                     xsink_graddescent(isink,1:ndim) = fsink(isink,1:ndim) * dx_min/2.0/fsink_norm
