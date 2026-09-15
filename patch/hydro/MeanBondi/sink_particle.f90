@@ -427,6 +427,10 @@ subroutine collect_acczone_avg(ilevel)
      wdc_cold_w=0d0; wdc_cold_rho=0d0
      if(tff_include_particles) wff_part_mass=0d0
   endif
+  ! Particle dynamical friction accumulators (see collect_sigma_coll_np)
+  if(drag_part)then
+     wdf_vsum=0d0; wdf_msum=0d0; wdf_mass_lowspeed=0d0; wdf_fact_fast=0d0
+  endif
   ! Loop over cpus
   do icpu=1,ncpu
      igrid=headl(icpu,ilevel)
@@ -490,7 +494,8 @@ subroutine collect_acczone_avg(ilevel)
   ! End loop over cpus
 
   ! Loop over star+DM particles for sigma_coll (GD switch), stellar masses (two-channel), and freefall enclosed mass
-  if((sink_descent .or. two_channel_accretion_switch .or. (freefall_accretion .and. tff_include_particles)) .and. nsink>0)then
+  if((sink_descent .or. two_channel_accretion_switch .or. drag_part &
+       & .or. (freefall_accretion .and. tff_include_particles)) .and. nsink>0)then
      ! Build a spatial hash (cell list) of sink positions, binned at the cloud
      ! radius, so collect_sigma_coll_np only tests sinks in a particle's own
      ! and neighboring bins instead of every sink (was O(N_part * nsink)).
@@ -587,6 +592,12 @@ subroutine collect_acczone_avg(ilevel)
         if(tff_include_particles) &
              call MPI_ALLREDUCE(wff_part_mass,wff_part_mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      endif
+     if(drag_part)then
+        call MPI_ALLREDUCE(wdf_vsum,wdf_vsum_new,nsinkmax*ndim*2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdf_msum,wdf_msum_new,nsinkmax*2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdf_mass_lowspeed,wdf_mass_lowspeed_new,nsinkmax*2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdf_fact_fast,wdf_fact_fast_new,nsinkmax*2,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     endif
 #else
      wden_new=wden
      wvol_new=wvol
@@ -625,6 +636,10 @@ subroutine collect_acczone_avg(ilevel)
         if(use_infall_mass) wdc_infall_mass_new=wdc_infall_mass
         if(use_infall_mass) wdc_infall_j2mass_new=wdc_infall_j2mass
         if(tff_include_particles) wff_part_mass_new=wff_part_mass
+     endif
+     if(drag_part)then
+        wdf_vsum_new=wdf_vsum; wdf_msum_new=wdf_msum
+        wdf_mass_lowspeed_new=wdf_mass_lowspeed; wdf_fact_fast_new=wdf_fact_fast
      endif
 #endif
   endif
@@ -771,6 +786,17 @@ subroutine collect_acczone_avg(ilevel)
         wdc_hot_cs2_lvl(isink,ilevel)     = wdc_hot_cs2_new(isink)
         wdc_hot_v2_lvl(isink,ilevel)      = wdc_hot_v2_new(isink)
         if(tff_include_particles) wff_part_mass_lvl(isink,ilevel) = wff_part_mass_new(isink)
+     end do
+  endif
+
+  ! Same stash, for the particle-DF accumulators (drag_part) -- see wdf_vsum_lvl comment
+  ! in pm_commons.f90.
+  if(drag_part.and.nsink>0)then
+     do isink=1,nsink
+        wdf_vsum_lvl(isink,ilevel,1:ndim,1:2) = wdf_vsum_new(isink,1:ndim,1:2)
+        wdf_msum_lvl(isink,ilevel,1:2)         = wdf_msum_new(isink,1:2)
+        wdf_mass_lowspeed_lvl(isink,ilevel,1:2) = wdf_mass_lowspeed_new(isink,1:2)
+        wdf_fact_fast_lvl(isink,ilevel,1:2)     = wdf_fact_fast_new(isink,1:2)
      end do
   endif
 
@@ -1108,6 +1134,9 @@ subroutine grow_sink(ilevel,on_creation)
   integer::igrid,jgrid,ipart,jpart,next_part
   integer::ig,ip,npart1,npart2,icpu,isink,lev
   integer,dimension(1:nvector)::ind_grid,ind_part,ind_grid_part
+  integer::itype_df_apply
+  real(dp)::factor_df_apply
+  real(dp),dimension(1:ndim)::vsink_orig_df
 
   if(accretion_scheme=='none'.and.(.not.on_creation))return
   if(verbose)write(*,111)ilevel
@@ -1118,6 +1147,7 @@ subroutine grow_sink(ilevel,on_creation)
   ! Reset new sink variables
   msink_new=0d0; msmbh_new=0d0
   xsink_new=0.d0; vsink_new=0d0; lsink_new=0d0; delta_mass_new=0d0
+  if(drag_gas) wgasdrag_dv=0d0
 
   ! Loop over cpus
   do icpu=1,ncpu
@@ -1183,6 +1213,7 @@ subroutine grow_sink(ilevel,on_creation)
      call MPI_ALLREDUCE(vsink_new,vsink_all,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(lsink_new,lsink_all,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
      call MPI_ALLREDUCE(delta_mass_new,delta_mass_all,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+     if(drag_gas) call MPI_ALLREDUCE(wgasdrag_dv,wgasdrag_dv_all,nsinkmax*ndim,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
 #else
      msink_all=msink_new
      msmbh_all=msmbh_new
@@ -1190,7 +1221,36 @@ subroutine grow_sink(ilevel,on_creation)
      vsink_all=vsink_new
      lsink_all=lsink_new
      delta_mass_all=delta_mass_new
+     if(drag_gas) wgasdrag_dv_all=wgasdrag_dv
 #endif
+  endif
+
+  ! Gas dynamical friction: a genuine velocity kick (already a properly weighted mean, see
+  ! accrete_sink), applied unconditionally -- unlike the accretion-driven update below, drag
+  ! must still act on a step with zero accretion, so it lives outside the msink(isink)>0 gate.
+  if(drag_gas)then
+     do isink=1,nsink
+        vsink(isink,1:ndim)=vsink(isink,1:ndim)+wgasdrag_dv_all(isink,1:ndim)
+     end do
+  endif
+
+  ! Particle dynamical friction: dfpart_factor (1/time) was finalized in compute_accretion_rate
+  ! above (using vsink/v_background_sink as they stood at that point); the actual kick is
+  ! time-integrated here, where dtnew(ilevel) is in scope -- same rate-vs-integrated-quantity
+  ! split accrete_sink already uses for dMdc_cold_sink. Stability-capped at 1/dtnew, matching
+  ! the gas-drag cap in accrete_sink and RAMSES-yOMP's own factor=min(1/dtnew(ilevel),factor).
+  if(drag_part)then
+     do isink=1,nsink
+        ! Both types' kicks computed from the same pre-kick vsink (not sequentially updated),
+        ! matching RAMSES-yOMP's get_drag_part, which derives both from one vrel_sink built
+        ! before either type's kick is applied.
+        vsink_orig_df(1:ndim) = vsink(isink,1:ndim)
+        do itype_df_apply=1,2
+           factor_df_apply = min(dfpart_factor(isink,itype_df_apply), 1.0d0/dtnew(ilevel))
+           vsink(isink,1:ndim) = vsink(isink,1:ndim) - factor_df_apply*dtnew(ilevel) &
+                & *(vsink_orig_df(1:ndim)-v_background_sink(isink,1:ndim,itype_df_apply))
+        end do
+     end do
   endif
 
   do isink=1,nsink
@@ -1270,6 +1330,10 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp)::cs2_loc,v2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
   real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
   real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
+  ! Gas dynamical friction (drag_gas), Ostriker (1999) -- mirrors RAMSES-yOMP accrete_bondi
+  real(dp)::cs2_drag,v2_drag,vnorm_rel_drag,mach_drag,mach_factor_drag
+  real(dp)::alpha_drag,factor_drag,fudge_drag,w_frac_drag,max_factor_drag
+  real(dp),dimension(1:ndim)::dv_drag,dp_recoil_drag
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim)::xpart
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
@@ -1383,6 +1447,59 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            volume=volume_gas(isink)
            if (volume<=0. .or. density<=0.)then
               print*,'something might be going wrong here...',weight,volume,density,ilevel
+           endif
+
+           ! Gas dynamical friction (drag_gas): Ostriker (1999) Mach-dependent drag, mirroring
+           ! RAMSES-yOMP's accrete_bondi. Unlike sink_descent, this is a genuine velocity/momentum
+           ! correction (added to vsink in grow_sink below, not to xsink), so it does not corrupt
+           ! the vr_loc/j2_loc/E_loc orbital-mechanics quantities the freefall ballistic-infall
+           ! gate depends on. Skipped on sink creation (no meaningful v_rel/density yet).
+           if(drag_gas .and. .not. on_creation)then
+              ! Thermal cs2: same bondi_use_vrel convention already used for cs2_loc above
+              ! (weighted_depletion branch), computed unconditionally here since drag needs it
+              ! regardless of weighted_depletion.
+              if (bondi_use_vrel) then
+                 v2_drag = sum(v_rel(1:ndim)**2)
+              else
+                 v2_drag = sum(vv(1:ndim)**2)
+              endif
+              cs2_drag = max((gamma-1.0d0)*(e-0.5d0*v2_drag), smallc**2)
+              vnorm_rel_drag = max(sqrt(sum(v_rel(1:ndim)**2)), smallc)
+              mach_drag = vnorm_rel_drag/sqrt(cs2_drag)
+              ! Ostriker (1999) subsonic/supersonic Coulomb-log factor (Chapon+2013); the small
+              ! gap 0.950<mach<1.007 keeps mach_factor_drag=1 (matches the reference exactly).
+              mach_factor_drag = 1.0d0
+              if(mach_drag<=0.950d0)then
+                 mach_factor_drag = (0.5d0*log((1.0d0+mach_drag)/(1.0d0-mach_drag))-mach_drag)/mach_drag**2
+              else if(mach_drag>=1.007d0)then
+                 mach_factor_drag = (0.5d0*log(mach_drag**2-1.0d0)+3.2d0)/mach_drag**2
+              endif
+              alpha_drag  = max((d/(d_boost/scale_nH))**boost_drag, 1.0d0)
+              fudge_drag  = 4.0d0*3.1415926d0*factG**2
+              factor_drag = mach_factor_drag*alpha_drag*fudge_drag*d*msink(isink)/cs2_drag/vnorm_rel_drag
+              ! Stability cap: no more than the full relative velocity in one step, and an
+              ! optional hard ceiling adfmax [km/s/Myr] (RAMSES-yOMP additionally sub-cycles ddt
+              ! when this cap binds; we skip that refinement here and just clip factor_drag).
+              max_factor_drag = 1.0d0/dtnew(ilevel)
+              if(adfmax>0.0d0) max_factor_drag = min(adfmax*1.d5/scale_v*(scale_t/3.1536d13), max_factor_drag)
+              factor_drag = min(factor_drag, max_factor_drag)
+              dv_drag(1:ndim) = -factor_drag*v_rel(1:ndim)*dtnew(ilevel)
+              ! Per-cell weight normalised by an already-known kernel total (volume_gas/rho_gas,
+              ! lagged from the previous collect_acczone_avg pass), so it sums to ~1 over the
+              ! whole accretion zone without needing a second reduction pass -- weighted_drag
+              ! selects kernel-volume weighting vs. local-gas-mass weighting, same distinction
+              ! as the reference's weighted_drag switch.
+              if(weighted_drag)then
+                 w_frac_drag = weight/(volume+tiny(0.0_dp))
+              else
+                 w_frac_drag = weight*d/(density*volume+tiny(0.0_dp))
+              endif
+              wgasdrag_dv(isink,1:ndim) = wgasdrag_dv(isink,1:ndim) + w_frac_drag*dv_drag(1:ndim)
+              ! Gas back-reaction: exact momentum conservation, same kick+work-term pattern the
+              ! AGN momentum feedback block below already uses.
+              dp_recoil_drag(1:ndim) = w_frac_drag*msink(isink)*dv_drag(1:ndim)
+              unew(indp(j,ind),2:ndim+1) = unew(indp(j,ind),2:ndim+1) - dp_recoil_drag(1:ndim)/vol_loc
+              unew(indp(j,ind),ndim+2)   = unew(indp(j,ind),ndim+2)   - sum(dp_recoil_drag(1:ndim)*vv(1:ndim))/vol_loc
            endif
 
            ! Compute accreted mass
@@ -1618,6 +1735,11 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::wstar_mass_tot,wstar_rot_mass_tot,wrot_mass_tot
   real(dp)::whot_w_tot,whot_rho_tot,whot_cs2_tot,whot_v2_tot
   real(dp)::wnorot_w_tot,wnorot_rho_tot,wnorot_cs2_tot,wnorot_v2_tot
+  ! Particle dynamical friction (drag_part) finalization
+  integer::itype_df
+  real(dp)::vol_df,b90_df,Rsh_df,bmin_df,CoulombLog_df,alpha_df
+  real(dp),dimension(1:ndim,1:2)::wdf_vsum_tot
+  real(dp),dimension(1:2)::wdf_msum_tot,wdf_mass_lowspeed_tot,wdf_fact_fast_tot
 
   ! Gravitational constant
   factG=1d0
@@ -2086,6 +2208,44 @@ subroutine compute_accretion_rate(write_sinks)
      end if
 
      if(msink(isink).ge.max_mass_nsc*2e33/scale_m.and.mass_smbh_seed>0.0)dMsink_overdt(isink)=0.0
+
+     ! Particle dynamical friction (drag_part): Chandrasekhar drag, slow/fast split
+     ! (Antonini & Merritt 2011 eq. 6-7). vrel_sink_norm_df/v_background_sink here are still
+     ! the values from the PREVIOUS sink update (lagged, same reasoning as j2_crit_sink) --
+     ! used for both the force factor below and the slow/fast classification
+     ! collect_sigma_coll_np just did with them, self-consistent within one pass, same as
+     ! RAMSES-yOMP's get_drag_part. Refreshed for the NEXT sink update at the end of this block.
+     if(drag_part)then
+        wdf_vsum_tot=0d0; wdf_msum_tot=0d0; wdf_mass_lowspeed_tot=0d0; wdf_fact_fast_tot=0d0
+        do i=levelmin,nlevelmax
+           wdf_vsum_tot(1:ndim,1:2)  = wdf_vsum_tot(1:ndim,1:2)  + wdf_vsum_lvl(isink,i,1:ndim,1:2)
+           wdf_msum_tot(1:2)          = wdf_msum_tot(1:2)          + wdf_msum_lvl(isink,i,1:2)
+           wdf_mass_lowspeed_tot(1:2) = wdf_mass_lowspeed_tot(1:2) + wdf_mass_lowspeed_lvl(isink,i,1:2)
+           wdf_fact_fast_tot(1:2)     = wdf_fact_fast_tot(1:2)     + wdf_fact_fast_lvl(isink,i,1:2)
+        end do
+        vol_df = 4.0d0/3.0d0*3.1415926d0*(dble(DF_ncells)*dx_min)**3
+        do itype_df=1,2
+           b90_df = factG*msink(isink)/(vrel_sink_norm_df(isink,itype_df)**2+tiny(0.0_dp))
+           Rsh_df = factG*msink(isink)/(3d10/scale_v)**2
+           bmin_df = max(b90_df,Rsh_df)
+           CoulombLog_df = dble(DF_ncells)*dx_min/(bmin_df+tiny(0.0_dp))
+           if(CoulombLog_df>1.0d0)then
+              alpha_df = max((wdf_msum_tot(itype_df)/(vol_df+tiny(0.0_dp))/(d_boost/scale_nH))**boost_drag_part, 1.0d0)
+              dfpart_factor(isink,itype_df) = alpha_df*4.0d0*3.1415926d0*factG**2*msink(isink) &
+                   & /(vrel_sink_norm_df(isink,itype_df)**3+tiny(0.0_dp)) &
+                   & *(wdf_mass_lowspeed_tot(itype_df)*log(CoulombLog_df)+wdf_fact_fast_tot(itype_df)) &
+                   & /(vol_df+tiny(0.0_dp))
+           else
+              dfpart_factor(isink,itype_df) = 0.0d0
+           endif
+           ! Refresh the lagged background for the next sink update
+           if(wdf_msum_tot(itype_df)>tiny(0.0_dp))then
+              v_background_sink(isink,1:ndim,itype_df) = wdf_vsum_tot(1:ndim,itype_df)/wdf_msum_tot(itype_df)
+           endif
+           vrel_sink_norm_df(isink,itype_df) = max(tiny(0.0_dp), &
+                & sqrt(sum((vsink(isink,1:ndim)-v_background_sink(isink,1:ndim,itype_df))**2)))
+        end do
+     endif
 
   end do
 
@@ -3483,7 +3643,9 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,fd_floor,epsilon_nuc,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
-       use_stellar_mass_torque,weighted_depletion,use_infall_mass
+       use_stellar_mass_torque,weighted_depletion,use_infall_mass,&
+       drag_gas,boost_drag,d_boost,adfmax,weighted_drag,&
+       drag_part,boost_drag_part,DF_ncells
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
 
   if(.not.cosmo) call units(scale_l,scale_t,scale_d,scale_v,scale_nH,scale_T2)
@@ -4054,6 +4216,12 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
   real(dp)::nx_loc,scale,dx_min,r2,r_cloud,r2_cloud,dv2
   real(dp)::vr_star,vphi2_star,chi_star,S_rot_star,r_mag
   real(dp),dimension(1:ndim)::dv,r_vec
+  ! Particle dynamical friction (drag_part): slow/fast classification against the sink's
+  ! velocity relative to the LAGGED local background (v_background_sink), not relative to vsink
+  ! itself like dv above -- see the comment on v_background_sink in pm_commons.f90.
+  integer::type_df
+  real(dp),dimension(1:ndim)::vrel_part_df
+  real(dp)::vrel_part_norm_df
 
   nx_loc   = dble(icoarse_max-icoarse_min+1)
   scale    = boxlen/nx_loc
@@ -4108,6 +4276,33 @@ subroutine collect_sigma_coll_np(ind_part,np,ilevel)
                           S_rot_star = 1.0d0 / (1.0d0 + exp(-(chi_star - chi_crit) / delta_chi))
                           wstar_mass(isink)     = wstar_mass(isink)     + mp(ind_part(j))
                           wstar_rot_mass(isink) = wstar_rot_mass(isink) + S_rot_star * mp(ind_part(j))
+                       endif
+                       ! Particle dynamical friction (drag_part): Chandrasekhar drag split into
+                       ! slow/fast background populations (Antonini & Merritt 2011 eq. 6-7).
+                       ! type_df: 1=star, 2=DM, matching v_background_sink/wdf_* indexing.
+                       if(drag_part)then
+                          if(is_star(typep(ind_part(j))))then
+                             type_df = 1
+                          else if(is_dm(typep(ind_part(j))))then
+                             type_df = 2
+                          else
+                             type_df = 0
+                          endif
+                          if(type_df>0)then
+                             wdf_vsum(isink,1:ndim,type_df) = wdf_vsum(isink,1:ndim,type_df) &
+                                  & + mp(ind_part(j))*vp(ind_part(j),1:ndim)
+                             wdf_msum(isink,type_df) = wdf_msum(isink,type_df) + mp(ind_part(j))
+                             vrel_part_df(1:ndim) = vp(ind_part(j),1:ndim) - v_background_sink(isink,1:ndim,type_df)
+                             vrel_part_norm_df = max(tiny(0.0_dp), sqrt(sum(vrel_part_df(1:ndim)**2)))
+                             if(vrel_part_norm_df <= vrel_sink_norm_df(isink,type_df))then
+                                wdf_mass_lowspeed(isink,type_df) = wdf_mass_lowspeed(isink,type_df) + mp(ind_part(j))
+                             else
+                                wdf_fact_fast(isink,type_df) = wdf_fact_fast(isink,type_df) + mp(ind_part(j)) * &
+                                     & (log((vrel_part_norm_df+vrel_sink_norm_df(isink,type_df)) &
+                                     & /(vrel_part_norm_df-vrel_sink_norm_df(isink,type_df))) &
+                                     & - 2.0d0*vrel_sink_norm_df(isink,type_df)/vrel_part_norm_df)
+                             endif
+                          endif
                        endif
                     endif
                  endif

@@ -142,6 +142,17 @@ subroutine init_sink
   allocate(wdc_cold_rho_new(1:nsinkmax))
   allocate(wff_part_mass(1:nsinkmax))    ; wff_part_mass=0.d0
   allocate(wff_part_mass_new(1:nsinkmax))
+  allocate(v_background_sink(1:nsinkmax,1:ndim,1:2))    ; v_background_sink=0.d0
+  allocate(vrel_sink_norm_df(1:nsinkmax,1:2))           ; vrel_sink_norm_df=0.d0
+  allocate(wdf_vsum(1:nsinkmax,1:ndim,1:2))             ; wdf_vsum=0.d0
+  allocate(wdf_vsum_new(1:nsinkmax,1:ndim,1:2))
+  allocate(wdf_msum(1:nsinkmax,1:2))                    ; wdf_msum=0.d0
+  allocate(wdf_msum_new(1:nsinkmax,1:2))
+  allocate(wdf_mass_lowspeed(1:nsinkmax,1:2))           ; wdf_mass_lowspeed=0.d0
+  allocate(wdf_mass_lowspeed_new(1:nsinkmax,1:2))
+  allocate(wdf_fact_fast(1:nsinkmax,1:2))               ; wdf_fact_fast=0.d0
+  allocate(wdf_fact_fast_new(1:nsinkmax,1:2))
+  allocate(dfpart_factor(1:nsinkmax,1:2))               ; dfpart_factor=0.d0
   allocate(wdc_cold_mass_lvl(1:nsinkmax,1:nlevelmax));   wdc_cold_mass_lvl=0.d0
   allocate(wdc_infall_mass_lvl(1:nsinkmax,1:nlevelmax)); wdc_infall_mass_lvl=0.d0
   allocate(wdc_cold_j2mass_lvl(1:nsinkmax,1:nlevelmax)); wdc_cold_j2mass_lvl=0.d0
@@ -152,6 +163,10 @@ subroutine init_sink
   allocate(wdc_hot_cs2_lvl(1:nsinkmax,1:nlevelmax));     wdc_hot_cs2_lvl=0.d0
   allocate(wdc_hot_v2_lvl(1:nsinkmax,1:nlevelmax));      wdc_hot_v2_lvl=0.d0
   allocate(wff_part_mass_lvl(1:nsinkmax,1:nlevelmax));   wff_part_mass_lvl=0.d0
+  allocate(wdf_vsum_lvl(1:nsinkmax,1:nlevelmax,1:ndim,1:2));  wdf_vsum_lvl=0.d0
+  allocate(wdf_msum_lvl(1:nsinkmax,1:nlevelmax,1:2));         wdf_msum_lvl=0.d0
+  allocate(wdf_mass_lowspeed_lvl(1:nsinkmax,1:nlevelmax,1:2)); wdf_mass_lowspeed_lvl=0.d0
+  allocate(wdf_fact_fast_lvl(1:nsinkmax,1:nlevelmax,1:2));     wdf_fact_fast_lvl=0.d0
   allocate(wvr2_lvl(1:nsinkmax,1:nlevelmax));            wvr2_lvl=0.d0
   allocate(wvphi2_lvl(1:nsinkmax,1:nlevelmax));          wvphi2_lvl=0.d0
   allocate(wcold_mass_lvl(1:nsinkmax,1:nlevelmax));      wcold_mass_lvl=0.d0
@@ -186,6 +201,8 @@ subroutine init_sink
   allocate(idsink_old(1:nsinkmax))
   allocate(vsink_new(1:nsinkmax,1:ndim))
   allocate(vsink_all(1:nsinkmax,1:ndim))
+  allocate(wgasdrag_dv(1:nsinkmax,1:ndim))     ; wgasdrag_dv=0.d0
+  allocate(wgasdrag_dv_all(1:nsinkmax,1:ndim))
   allocate(fsink_new(1:nsinkmax,1:ndim))
   allocate(fsink_all(1:nsinkmax,1:ndim))
   allocate(lsink_new(1:nsinkmax,1:ndim))

@@ -48,6 +48,37 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_cold_w,    wdc_cold_w_new
   real(dp),allocatable,dimension(:)    ::wdc_cold_rho,  wdc_cold_rho_new
   real(dp),allocatable,dimension(:)    ::wff_part_mass, wff_part_mass_new ! star+DM mass in cloud for tff_include_particles
+  ! Gas dynamical friction (drag_gas): mass-weighted mean Ostriker (1999) velocity-kick
+  ! accumulator, built per-cell in accrete_sink alongside the accretion deposit and applied
+  ! immediately in grow_sink -- same per-level immediate-apply pattern as msink_new/vsink_new,
+  ! no cross-level lag needed (unlike wdc_*, which must survive across collect_acczone_avg's
+  ! per-level calls until compute_accretion_rate reads them once).
+  real(dp),allocatable,dimension(:,:)  ::wgasdrag_dv, wgasdrag_dv_all
+  ! Particle (star+DM) dynamical friction (drag_part): Chandrasekhar drag split into slow/fast
+  ! background populations (Antonini & Merritt 2011 eq. 6-7), avoiding the erf() Maxwellian
+  ! assumption. v_background_sink/vrel_sink_norm_df are lagged by one sink update (same reason
+  ! as j2_crit_sink/r2_inf_sink: they are only known after compute_accretion_rate has summed the
+  ! *_lvl accumulators over every level, which is after the collect_sigma_coll_np pass that needs
+  ! them). Indexed (:,1)=stars, (:,2)=DM, matching RAMSES-yOMP's convention.
+  real(dp),allocatable,dimension(:,:,:)::v_background_sink            ! lagged mass-weighted mean star/DM velocity near each sink
+  real(dp),allocatable,dimension(:,:)  ::vrel_sink_norm_df            ! lagged |vsink-v_background_sink|
+  ! Chandrasekhar drag rate (1/time), finalized once per sink update in compute_accretion_rate;
+  ! applied as a vsink kick in grow_sink, where dtnew(ilevel) is in scope (mirrors how
+  ! dMdc_cold_sink is a rate finalized here and only time-integrated later, in accrete_sink).
+  real(dp),allocatable,dimension(:,:)  ::dfpart_factor
+  ! Per-call (collect_sigma_coll_np) accumulators, reduced across cpus into _new:
+  ! Sum(m*v) this level's particles, to build next step's v_background_sink
+  real(dp),allocatable,dimension(:,:,:)::wdf_vsum, wdf_vsum_new
+  real(dp),allocatable,dimension(:,:)  ::wdf_msum, wdf_msum_new       ! Sum(m) this level's particles
+  ! mass of background particles slower than the sink (log-enhanced term)
+  real(dp),allocatable,dimension(:,:)  ::wdf_mass_lowspeed, wdf_mass_lowspeed_new
+  ! exact (non-log) contribution of faster background particles
+  real(dp),allocatable,dimension(:,:)  ::wdf_fact_fast,     wdf_fact_fast_new
+  ! Per-level storage: collect_acczone_avg(ilevel) resets the four accumulators above on every
+  ! call (once per level), so without a level dimension only the most-recently-processed level's
+  ! particles would survive to compute_accretion_rate -- same reasoning as wdc_cold_mass_lvl.
+  real(dp),allocatable,dimension(:,:,:,:)::wdf_vsum_lvl
+  real(dp),allocatable,dimension(:,:,:)  ::wdf_msum_lvl, wdf_mass_lowspeed_lvl, wdf_fact_fast_lvl
   ! Per-level storage for the freefall reservoir sums above: collect_acczone_avg(ilevel) is
   ! called once per level and resets/rebuilds wdc_*_new from scratch each time, so without a
   ! level dimension only the most-recently-processed level's contribution survives to

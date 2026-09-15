@@ -93,6 +93,19 @@ module pm_parameters
   real(dp)::fudge_graddescent=1.0d0         ! Fudge factor for the for the BB gradient descent
   integer::n_res_influence=3                ! Number of cells to consider r_inf resolved (disables GD)
 
+  ! Dynamical friction (mirrors RAMSES-yOMP pm/sink_particle.f90): a genuine velocity/momentum
+  ! drag, unlike sink_descent's position-only correction, so it does not corrupt the vr_loc/j2_loc/
+  ! E_loc orbital-mechanics quantities the freefall ballistic-infall gate depends on.
+  logical::drag_gas=.false.                 ! Gas dynamical friction (Ostriker 1999) on the sink
+  real(dp)::boost_drag=2.0d0                ! Boost power factor for the gas drag force
+  real(dp)::d_boost=1.0d0                   ! Reference density for the drag boost [H/cc]
+  real(dp)::adfmax=-1.0d0                   ! Max gas-drag deceleration [km/s/Myr]; <=0 = unbounded
+  logical::weighted_drag=.false.            ! Kernel-weight (vs. cell-mass-weight) the gas drag measurement
+  ! Collisionless (star+DM) dynamical friction, Chandrasekhar split slow/fast (Antonini & Merritt 2011 eq. 6-7)
+  logical::drag_part=.false.
+  real(dp)::boost_drag_part=0.0d0           ! Boost power factor for the particle drag force
+  integer::DF_ncells=4                      ! Aperture (in dx_min) for the particle-DF background sampling
+
   character(LEN=15)::agn_acc_method='mass'
   character(LEN=15)::agn_inj_method='volume'
   type part_t
