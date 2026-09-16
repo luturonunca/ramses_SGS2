@@ -1333,7 +1333,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   ! Gas dynamical friction (drag_gas), Ostriker (1999) -- mirrors RAMSES-yOMP accrete_bondi
   real(dp)::cs2_drag,v2_drag,vnorm_rel_drag,mach_drag,mach_factor_drag
   real(dp)::alpha_drag,factor_drag,fudge_drag,w_frac_drag,max_factor_drag
-  real(dp),dimension(1:ndim)::dv_drag,dp_recoil_drag
+  real(dp),dimension(1:ndim)::dv_drag
   ! Grid based arrays
   real(dp),dimension(1:nvector,1:ndim)::xpart
   real(dp),dimension(1:nvector,1:ndim,1:twotondim)::xx
@@ -1495,11 +1495,12 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  w_frac_drag = weight*d/(density*volume+tiny(0.0_dp))
               endif
               wgasdrag_dv(isink,1:ndim) = wgasdrag_dv(isink,1:ndim) + w_frac_drag*dv_drag(1:ndim)
-              ! Gas back-reaction: exact momentum conservation, same kick+work-term pattern the
-              ! AGN momentum feedback block below already uses.
-              dp_recoil_drag(1:ndim) = w_frac_drag*msink(isink)*dv_drag(1:ndim)
-              unew(indp(j,ind),2:ndim+1) = unew(indp(j,ind),2:ndim+1) - dp_recoil_drag(1:ndim)/vol_loc
-              unew(indp(j,ind),ndim+2)   = unew(indp(j,ind),ndim+2)   - sum(dp_recoil_drag(1:ndim)*vv(1:ndim))/vol_loc
+              ! No local gas back-reaction: msink vastly exceeds a resolved cell's own mass, so
+              ! removing M_sink-scaled recoil momentum from the tiny accretion-zone kernel is
+              ! numerically unbounded (Delta_v_cell ~ (msink/M_local_gas)*dv_drag) and blew the
+              ! local gas reservoir apart in testing. The real Ostriker wake is absorbed over a
+              ! much larger volume than this kernel anyway. Same non-reciprocal treatment the
+              ! accretion deposit and AGN feedback below already use for the same reason.
            endif
 
            ! Compute accreted mass
