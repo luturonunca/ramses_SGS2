@@ -399,6 +399,7 @@ subroutine collect_acczone_avg(ilevel)
      d_cold_code    = n_cold_crit  / scale_nH
      dd_cold_code   = dn_cold      / scale_nH
   endif
+  if(freefall_accretion) R_acc_code = R_acc * 3.086d18 / scale_l
 
   if(ilevel<levelmin)return
   if(verbose)write(*,111)ilevel
@@ -850,8 +851,8 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
 #endif
   real(dp)::d,e,v2,cs2,fraction,r2,sigma2_local,rho_local,vr_loc,vphi2_loc
   real(dp)::chi_loc,S_rot_loc,S_T_loc,S_n_loc,cold_w_loc,hot_w_loc
-  real(dp)::j2_loc,S_inf_loc,S_rinf_loc,S_vin_loc
-  real(dp)::GM_lag,E_loc,ecc_loc,r_p,dx_min_loc
+  real(dp)::j2_loc,S_inf_loc,S_rinf_loc,S_vin_loc,S_bound_loc,S_time_loc
+  real(dp)::GM_lag,E_loc,ecc_loc,r_p,dx_min_loc,t_ff_loc,t_ff_ref
   real(dp)::scale,weight,dx_cloud,vol_cloud,weight_exp,cs2_eff
   real(dp),dimension(1:ndim)::vv
 #ifdef SOLVERmhd
@@ -996,17 +997,18 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        ! not the circular-orbit shortcut. GM_lag backs the lagged enclosed mass
                        ! out of j2_crit_sink=G*(M_enc+M_bh)*R0 (see pm_commons.f90) instead of
                        ! storing a dedicated lagged array -- R0=ir_cloud*dx_min is constant.
-                       ! Gate compares pericenter to dx_min_loc (the finest cell, where gravity
-                       ! is already softened / structure is unresolved), not R0: R0 is merely the
-                       ! sampling aperture (this cell is already inside it), so "does its orbit
-                       ! return within R0" is nearly tautological -- dx_min_loc is the scale at
-                       ! which a parcel actually merges with the point-mass sink.
+                       ! Gate compares pericenter to R_acc (the physical disc-fragmentation/
+                       ! capture radius, Goodman 2003 / Hopkins & Quataert 2011 Sec 5.2), not R0:
+                       ! R0 is merely the sampling aperture (this cell is already inside it), so
+                       ! "does its orbit return within R0" is nearly tautological. dx_min_loc is
+                       ! not used here either -- at typical zoom resolution (tens of pc) it is not
+                       ! a physically meaningful capture scale, just the grid spacing.
                        j2_loc = r2*vphi2_loc
                        GM_lag = j2_crit_sink(isink) / (dble(ir_cloud)*dx_min_loc)
                        E_loc   = 0.5d0*v2 - GM_lag/sqrt(r2+tiny(0.0_dp))
                        ecc_loc = sqrt(max(1.0d0 + 2.0d0*E_loc*j2_loc/(GM_lag**2+tiny(0.0_dp)), 0.0d0))
                        r_p     = (j2_loc/(GM_lag+tiny(0.0_dp))) / (1.0d0+ecc_loc)
-                       S_inf_loc = 1.0d0/(1.0d0+exp((r_p/dx_min_loc - 1.0d0)/delta_dc))
+                       S_inf_loc = 1.0d0/(1.0d0+exp((r_p/R_acc_code - 1.0d0)/delta_dc))
                        ! Second, independent gate: is this cell within the sink's actual
                        ! gravitational influence radius (r2_inf_sink, lagged the same way)?
                        ! Restricts the reservoir further than R0_dc, which is resolution-set
@@ -1020,11 +1022,34 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        ! width set by the local thermal+turbulent speed (same cs2+sigma2_local
                        ! scale chi_loc uses above) instead of a new namelist parameter.
                        S_vin_loc = 1.0d0/(1.0d0+exp(vr_loc/sqrt(cs2+sigma2_local+tiny(0.0_dp))))
-                       wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d
+                       ! Fourth, independent gate: is this cell actually bound to the local
+                       ! enclosed mass (E_loc<0)? r_p->0 as E_loc->+infinity for ANY j (eccentricity
+                       ! diverges), so a fast/energetic-but-unbound cell -- turbulence, a transient
+                       ! bulk flow, just passing through -- can satisfy the pericenter cut on
+                       ! eccentricity alone, regardless of how much angular momentum it actually
+                       ! carries. Unbound material isn't part of a settled, returning reservoir the
+                       ! way the freefall picture assumes, so gate it out; same sigmoid style,
+                       ! midpoint at the physical E_loc=0 (escape-speed) cutoff, same cs2+sigma2_local
+                       ! width as S_vin_loc above (E_loc is already a velocity^2, so no sqrt needed).
+                       S_bound_loc = 1.0d0/(1.0d0+exp(E_loc/(cs2+sigma2_local+tiny(0.0_dp))))
+                       ! Fifth, independent gate: will this cell actually ARRIVE soon enough to
+                       ! count in this step's rate, not just eventually? A bound, low-pericenter
+                       ! cell can still take far longer than the reservoir's own assumed draining
+                       ! time to get there (e.g. marginally bound, near E_loc=0). Approximate each
+                       ! side by the same radial free-fall form already used for t_ff_enc/t_ff_bh
+                       ! in compute_accretion_rate (no exact Kepler time-of-flight solve): this
+                       ! cell's own free-fall time from its current r, versus the reservoir's, from
+                       ! R0, both using the same lagged GM_lag. Midpoint where the two match.
+                       t_ff_loc = sqrt(r2*sqrt(r2) / (2.0d0*GM_lag+tiny(0.0_dp)))
+                       t_ff_ref = sqrt((dble(ir_cloud)*dx_min_loc)**3 / (2.0d0*GM_lag+tiny(0.0_dp)))
+                       S_time_loc = 1.0d0/(1.0d0+exp((t_ff_loc/(t_ff_ref+tiny(0.0_dp)) - 1.0d0)/delta_dc))
+                       wdc_infall_mass(isink) = wdc_infall_mass(isink) &
+                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d
                        ! Same mask on the j^2 sum, so eps_dc's j2_cold_mean (below) can be built
                        ! from the population M_cold_dc is actually drawn from under use_infall_mass,
                        ! instead of the unmasked wdc_cold_j2mass -- see pm_commons.f90.
-                       wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d*j2_loc
+                       wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) &
+                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*j2_loc
                     endif
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
                     wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc
@@ -1070,14 +1095,16 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                  if(use_infall_mass)then
                     ! Per-cell ballistic-infall mask: exact two-integral (E,j) pericenter -- see
                     ! the mirrored comment in the mode-1 branch above. GM_lag backs the lagged
-                    ! enclosed mass out of j2_crit_sink; gate compares pericenter to dx_min_loc,
-                    ! not R0 (this cell is already inside R0, so that comparison is near-tautological).
+                    ! enclosed mass out of j2_crit_sink; gate compares pericenter to R_acc (the
+                    ! physical disc-fragmentation/capture radius), not R0 (this cell is already
+                    ! inside R0, so that comparison is near-tautological) or dx_min_loc (not a
+                    ! physically meaningful capture scale at typical zoom resolution).
                     j2_loc = r2*vphi2_loc
                     GM_lag = j2_crit_sink(isink) / (dble(ir_cloud)*dx_min_loc)
                     E_loc   = 0.5d0*v2 - GM_lag/sqrt(r2+tiny(0.0_dp))
                     ecc_loc = sqrt(max(1.0d0 + 2.0d0*E_loc*j2_loc/(GM_lag**2+tiny(0.0_dp)), 0.0d0))
                     r_p     = (j2_loc/(GM_lag+tiny(0.0_dp))) / (1.0d0+ecc_loc)
-                    S_inf_loc = 1.0d0/(1.0d0+exp((r_p/dx_min_loc - 1.0d0)/delta_dc))
+                    S_inf_loc = 1.0d0/(1.0d0+exp((r_p/R_acc_code - 1.0d0)/delta_dc))
                     ! Second, independent gate: is this cell within the sink's actual
                     ! gravitational influence radius (r2_inf_sink, lagged the same way)?
                     ! Restricts the reservoir further than R0_dc, which is resolution-set
@@ -1087,11 +1114,23 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     ! (vr_loc<0)? See the mirrored comment in the mode-1 branch above -- same
                     ! sigmoid, midpoint at vr_loc=0, width from the local cs2+sigma2_local scale.
                     S_vin_loc = 1.0d0/(1.0d0+exp(vr_loc/sqrt(cs2+sigma2_local+tiny(0.0_dp))))
-                    wdc_infall_mass(isink) = wdc_infall_mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d*weight_exp
+                    ! Fourth, independent gate: is this cell actually bound (E_loc<0)? See the
+                    ! mirrored comment in the mode-1 branch above -- same sigmoid, midpoint at the
+                    ! escape-speed cutoff E_loc=0, same cs2+sigma2_local width.
+                    S_bound_loc = 1.0d0/(1.0d0+exp(E_loc/(cs2+sigma2_local+tiny(0.0_dp))))
+                    ! Fifth, independent gate: will this cell actually arrive soon enough? See the
+                    ! mirrored comment in the mode-1 branch above -- same radial free-fall-time
+                    ! approximation (no exact Kepler time-of-flight), same lagged GM_lag.
+                    t_ff_loc = sqrt(r2*sqrt(r2) / (2.0d0*GM_lag+tiny(0.0_dp)))
+                    t_ff_ref = sqrt((dble(ir_cloud)*dx_min_loc)**3 / (2.0d0*GM_lag+tiny(0.0_dp)))
+                    S_time_loc = 1.0d0/(1.0d0+exp((t_ff_loc/(t_ff_ref+tiny(0.0_dp)) - 1.0d0)/delta_dc))
+                    wdc_infall_mass(isink) = wdc_infall_mass(isink) &
+                         & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight_exp
                     ! Same mask on the j^2 sum, so eps_dc's j2_cold_mean (below) can be built
                     ! from the population M_cold_dc is actually drawn from under use_infall_mass,
                     ! instead of the unmasked wdc_cold_j2mass -- see pm_commons.f90.
-                    wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*d*j2_loc*weight_exp
+                    wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) &
+                         & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*j2_loc*weight_exp
                  endif
                  wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight_exp
                  wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc*weight_exp
@@ -3644,7 +3683,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,fd_floor,epsilon_nuc,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
-       use_stellar_mass_torque,weighted_depletion,use_infall_mass,&
+       use_stellar_mass_torque,weighted_depletion,use_infall_mass,R_acc,&
        drag_gas,boost_drag,d_boost,adfmax,weighted_drag,&
        drag_part,boost_drag_part,DF_ncells
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v

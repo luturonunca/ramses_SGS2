@@ -53,6 +53,13 @@ module pm_parameters
   real(dp)::r_crit_dc=1.0d0                          ! Sigmoid midpoint in r=j/j_crit; r=1 is where the centrifugal (circularization) radius R_c=j^2/GM equals R0, the physical ballistic-infall limit
   real(dp)::delta_dc=0.1d0                           ! Sigmoid width in r, smoothing the ideal ballistic cutoff for non-ballistic effects (turbulence, torques, pressure)
   logical::use_infall_mass=.false.                   ! Mask M_cold_dc per cell by two multiplicative sigmoid gates: the r=j/j_crit angular-momentum gate (r_crit_dc,delta_dc) also used for eps_dc, and a r=r/r_inf gravitational-influence-radius gate (width delta_dc, midpoint 1), instead of only rescaling eps_dc by the mass-weighted mean; j_crit/r_inf are lagged by one sink update (see j2_crit_sink/r2_inf_sink)
+  ! Pericenter capture threshold for the freefall S_inf_loc gate [pc]: the physical radius
+  ! beyond which gas would fragment into a self-gravitating disc rather than continue smoothly
+  ! inward (Goodman 2003 Table 1; Hopkins & Quataert 2011 Sec 5.2's R_acc, ~0.01-0.1 R_BH there,
+  ! but no continuous M(<r) profile is available here to derive R_BH self-consistently, so this
+  ! is a direct user-set physical scale instead). Replaces dx_min, which at typical cosmological
+  ! zoom resolution (tens of pc) is not a physically meaningful capture radius at all.
+  real(dp)::R_acc=0.05d0
   logical::use_stellar_mass_torque=.false.           ! Use actual star particle masses instead of msink in torque rates
   real(dp)::T_cold_crit=1.0d4                        ! Cold phase temperature threshold [K]
   real(dp)::n_cold_crit=0.1d0                        ! Cold phase density threshold [H/cc]
@@ -63,6 +70,7 @@ module pm_parameters
   real(dp)::dcs2_cold_code=0.0d0
   real(dp)::d_cold_code=0.0d0
   real(dp)::dd_cold_code=0.0d0
+  real(dp)::R_acc_code=0.0d0
   logical::clump_core=.false.                ! Trims the clump (for star formation)
   logical::verbose_AGN=.false.               ! Controls print verbosity for the SMBH case
   real(dp)::acc_sink_boost=1.0               ! Boost coefficient for accretion
