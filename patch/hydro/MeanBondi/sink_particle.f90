@@ -1763,7 +1763,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::rho_norot,cs2_norot,vrel2_norot,dMbondi_norot,dMtorque_rot
   real(dp)::M_star_cloud,M_star_disc,M_d_star,M_enc_star
   real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
-  real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot
+  real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot,M_crit
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
   real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc,r2_inf,v_bondi_turb
   real(dp)::M_enc_torque,r_inf_fd,M_d_floor_val
@@ -2176,14 +2176,26 @@ subroutine compute_accretion_rate(write_sinks)
         ! *next* sink update (see comment above j2_crit and in pm_commons.f90).
         j2_crit_sink(isink) = j2_crit
         r2_inf_sink(isink)  = r2_inf
-        ! Cold channel: freefall accretion rate
-        dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
-        dMdc_cold = max(dMdc_cold, 0.0d0)
         ! Hot channel: Bondi with (1-S_T) weighted gas properties
         rho_hot_dc  = wdc_hot_rho_tot / (wdc_hot_w_tot   + tiny(0.0_dp))
         cs2_hot_dc  = wdc_hot_cs2_tot / (wdc_hot_rho_tot + tiny(0.0_dp))
         v2_hot_dc   = wdc_hot_v2_tot  / (wdc_hot_rho_tot + tiny(0.0_dp))
         cs2_hot_dc  = max(cs2_hot_dc, smallc**2)
+        ! Cold channel: freefall accretion rate, with a Hopkins & Quataert (2011) eq. 58-style
+        ! gas-supply-limiting correction. The unrestricted eps_dc*M_cold_dc*(1/t_ff) form assumes
+        ! an arbitrarily large supply; as M_bh_dc grows, 1/t_ff_bh grows with it (a real, intended
+        ! effect -- a more massive point mass genuinely pulls in nearby eligible gas faster), but
+        ! that can demand more from M_cold_dc than the *actual* local reservoir can sustain,
+        ! repeatedly overdrawing it (the mgas holes/stalls seen in testing). M_crit is the Toomre
+        ! Q=1 critical mass at R0 under the BH's own potential: M_crit(R)/M = c_s/v_circ(R) = h/R
+        ! for a thin disc (Shlosman & Begelman 1989; Goodman 2003), i.e. M_crit=cs*sqrt(M_bh_dc*R0/G).
+        ! cs2 here sums the hot+cold thermal budgets (both phases contribute to the disc's support
+        ! against self-gravity), not just one phase. dMdc_cold -> eps_dc*M_cold_dc when M_cold_dc>>
+        ! M_crit (unrestricted, as before); -> eps_dc*M_cold_dc^2/M_crit*(...) when M_cold_dc<<M_crit
+        ! (quadratic falloff, self-avoiding a hard drain to zero rather than a fixed proportional cut).
+        M_crit = sqrt(cs2_hot_dc+cs2_cold_code) * sqrt(M_bh_dc*R0_dc/(factG+tiny(0.0_dp)))
+        dMdc_cold = eps_dc * M_cold_dc**2 * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh) / (M_cold_dc+M_crit+tiny(0.0_dp))
+        dMdc_cold = max(dMdc_cold, 0.0d0)
         if(star .and. acc_sink_boost < 0.0)then
            boost2=max((rho_hot_dc/(boost_threshold_density/scale_nH))**2,1.0_dp)
         else
