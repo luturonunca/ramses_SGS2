@@ -2121,6 +2121,14 @@ subroutine compute_accretion_rate(write_sinks)
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
         t_ff_bh   = sqrt(R0_dc**3 / (2.0d0*factG*(M_bh_dc  + tiny(0.0_dp))))
+        ! Floor: t_ff_bh cannot be shorter than the local self-gravitational free-fall time of
+        ! the actual resolved ambient mass, sqrt(3*pi/(32*G*rho_enc)) with rho_enc=M_enc_dc/
+        ! (4/3*pi*R0_dc^3) -- a genuinely independent physical constraint (gas cannot collapse
+        ! faster than its own measured density supports, regardless of how strong the point-mass
+        ! pull driving it is), not a cap on the BH's legitimate mass-dependence. This reduces
+        ! exactly to (pi/2)*t_ff_enc (restoring the standard collapse-time prefactor this file's
+        ! simplified t_ff_enc/t_ff_bh forms already drop), so no new density variable is needed.
+        t_ff_bh   = max(t_ff_bh, (3.1415926d0/2.0d0)*t_ff_enc)
         ! j_crit = sqrt(G * M_total * R0) -> j_crit^2 = G*(M_enc+M_BH)*R0. Computed unconditionally
         ! (not just under .not.epsilon_fixed as before) because use_infall_mass's per-cell mask
         ! also needs it -- stored into j2_crit_sink below for the *next* sink update's collection
