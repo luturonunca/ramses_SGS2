@@ -1764,6 +1764,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::M_star_cloud,M_star_disc,M_d_star,M_enc_star
   real(dp)::f_d_star,f_gas_star,f0_star,supply_factor_star,dMt_star_msunyr,dMtorque_star
   real(dp)::M_cold_dc,M_enc_dc,M_bh_dc,R0_dc,t_ff_enc,t_ff_bh,dMdc_cold,dMdc_hot,M_crit
+  real(dp)::M_gas_d_ff,M_gas_all_ff,M_d_torque_ff,M_enc_torque_ff,f_d_ff,t_travel,M_d_floor_val_ff
   real(dp)::rho_hot_dc,cs2_hot_dc,v2_hot_dc
   real(dp)::j2_cold_mean,j2_crit,eps_dc,r_dc,r2_inf,v_bondi_turb
   real(dp)::M_enc_torque,r_inf_fd,M_d_floor_val
@@ -2202,7 +2203,39 @@ subroutine compute_accretion_rate(write_sinks)
         ! M_crit (unrestricted, as before); -> eps_dc*M_cold_dc^2/M_crit*(...) when M_cold_dc<<M_crit
         ! (quadratic falloff, self-avoiding a hard drain to zero rather than a fixed proportional cut).
         M_crit = sqrt(cs2_hot_dc+cs2_cold_code) * sqrt(M_bh_dc*R0_dc/(factG+tiny(0.0_dp)))
-        dMdc_cold = eps_dc * M_cold_dc**2 * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh) / (M_cold_dc+M_crit+tiny(0.0_dp))
+        ! Disc-fraction gate for t_travel, mirroring f_d_torque's construction exactly
+        ! (see M_d_torque/M_enc_torque above) but built from freefall's own already-summed
+        ! wdc_cold_mass_tot/wdc_tot_mass_tot rather than duplicating a separate accumulator
+        ! pathway shared with two_channel_accretion_switch.
+        M_gas_d_ff   = wdc_cold_mass_tot * dx_min**3
+        M_gas_all_ff = wdc_tot_mass_tot  * dx_min**3
+        M_d_torque_ff = M_gas_d_ff + msink(isink)
+        if(smbh .and. mass_smbh_seed > 0.0)then
+           M_enc_torque_ff = M_gas_all_ff + msink(isink) + M_bh_dc
+        else
+           M_enc_torque_ff = M_gas_all_ff + msink(isink)
+        endif
+        ! Same unresolved-nuclear-disc floor as f_d_torque (:1973-1991), reusing
+        ! v_bondi_turb/r2_inf/M_bh_dc already computed above in place of the torque
+        ! channel's own v_bondi_turb/r_inf_fd/Md2_eff (sqrt(r2_inf)=factG*M_bh_dc/
+        ! (v_bondi_turb^2+tiny) is exactly r_inf_fd's definition, unsquared).
+        if(fd_floor)then
+           M_d_floor_val_ff = epsilon_nuc * M_bh_dc
+           if(M_gas_all_ff >= M_d_floor_val_ff .and. R0_dc > sqrt(r2_inf) &
+                & .and. M_d_torque_ff < M_d_floor_val_ff) then
+              M_d_torque_ff = min(M_enc_torque_ff, M_d_floor_val_ff)
+           endif
+        endif
+        f_d_ff = M_d_torque_ff / (M_enc_torque_ff + tiny(0.0_dp))
+        f_d_ff = max(min(f_d_ff, 1.0_dp), 0.0_dp)
+        ! Travel time: freefall to R_acc, then circularize/drain through the disc. t_dyn=
+        ! sqrt(R0_dc^3/(G*M))=sqrt(2)*t_ff for the same R,M (Hopkins & Quataert 2011 eq. 3);
+        ! |a|_max=a1_torque*f_d is their BH-regime mode-amplitude approximation (a1~0.2, HQ11
+        ! eq. 52 line, calibrated against Hopkins & Quataert 2010a). Replaces the parallel
+        ! (1/t_ff_enc+1/t_ff_bh) channel sum below: once gas must pass through the disc to
+        ! reach the BH, the fast t_ff_enc channel can no longer bypass that bottleneck.
+        t_travel = t_ff_bh * (1.0d0 + sqrt(2.0d0)/(a1_torque*f_d_ff + tiny(0.0_dp)))
+        dMdc_cold = eps_dc * M_cold_dc**2 / (t_travel * (M_cold_dc+M_crit+tiny(0.0_dp)))
         dMdc_cold = max(dMdc_cold, 0.0d0)
         if(star .and. acc_sink_boost < 0.0)then
            boost2=max((rho_hot_dc/(boost_threshold_density/scale_nH))**2,1.0_dp)
@@ -3703,7 +3736,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,fd_floor,epsilon_nuc,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
-       use_stellar_mass_torque,weighted_depletion,use_infall_mass,R_acc,&
+       use_stellar_mass_torque,weighted_depletion,use_infall_mass,R_acc,a1_torque,&
        drag_gas,boost_drag,d_boost,adfmax,weighted_drag,&
        drag_part,boost_drag_part,DF_ncells
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v

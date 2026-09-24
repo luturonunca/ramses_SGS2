@@ -52,6 +52,13 @@ module pm_parameters
   logical::epsilon_fixed=.true.                      ! If true use epsilon_freefall directly; if false weight by sigmoid(r_crit_dc,delta_dc) in r=j/j_crit
   real(dp)::r_crit_dc=1.0d0                          ! Sigmoid midpoint in r=j/j_crit; r=1 is where the centrifugal (circularization) radius R_c=j^2/GM equals R0, the physical ballistic-infall limit
   real(dp)::delta_dc=0.1d0                           ! Sigmoid width in r, smoothing the ideal ballistic cutoff for non-ballistic effects (turbulence, torques, pressure)
+  ! Travel-time correction for the freefall channel: gas reaching R_acc still has to
+  ! circularize and drain through a disc before actually accreting, not arrive instantly.
+  ! a1_torque is Hopkins & Quataert (2011)'s BH-regime mode-amplitude coefficient
+  ! (|a|_max=a1_torque*f_d, their eq. 52 line, a1~0.2), reused here with f_d built the
+  ! same way as f_d_torque (see M_d_torque/M_enc_torque) to keep the freefall and torque
+  ! channels' notion of "disc fraction" consistent.
+  real(dp)::a1_torque=0.2d0
   logical::use_infall_mass=.false.                   ! Mask M_cold_dc per cell by two multiplicative sigmoid gates: the r=j/j_crit angular-momentum gate (r_crit_dc,delta_dc) also used for eps_dc, and a r=r/r_inf gravitational-influence-radius gate (width delta_dc, midpoint 1), instead of only rescaling eps_dc by the mass-weighted mean; j_crit/r_inf are lagged by one sink update (see j2_crit_sink/r2_inf_sink)
   ! Pericenter capture threshold for the freefall S_inf_loc gate [pc]: the physical radius
   ! beyond which gas would fragment into a self-gravitating disc rather than continue smoothly
