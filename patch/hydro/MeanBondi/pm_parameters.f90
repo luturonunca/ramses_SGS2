@@ -59,6 +59,7 @@ module pm_parameters
   ! same way as f_d_torque (see M_d_torque/M_enc_torque) to keep the freefall and torque
   ! channels' notion of "disc fraction" consistent.
   real(dp)::a1_torque=0.2d0
+  real(dp)::gamma_gas_rc=2.0d0                        ! Gas density slope rho~r^-gamma inside R0, used to extrapolate M_gas(<R_c) for the per-cell freefall drain time (2 = singular isothermal)
   logical::use_infall_mass=.false.                   ! Mask M_cold_dc per cell by two multiplicative sigmoid gates: the r=j/j_crit angular-momentum gate (r_crit_dc,delta_dc) also used for eps_dc, and a r=r/r_inf gravitational-influence-radius gate (width delta_dc, midpoint 1), instead of only rescaling eps_dc by the mass-weighted mean; j_crit/r_inf are lagged by one sink update (see j2_crit_sink/r2_inf_sink)
   ! Pericenter capture threshold for the freefall S_inf_loc gate [pc]: the physical radius
   ! beyond which gas would fragment into a self-gravitating disc rather than continue smoothly

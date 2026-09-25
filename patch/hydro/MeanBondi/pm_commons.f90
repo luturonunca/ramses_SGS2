@@ -40,6 +40,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_infall_mass, wdc_infall_mass_new ! same as wdc_cold_mass, additionally masked by S_inf_loc*S_rinf_loc when use_infall_mass
   real(dp),allocatable,dimension(:)    ::wdc_cold_j2mass, wdc_cold_j2mass_new
   real(dp),allocatable,dimension(:)    ::wdc_infall_j2mass, wdc_infall_j2mass_new ! same as wdc_cold_j2mass, additionally masked by S_inf_loc*S_rinf_loc when use_infall_mass, so eps_dc's j2_cold_mean matches the population M_cold_dc is actually drawn from instead of the unmasked one
+  real(dp),allocatable,dimension(:)    ::wdc_infall_rate, wdc_infall_rate_new ! Sum w*m/t_travel_i over the use_infall_mass population (per-cell HQ11 travel time: free-fall + disc drain at R_c)
   real(dp),allocatable,dimension(:)    ::wdc_tot_mass,  wdc_tot_mass_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_w,     wdc_hot_w_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_rho,   wdc_hot_rho_new
@@ -85,7 +86,7 @@ module pm_commons
   ! compute_accretion_rate instead of the sum over the whole accretion zone (mirrors
   ! weighted_density(isink,ilevel) below).
   real(dp),allocatable,dimension(:,:)  ::wdc_cold_mass_lvl, wdc_cold_j2mass_lvl, wdc_tot_mass_lvl
-  real(dp),allocatable,dimension(:,:)  ::wdc_infall_mass_lvl, wdc_infall_j2mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::wdc_infall_mass_lvl, wdc_infall_j2mass_lvl, wdc_infall_rate_lvl
   ! j2_crit from the previous sink update, per sink: the per-cell infall mask (S_inf_loc) needs
   ! j2_crit = G*(M_enc_dc+M_bh_dc)*R0_dc, but that is only known after compute_accretion_rate has
   ! summed wdc_*_lvl over every level -- strictly after the per-level collection loop that would
@@ -107,6 +108,9 @@ module pm_commons
   ! -- the accretion-zone radius R0_dc=ir_cloud*dx_min is resolution-set and can be much larger
   ! than where the sink's gravity actually dominates the ambient gas motion.
   real(dp),allocatable,dimension(:)    ::r2_inf_sink
+  ! G*M_bh_dc and G*M_gas(<R0) from the previous sink update, for the per-cell drain time in
+  ! wdc_infall_rate -- same reason as j2_crit_sink (only known after compute_accretion_rate).
+  real(dp),allocatable,dimension(:)    ::gmbh_dc_sink, gmgas_R0_sink
   real(dp),allocatable,dimension(:,:)  ::wdc_hot_w_lvl, wdc_hot_rho_lvl, wdc_hot_cs2_lvl, wdc_hot_v2_lvl
   real(dp),allocatable,dimension(:,:)  ::wff_part_mass_lvl
   ! Same per-level storage problem as wdc_*_lvl above, but for the angular_momentum_accretion_switch
