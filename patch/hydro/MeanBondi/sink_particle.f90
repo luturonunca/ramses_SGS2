@@ -428,6 +428,11 @@ subroutine collect_acczone_avg(ilevel)
      wdc_hot_w=0d0; wdc_hot_rho=0d0; wdc_hot_cs2=0d0; wdc_hot_v2=0d0
      wdc_cold_w=0d0; wdc_cold_rho=0d0
      if(tff_include_particles) wff_part_mass=0d0
+     ! Snapshot the lagged values this level's collection uses (see j2c_col_lvl in pm_commons.f90)
+     j2c_col_lvl(1:nsink,ilevel)   = j2_crit_sink(1:nsink)
+     r2inf_col_lvl(1:nsink,ilevel) = r2_inf_sink(1:nsink)
+     gmbh_col_lvl(1:nsink,ilevel)  = gmbh_dc_sink(1:nsink)
+     gmgas_col_lvl(1:nsink,ilevel) = gmgas_R0_sink(1:nsink)
   endif
   ! Particle dynamical friction accumulators (see collect_sigma_coll_np)
   if(drag_part)then
@@ -665,6 +670,8 @@ subroutine collect_acczone_avg(ilevel)
      ! Optionally clamp:
      r2sink(isink) = max(r2sink(isink), (dx_min/4.0)**2)
      r2sink(isink) = min(r2sink(isink), (2.0*dx_min)**2)
+     ! r2sink is rebuilt on every level's collection call; keep the value pass 2 uses at this level
+     if(freefall_accretion) r2sink_col_lvl(isink,ilevel) = r2sink(isink)
      ! Collisionless sigma from star+DM particles (only when sink_descent active)
      if(sink_descent) &
           & sigma2_coll_sink(isink) = wsigma2_coll_new(isink) / (wsigma2_coll_w_new(isink) + tiny(0.0_dp))
@@ -1418,6 +1425,8 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp)::dx,dx_loc,dx_min,dx_cloud,scale,vol_min,vol_loc,vol_cloud,weight,m_acc,m_acc_smbh
   real(dp)::cs2_loc,v2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
   real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
+  real(dp)::r2_dep,sig2_dep,j2_dep,GM_dep,E_dep,ecc_dep,rp_dep,tff_dep,tffref_dep,S_mask_dep
+  real(dp)::R0_dep,R_c_dep,GMgc_dep,GMd_dep,fd_dep,tdyn_dep,ttrav_dep,w_hot_dep
   real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
   ! Gas dynamical friction (drag_gas), Ostriker (1999) -- mirrors RAMSES-yOMP accrete_bondi
   real(dp)::cs2_drag,v2_drag,vnorm_rel_drag,mach_drag,mach_factor_drag
@@ -1622,15 +1631,91 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                  ! Use standard spatial normalisation (weight/volume*d/density) to avoid
                  ! blow-up from near-zero phase-specific denominators; S_T weights the
                  ! rate split between channels but does not re-normalise the spatial kernel.
-                 m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight/volume*S_T_dep*d/density
-                 m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight/volume*(1.0d0-S_T_dep)*d/density
-                 m_acc_smbh=max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
-                 if(eddington_limit)then
+                 r2_dep = sum((xp(ind_part(j),1:ndim)-xsink(isink,1:ndim))**2)
+                 if(use_infall_mass .and. (wdc_infall_rnorm_sink(isink) > 0d0 .or. wdc_infall_norm_sink(isink) > 0d0))then
+                    ! Deplete the cold channel from the same per-cell ballistic-infall population
+                    ! M_cold_dc was built from (mirror of collect_acczone_avg_np's mask, using the
+                    ! lagged values that level's collection actually used, *_col_lvl), so the gas
+                    ! removed is the gas the rate counted -- otherwise the masked reservoir is never
+                    ! drained and its supply limit never binds.
+                    if(r2_dep>0d0)then
+                       vr_loc_dep = sum(v_rel(1:ndim)*(xp(ind_part(j),1:ndim)-xsink(isink,1:ndim)))/sqrt(r2_dep)
+                    else
+                       vr_loc_dep = 0d0
+                    endif
+                    vphi2_loc_dep = max(v2_loc-vr_loc_dep**2,0d0)
+                    if(sf_virial)then
+                       sig2_dep = uold(indp(j,ind),ivirial1)*2.0d0/3.0d0
+                    else
+                       sig2_dep = 0.0d0
+                    endif
+                    R0_dep  = dble(ir_cloud)*dx_min
+                    j2_dep  = r2_dep*vphi2_loc_dep
+                    GM_dep  = j2c_col_lvl(isink,ilevel)/R0_dep
+                    E_dep   = 0.5d0*v2_loc - GM_dep/sqrt(r2_dep+tiny(0.0_dp))
+                    ecc_dep = sqrt(max(1.0d0 + 2.0d0*E_dep*j2_dep/(GM_dep**2+tiny(0.0_dp)), 0.0d0))
+                    rp_dep  = (j2_dep/(GM_dep+tiny(0.0_dp)))/(1.0d0+ecc_dep)
+                    tff_dep    = sqrt(r2_dep*sqrt(r2_dep)/(2.0d0*GM_dep+tiny(0.0_dp)))
+                    tffref_dep = sqrt(R0_dep**3/(2.0d0*GM_dep+tiny(0.0_dp)))
+                    S_mask_dep = 1.0d0/(1.0d0+exp((rp_dep/R_acc_code-1.0d0)/delta_dc)) &
+                         & * 1.0d0/(1.0d0+exp((sqrt(r2_dep/(r2inf_col_lvl(isink,ilevel)+tiny(0.0_dp)))-1.0d0)/delta_dc)) &
+                         & * 1.0d0/(1.0d0+exp(vr_loc_dep/sqrt(cs2_loc+sig2_dep+tiny(0.0_dp)))) &
+                         & * 1.0d0/(1.0d0+exp(E_dep/(cs2_loc+sig2_dep+tiny(0.0_dp)))) &
+                         & * 1.0d0/(1.0d0+exp((tff_dep/(tffref_dep+tiny(0.0_dp))-1.0d0)/delta_dc))
+                    if(use_bondi_exp_weight) S_mask_dep = S_mask_dep*exp(-r2_dep/r2sink_col_lvl(isink,ilevel))
+                    if(wdc_infall_rnorm_sink(isink) > 0d0)then
+                       ! Per-cell travel-time path: the rate is Sum S*d/t_travel_i, so each cell is
+                       ! drained in proportion to its own rate S*d/t_travel_i (mirror of the
+                       ! wdc_infall_rate block in collect_acczone_avg_np), not just its mass S*d.
+                       if(gmbh_col_lvl(isink,ilevel) > 0d0)then
+                          R_c_dep  = min(j2_dep/gmbh_col_lvl(isink,ilevel), R0_dep)
+                          GMgc_dep = gmgas_col_lvl(isink,ilevel)*(R_c_dep/R0_dep)**(3.0d0-gamma_gas_rc)
+                          R_c_dep  = min(j2_dep/(gmbh_col_lvl(isink,ilevel)+GMgc_dep), R0_dep)
+                          GMgc_dep = gmgas_col_lvl(isink,ilevel)*(R_c_dep/R0_dep)**(3.0d0-gamma_gas_rc)
+                          GMd_dep  = GMgc_dep
+                          if(fd_floor .and. gmgas_col_lvl(isink,ilevel) >= epsilon_nuc*gmbh_col_lvl(isink,ilevel)) &
+                               & GMd_dep = max(GMd_dep, epsilon_nuc*gmbh_col_lvl(isink,ilevel))
+                          fd_dep    = GMd_dep/(gmbh_col_lvl(isink,ilevel)+GMd_dep)
+                          tdyn_dep  = sqrt(R_c_dep**3/(gmbh_col_lvl(isink,ilevel)+GMd_dep))
+                          ttrav_dep = tff_dep + tdyn_dep/(a1_torque*fd_dep+tiny(0.0_dp))
+                          m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*S_T_dep*S_mask_dep*d &
+                               & /(ttrav_dep*wdc_infall_rnorm_sink(isink))
+                       else
+                          m_acc_cold_dep=0.0d0
+                       endif
+                    else
+                       m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*S_T_dep*S_mask_dep*d/wdc_infall_norm_sink(isink)
+                    endif
+                 else
+                    m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight/volume*S_T_dep*d/density
+                 endif
+                 if(wdc_hot_norm_sink(isink) > 0d0)then
+                    ! Exact hot normalization: the collection's own Sum weight*(1-S_T)*d[*weight_exp]
+                    ! (wdc_hot_rho), so the hot kernel sums to dMdc_hot instead of dMdc_hot times
+                    ! the hot mass fraction.
+                    w_hot_dep = 1.0d0
+                    if(use_bondi_exp_weight) w_hot_dep = exp(-r2_dep/r2sink_col_lvl(isink,ilevel))
+                    m_acc_hot_dep =dMdc_hot_sink(isink)*dtnew(ilevel)*weight*(1.0d0-S_T_dep)*d*w_hot_dep &
+                         & /wdc_hot_norm_sink(isink)
+                 else
+                    m_acc_hot_dep =dMdc_hot_sink(isink) *dtnew(ilevel)*weight/volume*(1.0d0-S_T_dep)*d/density
+                 endif
+                 if(mass_smbh_seed>0.0)then
+                    m_acc_smbh=max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
+                    if(eddington_limit)then
+                       dMtot_dc=dMdc_cold_sink(isink)+dMdc_hot_sink(isink)
+                       if(dMtot_dc>tiny(0.0_dp)) &
+                          m_acc_smbh=m_acc_smbh*min(1.0_dp,dMsmbh_overdt(isink)/dMtot_dc)
+                    end if
+                    m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+                 else
+                    ! Sink IS the BH: deplete with the cold(masked)/hot split; dMsink_overdt already
+                    ! carries the Eddington cap from compute_accretion_rate, applied as a ratio.
                     dMtot_dc=dMdc_cold_sink(isink)+dMdc_hot_sink(isink)
-                    if(dMtot_dc>tiny(0.0_dp)) &
-                       m_acc_smbh=m_acc_smbh*min(1.0_dp,dMsmbh_overdt(isink)/dMtot_dc)
-                 end if
-                 m_acc     =dMsink_overdt(isink)*dtnew(ilevel)*weight/volume*d/density
+                    m_acc=max(m_acc_cold_dep+m_acc_hot_dep,0.0_dp)
+                    if(dMtot_dc>tiny(0.0_dp)) m_acc=m_acc*min(1.0_dp,dMsink_overdt(isink)/dMtot_dc)
+                    m_acc_smbh=0.0_dp
+                 endif
               else if(weighted_depletion .and. two_channel_accretion_switch)then
                  ! Local thermal cs2
                  ! Match collect_acczone_avg_np's cs2: subtract velocity relative to the
@@ -2296,11 +2381,16 @@ subroutine compute_accretion_rate(write_sinks)
         ! and when use_infall_mass is off.
         if(use_infall_mass .and. gmbh_dc_sink(isink) > 0d0)then
            dMdc_cold = eps_dc * M_cold_dc * (wdc_infall_rate_tot*dx_min**3) / (M_cold_dc+M_crit+tiny(0.0_dp))
+           wdc_infall_rnorm_sink(isink) = wdc_infall_rate_tot
         else
            dMdc_cold = eps_dc * M_cold_dc**2 / (t_travel * (M_cold_dc+M_crit+tiny(0.0_dp)))
+           wdc_infall_rnorm_sink(isink) = 0d0
         endif
         gmbh_dc_sink(isink)  = factG*M_bh_dc
         gmgas_R0_sink(isink) = factG*M_gas_all_ff
+        ! Depletion normalizers for accrete_sink (see wdc_infall_norm_sink in pm_commons.f90)
+        wdc_infall_norm_sink(isink) = wdc_infall_mass_tot
+        wdc_hot_norm_sink(isink)    = wdc_hot_rho_tot
         dMdc_cold = max(dMdc_cold, 0.0d0)
         if(star .and. acc_sink_boost < 0.0)then
            boost2=max((rho_hot_dc/(boost_threshold_density/scale_nH))**2,1.0_dp)

@@ -111,6 +111,17 @@ module pm_commons
   ! G*M_bh_dc and G*M_gas(<R0) from the previous sink update, for the per-cell drain time in
   ! wdc_infall_rate -- same reason as j2_crit_sink (only known after compute_accretion_rate).
   real(dp),allocatable,dimension(:)    ::gmbh_dc_sink, gmgas_R0_sink
+  ! wdc_infall_mass_tot from the latest compute_accretion_rate: normalizes accrete_sink's per-cell
+  ! masked cold depletion so the gas removed is the ballistic population the rate counted.
+  real(dp),allocatable,dimension(:)    ::wdc_infall_norm_sink
+  ! Same, for the per-cell travel-time path (wdc_infall_rate_tot; 0 when that path is not used)
+  ! and for the hot channel (wdc_hot_rho_tot), so each depletion kernel sums exactly to its rate.
+  real(dp),allocatable,dimension(:)    ::wdc_infall_rnorm_sink, wdc_hot_norm_sink
+  ! Lagged quantities as they were when collect_acczone_avg(ilevel) built this level's sums.
+  ! compute_accretion_rate runs on every grow_sink call, including every finer level between
+  ! collect_acczone_avg(ilevel) and grow_sink(ilevel), so the live *_sink values have moved on
+  ! by depletion time; accrete_sink reads these instead so its mask matches collection exactly.
+  real(dp),allocatable,dimension(:,:)  ::j2c_col_lvl, r2inf_col_lvl, gmbh_col_lvl, gmgas_col_lvl, r2sink_col_lvl
   real(dp),allocatable,dimension(:,:)  ::wdc_hot_w_lvl, wdc_hot_rho_lvl, wdc_hot_cs2_lvl, wdc_hot_v2_lvl
   real(dp),allocatable,dimension(:,:)  ::wff_part_mass_lvl
   ! Same per-level storage problem as wdc_*_lvl above, but for the angular_momentum_accretion_switch

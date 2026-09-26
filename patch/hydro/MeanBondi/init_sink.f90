@@ -124,6 +124,14 @@ subroutine init_sink
   allocate(r2_inf_sink(1:nsinkmax))    ; r2_inf_sink=0.d0
   allocate(gmbh_dc_sink(1:nsinkmax))   ; gmbh_dc_sink=0.d0
   allocate(gmgas_R0_sink(1:nsinkmax))  ; gmgas_R0_sink=0.d0
+  allocate(wdc_infall_norm_sink(1:nsinkmax)); wdc_infall_norm_sink=0.d0
+  allocate(wdc_infall_rnorm_sink(1:nsinkmax)); wdc_infall_rnorm_sink=0.d0
+  allocate(wdc_hot_norm_sink(1:nsinkmax)); wdc_hot_norm_sink=0.d0
+  allocate(j2c_col_lvl(1:nsinkmax,1:nlevelmax));    j2c_col_lvl=0.d0
+  allocate(r2inf_col_lvl(1:nsinkmax,1:nlevelmax));  r2inf_col_lvl=0.d0
+  allocate(gmbh_col_lvl(1:nsinkmax,1:nlevelmax));   gmbh_col_lvl=0.d0
+  allocate(gmgas_col_lvl(1:nsinkmax,1:nlevelmax));  gmgas_col_lvl=0.d0
+  allocate(r2sink_col_lvl(1:nsinkmax,1:nlevelmax)); r2sink_col_lvl=0.d0
   allocate(wdc_cold_j2mass(1:nsinkmax)); wdc_cold_j2mass=0.d0
   allocate(wdc_cold_j2mass_new(1:nsinkmax))
   allocate(wdc_infall_j2mass(1:nsinkmax)); wdc_infall_j2mass=0.d0
