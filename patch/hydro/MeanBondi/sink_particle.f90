@@ -992,15 +992,15 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wcold_w(isink)    = wcold_w(isink)    + weight*cold_w_loc
                     whot_w(isink)     = whot_w(isink)     + weight*hot_w_loc
                     wcold_rho(isink)  = wcold_rho(isink)  + weight*cold_w_loc*d
-                    wcold_mass(isink)  = wcold_mass(isink)  + cold_w_loc*d
-                    wtotal_mass(isink) = wtotal_mass(isink) + d
+                    wcold_mass(isink)  = wcold_mass(isink)  + cold_w_loc*d*weight
+                    wtotal_mass(isink) = wtotal_mass(isink) + d*weight
                     whot_rho(isink)   = whot_rho(isink)   + weight*hot_w_loc*d
                     whot_cs2(isink)   = whot_cs2(isink)   + weight*hot_w_loc*d*cs2
                     whot_v2(isink)    = whot_v2(isink)    + weight*hot_w_loc*d*v2
                     wcold_vphi2(isink)= wcold_vphi2(isink)+ weight*cold_w_loc*d*vphi2_loc
                     wcold_cs2(isink)  = wcold_cs2(isink)  + weight*cold_w_loc*d*cs2
                     ! Rotation-only partition (S_rot / 1-S_rot); weights sum to 1 by construction
-                    wrot_mass(isink)  = wrot_mass(isink)  + S_rot_loc*d
+                    wrot_mass(isink)  = wrot_mass(isink)  + S_rot_loc*d*weight
                     wnorot_w(isink)   = wnorot_w(isink)   + weight*(1.0d0-S_rot_loc)
                     wnorot_rho(isink) = wnorot_rho(isink) + weight*(1.0d0-S_rot_loc)*d
                     wnorot_cs2(isink) = wnorot_cs2(isink) + weight*(1.0d0-S_rot_loc)*d*cs2
@@ -1061,12 +1061,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        t_ff_ref = sqrt((dble(ir_cloud)*dx_min_loc)**3 / (2.0d0*GM_lag+tiny(0.0_dp)))
                        S_time_loc = 1.0d0/(1.0d0+exp((t_ff_loc/(t_ff_ref+tiny(0.0_dp)) - 1.0d0)/delta_dc))
                        wdc_infall_mass(isink) = wdc_infall_mass(isink) &
-                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d
+                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight
                        ! Same mask on the j^2 sum, so eps_dc's j2_cold_mean (below) can be built
                        ! from the population M_cold_dc is actually drawn from under use_infall_mass,
                        ! instead of the unmasked wdc_cold_j2mass -- see pm_commons.f90.
                        wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) &
-                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*j2_loc
+                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight*j2_loc
                        ! Per-cell HQ11 travel time: own free-fall to the centre (t_ff_loc) plus disc
                        ! drain at this cell's circularization radius R_c=j^2/(G*M(<R_c)), with gas
                        ! rho~r^-gamma_gas_rc normalized to the lagged M_gas(<R0) (one fixed-point step
@@ -1085,12 +1085,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                           t_dyn_loc  = sqrt(R_c_loc**3/(gmbh_dc_sink(isink)+GMd_loc))
                           t_trav_loc = t_ff_loc + t_dyn_loc/(a1_torque*fd_loc+tiny(0.0_dp))
                           wdc_infall_rate(isink) = wdc_infall_rate(isink) &
-                               & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d/t_trav_loc
+                               & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight/t_trav_loc
                        endif
                     endif
-                    wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d
-                    wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc
-                    wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d
+                    wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight
+                    wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*weight*r2*vphi2_loc
+                    wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight
                     wdc_hot_w(isink)      = wdc_hot_w(isink)      + weight*(1.0d0-S_T_loc)
                     wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d
                     wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2
@@ -1162,12 +1162,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     t_ff_ref = sqrt((dble(ir_cloud)*dx_min_loc)**3 / (2.0d0*GM_lag+tiny(0.0_dp)))
                     S_time_loc = 1.0d0/(1.0d0+exp((t_ff_loc/(t_ff_ref+tiny(0.0_dp)) - 1.0d0)/delta_dc))
                     wdc_infall_mass(isink) = wdc_infall_mass(isink) &
-                         & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight_exp
+                         & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight*weight_exp
                     ! Same mask on the j^2 sum, so eps_dc's j2_cold_mean (below) can be built
                     ! from the population M_cold_dc is actually drawn from under use_infall_mass,
                     ! instead of the unmasked wdc_cold_j2mass -- see pm_commons.f90.
                     wdc_infall_j2mass(isink) = wdc_infall_j2mass(isink) &
-                         & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*j2_loc*weight_exp
+                         & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight*j2_loc*weight_exp
                     ! Per-cell HQ11 travel time: own free-fall to the centre (t_ff_loc) plus disc
                     ! drain at this cell's circularization radius R_c=j^2/(G*M(<R_c)), with gas
                     ! rho~r^-gamma_gas_rc normalized to the lagged M_gas(<R0) (one fixed-point step
@@ -1186,12 +1186,12 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        t_dyn_loc  = sqrt(R_c_loc**3/(gmbh_dc_sink(isink)+GMd_loc))
                        t_trav_loc = t_ff_loc + t_dyn_loc/(a1_torque*fd_loc+tiny(0.0_dp))
                        wdc_infall_rate(isink) = wdc_infall_rate(isink) &
-                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight_exp/t_trav_loc
+                            & + S_T_loc*S_inf_loc*S_rinf_loc*S_vin_loc*S_bound_loc*S_time_loc*d*weight*weight_exp/t_trav_loc
                     endif
                  endif
-                 wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight_exp
-                 wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*r2*vphi2_loc*weight_exp
-                 wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight_exp
+                 wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight*weight_exp
+                 wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*weight*r2*vphi2_loc*weight_exp
+                 wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight*weight_exp
                  wdc_hot_w(isink)      = wdc_hot_w(isink)      + weight*(1.0d0-S_T_loc)*weight_exp
                  wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d*weight_exp
                  wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2*weight_exp
@@ -1426,7 +1426,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp)::cs2_loc,v2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
   real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
   real(dp)::r2_dep,sig2_dep,j2_dep,GM_dep,E_dep,ecc_dep,rp_dep,tff_dep,tffref_dep,S_mask_dep
-  real(dp)::R0_dep,R_c_dep,GMgc_dep,GMd_dep,fd_dep,tdyn_dep,ttrav_dep,w_hot_dep
+  real(dp)::R0_dep,R_c_dep,GMgc_dep,GMd_dep,fd_dep,tdyn_dep,ttrav_dep,w_hot_dep,m_cap_dep
   real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
   ! Gas dynamical friction (drag_gas), Ostriker (1999) -- mirrors RAMSES-yOMP accrete_bondi
   real(dp)::cs2_drag,v2_drag,vnorm_rel_drag,mach_drag,mach_factor_drag
@@ -1662,6 +1662,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                          & * 1.0d0/(1.0d0+exp(vr_loc_dep/sqrt(cs2_loc+sig2_dep+tiny(0.0_dp)))) &
                          & * 1.0d0/(1.0d0+exp(E_dep/(cs2_loc+sig2_dep+tiny(0.0_dp)))) &
                          & * 1.0d0/(1.0d0+exp((tff_dep/(tffref_dep+tiny(0.0_dp))-1.0d0)/delta_dc))
+                    ! This pair's actual ballistic gas mass (before the exp kernel weight): the most
+                    ! the cold channel may take from it, even when dtnew(ilevel) > t_travel_i.
+                    m_cap_dep = S_T_dep*S_mask_dep*weight*d
                     if(use_bondi_exp_weight) S_mask_dep = S_mask_dep*exp(-r2_dep/r2sink_col_lvl(isink,ilevel))
                     if(wdc_infall_rnorm_sink(isink) > 0d0)then
                        ! Per-cell travel-time path: the rate is Sum S*d/t_travel_i, so each cell is
@@ -1678,14 +1681,15 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                           fd_dep    = GMd_dep/(gmbh_col_lvl(isink,ilevel)+GMd_dep)
                           tdyn_dep  = sqrt(R_c_dep**3/(gmbh_col_lvl(isink,ilevel)+GMd_dep))
                           ttrav_dep = tff_dep + tdyn_dep/(a1_torque*fd_dep+tiny(0.0_dp))
-                          m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*S_T_dep*S_mask_dep*d &
+                          m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*S_T_dep*S_mask_dep*weight*d &
                                & /(ttrav_dep*wdc_infall_rnorm_sink(isink))
                        else
                           m_acc_cold_dep=0.0d0
                        endif
                     else
-                       m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*S_T_dep*S_mask_dep*d/wdc_infall_norm_sink(isink)
+                       m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*S_T_dep*S_mask_dep*weight*d/wdc_infall_norm_sink(isink)
                     endif
+                    m_acc_cold_dep=min(m_acc_cold_dep, m_cap_dep)
                  else
                     m_acc_cold_dep=dMdc_cold_sink(isink)*dtnew(ilevel)*weight/volume*S_T_dep*d/density
                  endif
@@ -2086,9 +2090,11 @@ subroutine compute_accretion_rate(write_sinks)
         ! Aperture radius [code_length]
         R0_eff2     = dble(ir_cloud) * dx_min
         ! Cold disc gas mass (rotationally supported, cold) [code_mass]
-        M_gas_d     = wcold_mass_tot * dx_min**3
+        ! w*_mass sums are CIC-weighted (weight*d) masses; the former unweighted per-pair
+        ! Sum(d)*dx_min**3 counted each cell ~64x (8 cloud particles x 8 CIC pairs).
+        M_gas_d     = wcold_mass_tot
         ! Total gas mass in cloud aperture [code_mass]
-        M_gas_all   = wtotal_mass_tot * dx_min**3
+        M_gas_all   = wtotal_mass_tot
         ! Disc mass and enclosed mass: use actual star particle masses if requested,
         ! otherwise fall back to msink as NSC proxy (see note on f_d_torque above).
         if(use_stellar_mass_torque) then
@@ -2168,7 +2174,7 @@ subroutine compute_accretion_rate(write_sinks)
         dMbondi_norot = 4.d0*3.1415926d0*(factG*Md2_eff)**2*rho_norot &
              & / (cs2_norot+vrel2_norot+tiny(0.0_dp))**1.5d0 * boost2
         ! Rotating torque channel (AA17 formula, same as dMtorque2)
-        M_gas_d_rot  = wrot_mass_tot * dx_min**3
+        M_gas_d_rot  = wrot_mass_tot
         if(use_stellar_mass_torque) then
            M_d_rot   = M_gas_d_rot + wstar_rot_mass_tot
            f_d_rot   = M_d_rot / (M_gas_all + wstar_mass_tot + Md2_eff + tiny(0.0_dp))
@@ -2251,11 +2257,12 @@ subroutine compute_accretion_rate(write_sinks)
         ! unmasked reservoir with the same population additionally weighted by S_inf_loc,
         ! the per-cell counterpart of the r_dc criterion below (see collect_acczone_avg_np).
         if(use_infall_mass)then
-           M_cold_dc = wdc_infall_mass_tot * dx_min**3
+           M_cold_dc = wdc_infall_mass_tot
         else
-           M_cold_dc = wdc_cold_mass_tot * dx_min**3
+           M_cold_dc = wdc_cold_mass_tot
         endif
-        M_enc_dc  = wdc_tot_mass_tot  * dx_min**3
+        ! CIC-weighted (weight*d) sums are already masses -- see M_gas_d in the torque block
+        M_enc_dc  = wdc_tot_mass_tot
         if(tff_include_particles) M_enc_dc = M_enc_dc + wff_part_mass_tot
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
@@ -2345,8 +2352,8 @@ subroutine compute_accretion_rate(write_sinks)
         ! (see M_d_torque/M_enc_torque above) but built from freefall's own already-summed
         ! wdc_cold_mass_tot/wdc_tot_mass_tot rather than duplicating a separate accumulator
         ! pathway shared with two_channel_accretion_switch.
-        M_gas_d_ff   = wdc_cold_mass_tot * dx_min**3
-        M_gas_all_ff = wdc_tot_mass_tot  * dx_min**3
+        M_gas_d_ff   = wdc_cold_mass_tot
+        M_gas_all_ff = wdc_tot_mass_tot
         M_d_torque_ff = M_gas_d_ff + msink(isink)
         if(smbh .and. mass_smbh_seed > 0.0)then
            M_enc_torque_ff = M_gas_all_ff + msink(isink) + M_bh_dc
@@ -2380,7 +2387,7 @@ subroutine compute_accretion_rate(write_sinks)
         ! when all t_travel_i are equal. Global form kept for the first sink update (lag unset)
         ! and when use_infall_mass is off.
         if(use_infall_mass .and. gmbh_dc_sink(isink) > 0d0)then
-           dMdc_cold = eps_dc * M_cold_dc * (wdc_infall_rate_tot*dx_min**3) / (M_cold_dc+M_crit+tiny(0.0_dp))
+           dMdc_cold = eps_dc * M_cold_dc * wdc_infall_rate_tot / (M_cold_dc+M_crit+tiny(0.0_dp))
            wdc_infall_rnorm_sink(isink) = wdc_infall_rate_tot
         else
            dMdc_cold = eps_dc * M_cold_dc**2 / (t_travel * (M_cold_dc+M_crit+tiny(0.0_dp)))
