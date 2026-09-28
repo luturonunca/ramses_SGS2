@@ -1030,7 +1030,11 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                        ! gravitational influence radius (r2_inf_sink, lagged the same way)?
                        ! Restricts the reservoir further than R0_dc, which is resolution-set
                        ! (ir_cloud*dx_min) and can be much larger than r_inf.
-                       S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
+                       if(use_rinf_gate)then
+                          S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
+                       else
+                          S_rinf_loc = 1.0d0
+                       endif
                        ! Third, independent gate: is this cell actually moving inward right now
                        ! (vr_loc<0)? S_inf_loc only measures the tangential share of the motion
                        ! (vphi2_loc=v2-vr_loc**2), so a cell with little spin but an outbound
@@ -1146,7 +1150,11 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     ! gravitational influence radius (r2_inf_sink, lagged the same way)?
                     ! Restricts the reservoir further than R0_dc, which is resolution-set
                     ! (ir_cloud*dx_min) and can be much larger than r_inf.
-                    S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
+                    if(use_rinf_gate)then
+                       S_rinf_loc = 1.0d0/(1.0d0+exp((sqrt(r2/(r2_inf_sink(isink)+tiny(0.0_dp))) - 1.0d0)/delta_dc))
+                    else
+                       S_rinf_loc = 1.0d0
+                    endif
                     ! Third, independent gate: is this cell actually moving inward right now
                     ! (vr_loc<0)? See the mirrored comment in the mode-1 branch above -- same
                     ! sigmoid, midpoint at vr_loc=0, width from the local cs2+sigma2_local scale.
@@ -1425,7 +1433,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
   real(dp)::dx,dx_loc,dx_min,dx_cloud,scale,vol_min,vol_loc,vol_cloud,weight,m_acc,m_acc_smbh
   real(dp)::cs2_loc,v2_loc,S_T_dep,m_acc_cold_dep,m_acc_hot_dep,dMtot_dc
   real(dp)::vr_loc_dep,vphi2_loc_dep,chi_loc_dep
-  real(dp)::r2_dep,sig2_dep,j2_dep,GM_dep,E_dep,ecc_dep,rp_dep,tff_dep,tffref_dep,S_mask_dep
+  real(dp)::r2_dep,sig2_dep,j2_dep,GM_dep,E_dep,ecc_dep,rp_dep,tff_dep,tffref_dep,S_mask_dep,S_rinf_dep
   real(dp)::R0_dep,R_c_dep,GMgc_dep,GMd_dep,fd_dep,tdyn_dep,ttrav_dep,w_hot_dep,m_cap_dep
   real(dp)::S_T_loc2,S_n_loc2,S_rot_loc2,cold_w_dep,hot_w_dep
   ! Gas dynamical friction (drag_gas), Ostriker (1999) -- mirrors RAMSES-yOMP accrete_bondi
@@ -1657,8 +1665,12 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                     rp_dep  = (j2_dep/(GM_dep+tiny(0.0_dp)))/(1.0d0+ecc_dep)
                     tff_dep    = sqrt(r2_dep*sqrt(r2_dep)/(2.0d0*GM_dep+tiny(0.0_dp)))
                     tffref_dep = sqrt(R0_dep**3/(2.0d0*GM_dep+tiny(0.0_dp)))
-                    S_mask_dep = 1.0d0/(1.0d0+exp((rp_dep/R_acc_code-1.0d0)/delta_dc)) &
-                         & * 1.0d0/(1.0d0+exp((sqrt(r2_dep/(r2inf_col_lvl(isink,ilevel)+tiny(0.0_dp)))-1.0d0)/delta_dc)) &
+                    if(use_rinf_gate)then
+                       S_rinf_dep = 1.0d0/(1.0d0+exp((sqrt(r2_dep/(r2inf_col_lvl(isink,ilevel)+tiny(0.0_dp)))-1.0d0)/delta_dc))
+                    else
+                       S_rinf_dep = 1.0d0
+                    endif
+                    S_mask_dep = 1.0d0/(1.0d0+exp((rp_dep/R_acc_code-1.0d0)/delta_dc)) * S_rinf_dep &
                          & * 1.0d0/(1.0d0+exp(vr_loc_dep/sqrt(cs2_loc+sig2_dep+tiny(0.0_dp)))) &
                          & * 1.0d0/(1.0d0+exp(E_dep/(cs2_loc+sig2_dep+tiny(0.0_dp)))) &
                          & * 1.0d0/(1.0d0+exp((tff_dep/(tffref_dep+tiny(0.0_dp))-1.0d0)/delta_dc))
@@ -2348,6 +2360,7 @@ subroutine compute_accretion_rate(write_sinks)
         ! M_crit (unrestricted, as before); -> eps_dc*M_cold_dc^2/M_crit*(...) when M_cold_dc<<M_crit
         ! (quadratic falloff, self-avoiding a hard drain to zero rather than a fixed proportional cut).
         M_crit = sqrt(cs2_hot_dc+cs2_cold_code) * sqrt(M_bh_dc*R0_dc/(factG+tiny(0.0_dp)))
+        if(.not. use_mcrit_supply) M_crit = 0.0d0
         ! Disc-fraction gate for t_travel, mirroring f_d_torque's construction exactly
         ! (see M_d_torque/M_enc_torque above) but built from freefall's own already-summed
         ! wdc_cold_mass_tot/wdc_tot_mass_tot rather than duplicating a separate accumulator
@@ -3898,7 +3911,7 @@ subroutine read_sink_params()
        chi_crit,delta_chi,alpha_T,chi_d,f_gas_floor,fd_floor,epsilon_nuc,&
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
-       use_stellar_mass_torque,weighted_depletion,use_infall_mass,R_acc,a1_torque,gamma_gas_rc,&
+       use_stellar_mass_torque,weighted_depletion,use_infall_mass,R_acc,a1_torque,gamma_gas_rc,use_rinf_gate,use_mcrit_supply,&
        drag_gas,boost_drag,d_boost,adfmax,weighted_drag,&
        drag_part,boost_drag_part,DF_ncells
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
