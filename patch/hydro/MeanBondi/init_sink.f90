@@ -140,6 +140,8 @@ subroutine init_sink
   allocate(wdc_infall_rate_new(1:nsinkmax))
   allocate(wdc_tot_mass(1:nsinkmax))  ; wdc_tot_mass=0.d0
   allocate(wdc_tot_mass_new(1:nsinkmax))
+  allocate(wdc_grav_mass(1:nsinkmax)) ; wdc_grav_mass=0.d0
+  allocate(wdc_grav_mass_new(1:nsinkmax))
   allocate(wdc_hot_w(1:nsinkmax))    ; wdc_hot_w=0.d0
   allocate(wdc_hot_w_new(1:nsinkmax))
   allocate(wdc_hot_rho(1:nsinkmax))  ; wdc_hot_rho=0.d0
@@ -171,6 +173,7 @@ subroutine init_sink
   allocate(wdc_infall_j2mass_lvl(1:nsinkmax,1:nlevelmax)); wdc_infall_j2mass_lvl=0.d0
   allocate(wdc_infall_rate_lvl(1:nsinkmax,1:nlevelmax)); wdc_infall_rate_lvl=0.d0
   allocate(wdc_tot_mass_lvl(1:nsinkmax,1:nlevelmax));    wdc_tot_mass_lvl=0.d0
+  allocate(wdc_grav_mass_lvl(1:nsinkmax,1:nlevelmax));   wdc_grav_mass_lvl=0.d0
   allocate(wdc_hot_w_lvl(1:nsinkmax,1:nlevelmax));       wdc_hot_w_lvl=0.d0
   allocate(wdc_hot_rho_lvl(1:nsinkmax,1:nlevelmax));     wdc_hot_rho_lvl=0.d0
   allocate(wdc_hot_cs2_lvl(1:nsinkmax,1:nlevelmax));     wdc_hot_cs2_lvl=0.d0

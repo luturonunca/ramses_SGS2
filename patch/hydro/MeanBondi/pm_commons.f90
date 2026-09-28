@@ -42,6 +42,7 @@ module pm_commons
   real(dp),allocatable,dimension(:)    ::wdc_infall_j2mass, wdc_infall_j2mass_new ! same as wdc_cold_j2mass, additionally masked by S_inf_loc*S_rinf_loc when use_infall_mass, so eps_dc's j2_cold_mean matches the population M_cold_dc is actually drawn from instead of the unmasked one
   real(dp),allocatable,dimension(:)    ::wdc_infall_rate, wdc_infall_rate_new ! Sum w*m/t_travel_i over the use_infall_mass population (per-cell HQ11 travel time: free-fall + disc drain at R_c)
   real(dp),allocatable,dimension(:)    ::wdc_tot_mass,  wdc_tot_mass_new
+  real(dp),allocatable,dimension(:)    ::wdc_grav_mass, wdc_grav_mass_new ! wdc_tot_mass without the exp kernel: true gas mass for freefall gravity (M_enc_dc, gmgas_R0_sink)
   real(dp),allocatable,dimension(:)    ::wdc_hot_w,     wdc_hot_w_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_rho,   wdc_hot_rho_new
   real(dp),allocatable,dimension(:)    ::wdc_hot_cs2,   wdc_hot_cs2_new
@@ -85,7 +86,7 @@ module pm_commons
   ! level dimension only the most-recently-processed level's contribution survives to
   ! compute_accretion_rate instead of the sum over the whole accretion zone (mirrors
   ! weighted_density(isink,ilevel) below).
-  real(dp),allocatable,dimension(:,:)  ::wdc_cold_mass_lvl, wdc_cold_j2mass_lvl, wdc_tot_mass_lvl
+  real(dp),allocatable,dimension(:,:)  ::wdc_cold_mass_lvl, wdc_cold_j2mass_lvl, wdc_tot_mass_lvl, wdc_grav_mass_lvl
   real(dp),allocatable,dimension(:,:)  ::wdc_infall_mass_lvl, wdc_infall_j2mass_lvl, wdc_infall_rate_lvl
   ! j2_crit from the previous sink update, per sink: the per-cell infall mask (S_inf_loc) needs
   ! j2_crit = G*(M_enc_dc+M_bh_dc)*R0_dc, but that is only known after compute_accretion_rate has

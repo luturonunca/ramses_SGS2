@@ -424,6 +424,7 @@ subroutine collect_acczone_avg(ilevel)
   ! Duty-cycle blend accumulators
   if(freefall_accretion)then
      wdc_cold_mass=0d0; wdc_infall_mass=0d0; wdc_cold_j2mass=0d0; wdc_infall_j2mass=0d0; wdc_tot_mass=0d0
+     wdc_grav_mass=0d0
      wdc_infall_rate=0d0
      wdc_hot_w=0d0; wdc_hot_rho=0d0; wdc_hot_cs2=0d0; wdc_hot_v2=0d0
      wdc_cold_w=0d0; wdc_cold_rho=0d0
@@ -586,6 +587,7 @@ subroutine collect_acczone_avg(ilevel)
         call MPI_ALLREDUCE(wdc_cold_mass,  wdc_cold_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_cold_j2mass,wdc_cold_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_tot_mass,   wdc_tot_mass_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+        call MPI_ALLREDUCE(wdc_grav_mass,  wdc_grav_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_w,    wdc_hot_w_new,    nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_rho,  wdc_hot_rho_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
         call MPI_ALLREDUCE(wdc_hot_cs2,  wdc_hot_cs2_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -639,6 +641,7 @@ subroutine collect_acczone_avg(ilevel)
      if(freefall_accretion)then
         wdc_cold_mass_new=wdc_cold_mass; wdc_cold_j2mass_new=wdc_cold_j2mass
         wdc_tot_mass_new=wdc_tot_mass
+        wdc_grav_mass_new=wdc_grav_mass
         wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
         wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
         wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
@@ -748,6 +751,7 @@ subroutine collect_acczone_avg(ilevel)
                 call MPI_ALLREDUCE(wdc_cold_mass,  wdc_cold_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_cold_j2mass,wdc_cold_j2mass_new,nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_tot_mass,   wdc_tot_mass_new,   nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
+                call MPI_ALLREDUCE(wdc_grav_mass,  wdc_grav_mass_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_hot_w,    wdc_hot_w_new,    nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_hot_rho,  wdc_hot_rho_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
                 call MPI_ALLREDUCE(wdc_hot_cs2,  wdc_hot_cs2_new,  nsinkmax,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,info)
@@ -770,6 +774,7 @@ subroutine collect_acczone_avg(ilevel)
              if(freefall_accretion)then
                 wdc_cold_mass_new=wdc_cold_mass; wdc_cold_j2mass_new=wdc_cold_j2mass
                 wdc_tot_mass_new=wdc_tot_mass
+                wdc_grav_mass_new=wdc_grav_mass
                 wdc_hot_w_new=wdc_hot_w; wdc_hot_rho_new=wdc_hot_rho
                 wdc_hot_cs2_new=wdc_hot_cs2; wdc_hot_v2_new=wdc_hot_v2
                 wdc_cold_w_new=wdc_cold_w; wdc_cold_rho_new=wdc_cold_rho
@@ -798,6 +803,7 @@ subroutine collect_acczone_avg(ilevel)
         if(use_infall_mass) wdc_infall_j2mass_lvl(isink,ilevel) = wdc_infall_j2mass_new(isink)
         if(use_infall_mass) wdc_infall_rate_lvl(isink,ilevel)   = wdc_infall_rate_new(isink)
         wdc_tot_mass_lvl(isink,ilevel)    = wdc_tot_mass_new(isink)
+        wdc_grav_mass_lvl(isink,ilevel)   = wdc_grav_mass_new(isink)
         wdc_hot_w_lvl(isink,ilevel)       = wdc_hot_w_new(isink)
         wdc_hot_rho_lvl(isink,ilevel)     = wdc_hot_rho_new(isink)
         wdc_hot_cs2_lvl(isink,ilevel)     = wdc_hot_cs2_new(isink)
@@ -1095,6 +1101,7 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                     wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight
                     wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*weight*r2*vphi2_loc
                     wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight
+                    wdc_grav_mass(isink)  = wdc_grav_mass(isink)  + d*weight
                     wdc_hot_w(isink)      = wdc_hot_w(isink)      + weight*(1.0d0-S_T_loc)
                     wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d
                     wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2
@@ -1200,6 +1207,9 @@ subroutine collect_acczone_avg_np(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,m
                  wdc_cold_mass(isink)  = wdc_cold_mass(isink)  + S_T_loc*d*weight*weight_exp
                  wdc_cold_j2mass(isink)= wdc_cold_j2mass(isink)+ S_T_loc*d*weight*r2*vphi2_loc*weight_exp
                  wdc_tot_mass(isink)   = wdc_tot_mass(isink)   + d*weight*weight_exp
+                 ! Unweighted (no exp kernel) gas mass for gravity: the kernel is a sampling weight
+                 ! for what is accreted, not a measure of the mass that pulls the gas in.
+                 wdc_grav_mass(isink)  = wdc_grav_mass(isink)  + d*weight
                  wdc_hot_w(isink)      = wdc_hot_w(isink)      + weight*(1.0d0-S_T_loc)*weight_exp
                  wdc_hot_rho(isink)    = wdc_hot_rho(isink)    + weight*(1.0d0-S_T_loc)*d*weight_exp
                  wdc_hot_cs2(isink)    = wdc_hot_cs2(isink)    + weight*(1.0d0-S_T_loc)*d*cs2*weight_exp
@@ -1921,6 +1931,7 @@ subroutine compute_accretion_rate(write_sinks)
   real(dp)::M_enc_torque,r_inf_fd,M_d_floor_val
   ! Cross-level sums of the freefall reservoir (see wdc_*_lvl in pm_commons.f90)
   real(dp)::wdc_cold_mass_tot,wdc_infall_mass_tot,wdc_cold_j2mass_tot,wdc_infall_j2mass_tot,wdc_tot_mass_tot
+  real(dp)::wdc_grav_mass_tot
   real(dp)::wdc_infall_rate_tot
   real(dp)::wdc_hot_w_tot,wdc_hot_rho_tot,wdc_hot_cs2_tot,wdc_hot_v2_tot,wff_part_mass_tot
   ! Cross-level sums of the torque/blend reservoir (see wvr2_lvl etc. in pm_commons.f90)
@@ -2242,6 +2253,7 @@ subroutine compute_accretion_rate(write_sinks)
         ! wdc_*_new on a per-level basis, so the per-level stash must be re-summed here
         ! the same way weighted_density/weighted_volume/weighted_ethermal are above).
         wdc_cold_mass_tot=0d0; wdc_infall_mass_tot=0d0; wdc_cold_j2mass_tot=0d0; wdc_infall_j2mass_tot=0d0; wdc_tot_mass_tot=0d0
+        wdc_grav_mass_tot=0d0
         wdc_infall_rate_tot=0d0
         wdc_hot_w_tot=0d0; wdc_hot_rho_tot=0d0; wdc_hot_cs2_tot=0d0; wdc_hot_v2_tot=0d0
         wff_part_mass_tot=0d0
@@ -2252,6 +2264,7 @@ subroutine compute_accretion_rate(write_sinks)
            if(use_infall_mass) wdc_infall_j2mass_tot = wdc_infall_j2mass_tot + wdc_infall_j2mass_lvl(isink,i)
            if(use_infall_mass) wdc_infall_rate_tot   = wdc_infall_rate_tot   + wdc_infall_rate_lvl(isink,i)
            wdc_tot_mass_tot    = wdc_tot_mass_tot    + wdc_tot_mass_lvl(isink,i)
+           wdc_grav_mass_tot   = wdc_grav_mass_tot   + wdc_grav_mass_lvl(isink,i)
            wdc_hot_w_tot       = wdc_hot_w_tot       + wdc_hot_w_lvl(isink,i)
            wdc_hot_rho_tot     = wdc_hot_rho_tot     + wdc_hot_rho_lvl(isink,i)
            wdc_hot_cs2_tot     = wdc_hot_cs2_tot     + wdc_hot_cs2_lvl(isink,i)
@@ -2273,8 +2286,10 @@ subroutine compute_accretion_rate(write_sinks)
         else
            M_cold_dc = wdc_cold_mass_tot
         endif
-        ! CIC-weighted (weight*d) sums are already masses -- see M_gas_d in the torque block
-        M_enc_dc  = wdc_tot_mass_tot
+        ! CIC-weighted (weight*d) sums are already masses -- see M_gas_d in the torque block.
+        ! Gravity uses the unweighted gas mass (wdc_grav_mass): the exp kernel only selects
+        ! which gas is sampled/accreted (M_cold_dc, depletion), not the mass inside R0.
+        M_enc_dc  = wdc_grav_mass_tot
         if(tff_include_particles) M_enc_dc = M_enc_dc + wff_part_mass_tot
         ! Free-fall times: t_ff = sqrt(R0^3 / (2*G*M))
         t_ff_enc  = sqrt(R0_dc**3 / (2.0d0*factG*(M_enc_dc + tiny(0.0_dp))))
@@ -2407,7 +2422,7 @@ subroutine compute_accretion_rate(write_sinks)
            wdc_infall_rnorm_sink(isink) = 0d0
         endif
         gmbh_dc_sink(isink)  = factG*M_bh_dc
-        gmgas_R0_sink(isink) = factG*M_gas_all_ff
+        gmgas_R0_sink(isink) = factG*wdc_grav_mass_tot
         ! Depletion normalizers for accrete_sink (see wdc_infall_norm_sink in pm_commons.f90)
         wdc_infall_norm_sink(isink) = wdc_infall_mass_tot
         wdc_hot_norm_sink(isink)    = wdc_hot_rho_tot
