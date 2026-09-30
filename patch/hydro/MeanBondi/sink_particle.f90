@@ -1599,7 +1599,9 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               max_factor_drag = 1.0d0/dtnew(ilevel)
               if(adfmax>0.0d0) max_factor_drag = min(adfmax*1.d5/scale_v*(scale_t/3.1536d13), max_factor_drag)
               factor_drag = min(factor_drag, max_factor_drag)
-              dv_drag(1:ndim) = -factor_drag*v_rel(1:ndim)*dtnew(ilevel)
+              ! v_rel = v_gas - v_sink here (Bondi convention), so +factor*v_rel pulls the sink
+              ! toward the gas velocity (RAMSES-yOMP: fdrag = -factor*(v_cloud - u_gas))
+              dv_drag(1:ndim) = factor_drag*v_rel(1:ndim)*dtnew(ilevel)
               ! Per-cell weight normalised by an already-known kernel total (volume_gas/rho_gas,
               ! lagged from the previous collect_acczone_avg pass), so it sums to ~1 over the
               ! whole accretion zone without needing a second reduction pass -- weighted_drag
