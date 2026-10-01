@@ -61,6 +61,10 @@ module pm_parameters
   real(dp)::a1_torque=0.2d0
   logical::use_mcrit_supply=.true.                   ! Apply the Toomre M_crit gas-supply limit M_cold/(M_cold+M_crit) to the freefall cold rate
   logical::use_rinf_gate=.true.                      ! Apply the S_rinf_loc sphere-of-influence gate (r<GM_bh/v_turb^2) in the freefall infall mask
+  logical::use_jcirc_mask=.false.                    ! Form of the freefall S_inf_loc gate: .true. = j/j_circ(R0) < r_crit_dc (pre-r_p); .false. = (E,j) pericenter r_p < R_acc
+  logical::use_Vin_gate=.true.                       ! Apply the S_vin_loc radial-inflow gate (vr<0) in the freefall infall mask
+  logical::use_bound_gate=.true.                     ! Apply the S_bound_loc boundedness gate (E<0) in the freefall infall mask
+  logical::use_time_gate=.true.                      ! Apply the S_time_loc arrival-time gate (t_ff(r)<t_ff(R0)) in the freefall infall mask
   real(dp)::gamma_gas_rc=2.0d0                        ! Gas density slope rho~r^-gamma inside R0, used to extrapolate M_gas(<R_c) for the per-cell freefall drain time (2 = singular isothermal)
   logical::use_infall_mass=.false.                   ! Mask M_cold_dc per cell by two multiplicative sigmoid gates: the r=j/j_crit angular-momentum gate (r_crit_dc,delta_dc) also used for eps_dc, and a r=r/r_inf gravitational-influence-radius gate (width delta_dc, midpoint 1), instead of only rescaling eps_dc by the mass-weighted mean; j_crit/r_inf are lagged by one sink update (see j2_crit_sink/r2_inf_sink)
   ! Pericenter capture threshold for the freefall S_inf_loc gate [pc]: the physical radius
