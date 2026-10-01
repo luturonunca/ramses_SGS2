@@ -246,6 +246,8 @@ module amr_parameters
   integer::sink_follow_id=0 ! If >0, movie camera follows this sink id instead of the
                              ! xcentre_frame/ycentre_frame/zcentre_frame polynomial path,
                              ! resolving through mergers via sink_mergers.txt
+  integer::nmassive_frame=0 ! If >0, each movie frame writes the nmassive_frame most massive
+                             ! particles (sink clouds and tracers excluded) to massive_NNNNN.txt
   integer::nw_frame=512 ! prev: nx_frame, width of frame in pixels
   integer::nh_frame=512 ! prev: ny_frame, height of frame in pixels
   integer::levelmax_frame=0
