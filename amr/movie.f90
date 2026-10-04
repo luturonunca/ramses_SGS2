@@ -248,7 +248,7 @@ subroutine output_frame()
   endif
 
   ! most massive particles filename (collective: all cpus call it)
-  if(nmassive_frame>0.and.proj_ind==1)then
+  if(nmassive_frame/=0.and.proj_ind==1)then
     massivefile = trim(moviedir)//'massive_'//trim(istep_str)//'.txt'
     call output_massive_csv(massivefile)
   endif
@@ -1305,42 +1305,47 @@ subroutine output_massive_csv(filename)
   implicit none
   character(len=100)::filename
   !-----------------------------------------------------------------------
-  ! Writes the nmassive_frame most massive particles (sink cloud particles
-  ! and tracers excluded) to a csv file, in code units. Each cpu keeps its
-  ! local list sorted by decreasing mass; cpu 1 merges the gathered lists.
+  ! Writes the nmassive_frame most massive (nmassive_frame>0) or the
+  ! |nmassive_frame| least massive (nmassive_frame<0) particles, sink cloud
+  ! particles and tracers excluded, to a csv file in code units. The sort key
+  ! is sgn*mass; each cpu keeps its local list sorted by decreasing key and
+  ! cpu 1 merges the gathered lists.
   !-----------------------------------------------------------------------
   integer,parameter::nval=9 ! id,family,m,x,y,z,vx,vy,vz
-  integer::i,j,k,n,ilist
-  real(dp),dimension(1:nval,1:nmassive_frame)::list_loc
+  integer::i,j,k,n,ilist,nlist
+  real(dp)::sgn
+  real(dp),dimension(1:nval,1:abs(nmassive_frame))::list_loc
   real(dp),dimension(:,:),allocatable::list_all
 #ifndef WITHOUTMPI
   integer::info
 #endif
 
+  nlist=abs(nmassive_frame)
+  sgn=sign(1d0,dble(nmassive_frame))
   list_loc=0d0
-  list_loc(3,:)=-1d0
+  list_loc(3,:)=-huge(1d0)
   do i=1,npartmax
      if(levelp(i)<=0)cycle
      if(is_cloud(typep(i)).or.is_tracer(typep(i)))cycle
-     if(mp(i)<=list_loc(3,nmassive_frame))cycle
+     if(sgn*mp(i)<=list_loc(3,nlist))cycle
      ! insertion into the sorted local list
-     k=nmassive_frame
+     k=nlist
      do while(k>1)
-        if(mp(i)<=list_loc(3,k-1))exit
+        if(sgn*mp(i)<=list_loc(3,k-1))exit
         list_loc(:,k)=list_loc(:,k-1)
         k=k-1
      end do
      list_loc(1,k)=dble(idp(i))
      list_loc(2,k)=dble(typep(i)%family)
-     list_loc(3,k)=mp(i)
+     list_loc(3,k)=sgn*mp(i)
      list_loc(4:3+ndim,k)=xp(i,1:ndim)
      list_loc(7:6+ndim,k)=vp(i,1:ndim)
   end do
 
-  allocate(list_all(1:nval,1:nmassive_frame*ncpu))
+  allocate(list_all(1:nval,1:nlist*ncpu))
 #ifndef WITHOUTMPI
-  call MPI_GATHER(list_loc,nval*nmassive_frame,MPI_DOUBLE_PRECISION, &
-       & list_all,nval*nmassive_frame,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,info)
+  call MPI_GATHER(list_loc,nval*nlist,MPI_DOUBLE_PRECISION, &
+       & list_all,nval*nlist,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,info)
 #else
   list_all=list_loc
 #endif
@@ -1349,12 +1354,12 @@ subroutine output_massive_csv(filename)
      open(unit=124,file=TRIM(filename),form='formatted',status='replace',recl=500)
      write(124,'(" # id,family,mass,x,y,z,vx,vy,vz ")')
      write(124,'(" # 1,1,m,l,l,l,l t**-1,l t**-1,l t**-1 ")')
-     do n=1,nmassive_frame
+     do n=1,nlist
         ilist=maxloc(list_all(3,:),1)
-        if(list_all(3,ilist)<0d0)exit
+        if(list_all(3,ilist)==-huge(1d0))exit
         write(124,'(I12,A1,I4,7(A1,ES20.10))')nint(list_all(1,ilist),kind=i8b),',', &
-             & nint(list_all(2,ilist)),(',',list_all(j,ilist),j=3,nval)
-        list_all(3,ilist)=-1d0
+             & nint(list_all(2,ilist)),',',sgn*list_all(3,ilist),(',',list_all(j,ilist),j=4,nval)
+        list_all(3,ilist)=-huge(1d0)
      end do
      close(124)
   endif

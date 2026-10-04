@@ -202,7 +202,8 @@ module amr_parameters
                              ! xcentre_frame/ycentre_frame/zcentre_frame polynomial path,
                              ! resolving through mergers via sink_mergers.txt
   integer::nmassive_frame=0 ! If >0, each movie frame writes the nmassive_frame most massive
-                             ! particles (sink clouds and tracers excluded) to massive_NNNNN.txt
+                             ! particles (sink clouds and tracers excluded) to massive_NNNNN.txt;
+                             ! if <0, the |nmassive_frame| least massive ones
   integer::nw_frame=512 ! prev: nx_frame, width of frame in pixels
   integer::nh_frame=512 ! prev: ny_frame, height of frame in pixels
   integer::levelmax_frame=0
