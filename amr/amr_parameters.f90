@@ -229,6 +229,10 @@ module amr_parameters
   real(kind=8),dimension(1:NMOV)::varmax_frame=1d60
   integer,dimension(1:NMOV)::ivar_frame=0
   logical,dimension(1:NMOV)::perspective_camera=.false.
+  logical,dimension(1:NMOV)::camera_path_frame=.false. ! If true, the camera of this movie (proj_axis 'z')
+                             ! sits at the cubic path xcam/ycam/zcam_frame(s) relative to the frame centre,
+                             ! s=(t-tstart_theta_camera)/tend_theta_camera in [0,1], and looks at the centre
+  real(kind=8),dimension(1:4*NMOV)::xcam_frame=0d0,ycam_frame=0d0,zcam_frame=0d0
   logical,dimension(1:NMOV)::zoom_only_frame=.false.
   character(LEN=NMOV)::proj_axis='z' ! x->x, y->y, projection along z
   character(LEN=6),dimension(1:NMOV)::shader_frame='square'

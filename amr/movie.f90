@@ -49,6 +49,7 @@ subroutine output_frame()
   real(dp)::scale,scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
   real(dp)::xcen,ycen,zcen,delx,dely,delz,timer
   real(dp)::xtmp,ytmp,theta_cam,phi_cam,fov_camera,dist_cam
+  real(dp)::s_path,xcam,ycam,zcam
   real(dp)::xleft_frame,xright_frame,yleft_frame,yright_frame,zleft_frame,zright_frame
   real(dp)::xleft,xright,yleft,yright,xcentre,ycentre
   real(dp)::xxleft,xxright,yyleft,yyright,xxcentre,yycentre
@@ -373,6 +374,27 @@ subroutine output_frame()
      phi_cam    = phi_camera(proj_ind)*pi/180.                                                                                   &
                 +min(max(t-tstart_phi_camera(proj_ind),0d0),tend_phi_camera(proj_ind))*dphi_camera(proj_ind)*pi/180./(tendmov-tstartmov)
      dist_cam   = dist_camera(proj_ind)+min(max(t-tstart_theta_camera(proj_ind),0d0),tend_theta_camera(proj_ind))*ddist_camera(proj_ind)/(tendmov-tstartmov)
+  endif
+
+  ! Camera on a cubic path relative to the frame centre, looking at the centre (proj_axis 'z'):
+  ! its viewing axis (z after the theta and phi rotations below) points along the camera position
+  if(camera_path_frame(proj_ind).and.proj_axis(proj_ind:proj_ind).eq.'z')then
+     if(cosmo)then
+        s_path = min(max((aexp-tstart_theta_camera(proj_ind))/tend_theta_camera(proj_ind),0d0),1d0)
+     else
+        s_path = min(max((t-tstart_theta_camera(proj_ind))/tend_theta_camera(proj_ind),0d0),1d0)
+     endif
+     xcam = xcam_frame(proj_ind*4-3)+xcam_frame(proj_ind*4-2)*s_path+xcam_frame(proj_ind*4-1)*s_path**2+xcam_frame(proj_ind*4)*s_path**3
+     ycam = ycam_frame(proj_ind*4-3)+ycam_frame(proj_ind*4-2)*s_path+ycam_frame(proj_ind*4-1)*s_path**2+ycam_frame(proj_ind*4)*s_path**3
+     zcam = zcam_frame(proj_ind*4-3)+zcam_frame(proj_ind*4-2)*s_path+zcam_frame(proj_ind*4-1)*s_path**2+zcam_frame(proj_ind*4)*s_path**3
+     dist_cam = sqrt(xcam**2+ycam**2+zcam**2)
+     phi_cam  = atan2(sqrt(xcam**2+ycam**2),zcam)
+     ! azimuth undefined straight above the centre: keep theta_camera there
+     if(sqrt(xcam**2+ycam**2).gt.1d-6*dist_cam)then
+        theta_cam = atan2(ycam,xcam)+pi/2d0
+     else
+        theta_cam = theta_camera(proj_ind)*pi/180.
+     endif
   endif
 
   if((focal_camera(proj_ind).le.0D0).or.(focal_camera(proj_ind).gt.dist_camera(proj_ind))) focal_camera(proj_ind) = dist_cam
