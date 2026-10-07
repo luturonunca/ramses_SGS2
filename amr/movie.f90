@@ -943,8 +943,9 @@ subroutine output_frame()
      ypf  = ypf+ycen
      zpf  = zpf+zcen
 
-     ! Check if particle is in front of camera
-     if(dist_cam-zpf.lt.0) cycle
+     ! Check if particle is in front of camera (relative to the frame centre, as for the cells:
+     ! zpf already includes zcen here)
+     if(dist_cam-(zpf-zcen).lt.0) cycle
 
      ! Check if particle is in the movie box
      if(    xpf.lt.xleft_frame.or.xpf.ge.xright_frame.or.&
