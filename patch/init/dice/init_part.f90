@@ -1425,10 +1425,9 @@ contains
                       endif
                    endif
                    if(type_index.gt.2)then
-                      if(star)then
-                         typep(ipart)%family = FAM_STAR
-                         typep(ipart)%tag    = 0
-                      end if
+                      ! IC star particles (Gadget types 2-5) are stars whether or not star formation is on
+                      typep(ipart)%family = FAM_STAR
+                      typep(ipart)%tag    = 0
                    else if(type_index.eq.2)then
                       typep(ipart)%family = FAM_DM
                       typep(ipart)%tag    = 0
