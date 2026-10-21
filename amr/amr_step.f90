@@ -128,6 +128,7 @@ recursive subroutine amr_step(ilevel,icount)
   !-----------------
                                call timer('particles','start')
   if(pic)call make_tree_fine(ilevel)
+  if(hydro)call check_eu(ilevel,'step_start ',.false.)  ! DEBUG Eu
 
   !------------------------
   ! Output results to files
@@ -301,8 +302,9 @@ recursive subroutine amr_step(ilevel,icount)
   ! whatever timestep it first forms a BNS-eligible star (see bns_tables.f90).
   if(bns_formation .and. .not.fixed_bns_vars) call init_bns_tables()
   if(bns_formation)  call bns_sn2_fine(ilevel)
+  if(hydro)call check_eu(ilevel,'after_sn2  ',.false.)  ! DEBUG Eu
   if(bns_enrichment) call bns_merger_enrich(ilevel)
-  if(snIa) call snIa_fine(ilevel)
+  if(hydro)call check_eu(ilevel,'after_mrg  ',.false.)  ! DEBUG Eu
 #endif
 
   !----------------------
@@ -317,14 +319,6 @@ recursive subroutine amr_step(ilevel,icount)
   ! Set unew equal to uold
                                call timer('hydro - set unew','start')
   if(hydro)call set_unew(ilevel)
-
-  ! Thermal/delayed-cooling feedback writes to unew (metals + idelay scalar):
-  ! must come AFTER set_unew or deposits are immediately overwritten.
-#if NDIM==3
-  if(hydro.and.star.and.eta_sn>0.and.mechanical_feedback==0)then
-     call thermal_feedback(ilevel)
-  endif
-#endif
 
 #ifdef RT
   ! Set rtunew equal to rtuold
@@ -359,6 +353,20 @@ recursive subroutine amr_step(ilevel,icount)
 #endif
   end if
 
+  ! Thermal/delayed-cooling feedback and SNIa write to unew: called after
+  ! set_unew so deposits survive, and after the finer-level recursion (as
+  ! on master) so dtnew(ilevel) is the step actually taken; before it, the
+  ! SN/SNIa age windows use the coarse CFL dt and overlap between steps.
+#if NDIM==3
+                               call timer('feedback','start')
+  if(hydro.and.star.and.eta_sn>0.and.mechanical_feedback==0)then
+     call thermal_feedback(ilevel)
+  endif
+  if(hydro)call check_eu(ilevel,'after_fbk  ',.true.)   ! DEBUG Eu
+  if(snIa) call snIa_fine(ilevel)
+  if(hydro)call check_eu(ilevel,'after_snIa ',.true.)   ! DEBUG Eu
+#endif
+
   ! Density threshold or Bondi accretion onto sink particle
 #if NDIM==3
   if(sink)then
@@ -374,6 +382,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Hyperbolic solver
                                call timer('hydro - godunov','start')
      call godunov_fine(ilevel)
+     call check_eu(ilevel,'after_godun',.true.)          ! DEBUG Eu
 
      ! Reverse update boundaries
                                call timer('hydro - rev ghostzones','start')
@@ -408,6 +417,7 @@ recursive subroutine amr_step(ilevel,icount)
      ! Restriction operator
                                call timer('hydro upload fine','start')
      call upload_fine(ilevel)
+     call check_eu(ilevel,'after_hydro',.false.)         ! DEBUG Eu
 
   endif
 
@@ -440,6 +450,7 @@ recursive subroutine amr_step(ilevel,icount)
   if((hydro).and.(.not.static_gas)) then
     if(neq_chem.or.cooling.or.T2_star>0.0)call cooling_fine(ilevel)
   endif
+  if(hydro)call check_eu(ilevel,'after_cool ',.false.)  ! DEBUG Eu
 #endif
 
   !---------------
@@ -460,6 +471,7 @@ recursive subroutine amr_step(ilevel,icount)
 #if NDIM==3
                                call timer('feedback','start')
   if(hydro.and.star.and.(.not.static_gas))call star_formation(ilevel)
+  if(hydro)call check_eu(ilevel,'after_sf   ',.false.)  ! DEBUG Eu
 #endif
   !---------------------------------------
   ! Update physical and virtual boundaries
@@ -628,3 +640,47 @@ subroutine rt_step(ilevel)
 
 end subroutine rt_step
 #endif
+!################################################################
+!################################################################
+!################################################################
+!################################################################
+subroutine check_eu(ilevel,label,use_unew)
+  use amr_commons
+  use hydro_commons
+  implicit none
+  integer::ilevel
+  character(len=*)::label
+  logical::use_unew
+  !------------------------------------------------------------------
+  ! DEBUG: flag leaf cells of level ilevel where Eu or Mg is negative,
+  ! or Eu/rho exceeds the IC floor (impossible before the first BNS
+  ! merger). Read-only; prints at most nprint_max lines per rank.
+  !------------------------------------------------------------------
+  integer::ind,iskip,i,icell
+  integer,save::nprint=0
+  integer,parameter::nprint_max=200
+  real(dp)::d,eu,fe,mg,zz
+  if(.not.bns_enrichment)return
+  if(nprint>=nprint_max)return
+  do ind=1,twotondim
+     iskip=ncoarse+(ind-1)*ngridmax
+     do i=1,active(ilevel)%ngrid
+        icell=active(ilevel)%igrid(i)+iskip
+        if(son(icell)/=0)cycle
+        if(use_unew)then
+           d=max(unew(icell,1),smallr)
+           eu=unew(icell,iheavy); fe=unew(icell,iFe); mg=unew(icell,iMg); zz=unew(icell,imetal)
+        else
+           d=max(uold(icell,1),smallr)
+           eu=uold(icell,iheavy); fe=uold(icell,iFe); mg=uold(icell,iMg); zz=uold(icell,imetal)
+        endif
+        ! IC floor as set in init_flow_fine.f90 (z_ave_eu*0.02), small tolerance
+        if(eu<0d0 .or. mg<0d0 .or. eu/d>z_ave_eu*0.02*(1d0+1d-5))then
+           write(*,'(A,A,I4,I6,I10,I12,5ES13.5)')' CHECK_EU ',label,ilevel,myid,nstep_coarse,icell, &
+                & d,eu/d,fe/d,mg/d,zz/d
+           nprint=nprint+1
+           if(nprint>=nprint_max)return
+        endif
+     end do
+  end do
+end subroutine check_eu

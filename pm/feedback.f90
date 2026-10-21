@@ -3255,15 +3255,15 @@ subroutine snIa_fine(ilevel)
                           ! with ejecta mass via a fixed "erg per 10 Msun" reference that
                           ! doesn't apply here).
                           ethermal    = E_SNIa*nsnIa_star/(scale_d*scale_l**3*scale_v**2)/vol_loc
-                          uold(ind_cell,1)      = uold(ind_cell,1)      + mejecta_vol
-                          uold(ind_cell,2)      = uold(ind_cell,2)      + mejecta_vol*vp(ipart,1)
-                          uold(ind_cell,3)      = uold(ind_cell,3)      + mejecta_vol*vp(ipart,2)
-                          uold(ind_cell,4)      = uold(ind_cell,4)      + mejecta_vol*vp(ipart,3)
-                          uold(ind_cell,ndim+2) = uold(ind_cell,ndim+2) + mejecta_vol*ekinetic + ethermal
-                          if(metal) uold(ind_cell,imetal) = uold(ind_cell,imetal) + mejecta_vol
+                          unew(ind_cell,1)      = unew(ind_cell,1)      + mejecta_vol
+                          unew(ind_cell,2)      = unew(ind_cell,2)      + mejecta_vol*vp(ipart,1)
+                          unew(ind_cell,3)      = unew(ind_cell,3)      + mejecta_vol*vp(ipart,2)
+                          unew(ind_cell,4)      = unew(ind_cell,4)      + mejecta_vol*vp(ipart,3)
+                          unew(ind_cell,ndim+2) = unew(ind_cell,ndim+2) + mejecta_vol*ekinetic + ethermal
+                          if(metal) unew(ind_cell,imetal) = unew(ind_cell,imetal) + mejecta_vol
                           if(snIa_enrichment)then
-                             uold(ind_cell,iFe) = uold(ind_cell,iFe) + mejecta_vol*f_Fe_Ia
-                             uold(ind_cell,iMg) = uold(ind_cell,iMg) + mejecta_vol*f_Mg_Ia
+                             unew(ind_cell,iFe) = unew(ind_cell,iFe) + mejecta_vol*f_Fe_Ia
+                             unew(ind_cell,iMg) = unew(ind_cell,iMg) + mejecta_vol*f_Mg_Ia
                           endif
                           mp(ipart) = mp(ipart) - mejecta
                        endif
