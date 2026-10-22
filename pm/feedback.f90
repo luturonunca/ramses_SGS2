@@ -2774,6 +2774,15 @@ subroutine bns_merger_enrich(ilevel)
   integer,parameter::io_tag=1121
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
+  ! Host-cell lookup among the 27 neighbouring octs (same as feedbk), so stars
+  ! that drifted out of their oct are deposited in the oct they are really in
+  integer::kg,icell,igrid_host
+  integer,dimension(1:3)::id,igd
+  integer,dimension(1:nvector)::ind_father
+  integer,dimension(1:nvector,1:threetondim)::nbors_father_cells
+  integer,dimension(1:nvector,1:twotondim)::nbors_father_grids
+  real(dp)::vol_dep
+  logical::nbors_ready
   real(dp)::mejecta,heavyzloss,mheavyloss,mejecta_vol,ekinetic
   real(dp)::e,uvar
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
@@ -2807,9 +2816,11 @@ subroutine bns_merger_enrich(ilevel)
      do jgrid=1,numbl(icpu,ilevel)
         npart1=numbp(igrid)
         if(npart1>0)then
+           ! Lower-left corner of the 3x3x3 block of octs around igrid
            do idim=1,ndim
-              x0(idim)=xg(igrid,idim)-dx-skip_loc(idim)
+              x0(idim)=xg(igrid,idim)-3.0d0*dx
            end do
+           nbors_ready=.false.
            ipart=headp(igrid)
            ! Loop over particles
            do jpart=1,npart1
@@ -2817,17 +2828,30 @@ subroutine bns_merger_enrich(ilevel)
               ! BNS merger eligibility: tag=1 means SN2 done, waiting for merger
               if(is_bns(typep(ipart)) .and. typep(ipart)%tag.eq.1 .and. &
                    & t_merge(ipart).le.current_time)then
-                 ! Find the host cell
-                 ind_son=1
+                 ! Find the host cell among the 27 neighbouring octs (as in feedbk)
+                 if(.not.nbors_ready)then
+                    ind_father(1)=father(igrid)
+                    call get3cubefather(ind_father,nbors_father_cells,nbors_father_grids,1,ilevel)
+                    nbors_ready=.true.
+                 endif
                  do idim=1,ndim
-                    ind=int((xp(ipart,idim)/scale-x0(idim))/dx)
-                    ind_son=ind_son+ind*2**(idim-1)
+                    id(idim)=int((xp(ipart,idim)/scale+skip_loc(idim)-x0(idim))/dx)
+                    igd(idim)=id(idim)/2
                  end do
-                 iskip=ncoarse+(ind_son-1)*ngridmax
-                 ind_cell=iskip+igrid
+                 kg=1+igd(1)+3*igd(2)+9*igd(3)
+                 igrid_host=son(nbors_father_cells(1,kg))
+                 if(igrid_host>0)then
+                    icell=1+(id(1)-2*igd(1))+2*(id(2)-2*igd(2))+4*(id(3)-2*igd(3))
+                    ind_cell=ncoarse+(icell-1)*ngridmax+igrid_host
+                    vol_dep=vol_loc
+                 else
+                    ! Neighbour region not refined at ilevel: deposit in the coarser cell
+                    ind_cell=nbors_father_cells(1,kg)
+                    vol_dep=vol_loc*2**ndim
+                 endif
                  if(son(ind_cell)==0)then  ! leaf cell only
                     mejecta     = eta_merger*mp(ipart)
-                    mejecta_vol = mejecta/vol_loc
+                    mejecta_vol = mejecta/vol_dep
                     heavyzloss  = eu_yield+(1d0-eu_yield)*zp_heavy(ipart)
                     mheavyloss  = mejecta_vol*heavyzloss
                     ekinetic    = 0.0d0
@@ -2965,6 +2989,15 @@ subroutine bns_sn2_fine(ilevel)
   integer,parameter::io_tag=1121
   real(dp)::current_time,dx,dx_loc,vol_loc,scale
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
+  ! Host-cell lookup among the 27 neighbouring octs (same as feedbk), so stars
+  ! that drifted out of their oct are deposited in the oct they are really in
+  integer::kg,icell,igrid_host
+  integer,dimension(1:3)::id,igd
+  integer,dimension(1:nvector)::ind_father
+  integer,dimension(1:nvector,1:threetondim)::nbors_father_cells
+  integer,dimension(1:nvector,1:twotondim)::nbors_father_grids
+  real(dp)::vol_dep
+  logical::nbors_ready
   real(dp)::mejecta,mejecta_vol,zloss,mzloss,ethermal,ekinetic,ESN
   real(dp)::mFeloss,mMgloss,Zejecta_Fe,Zejecta_Mg
   real(dp)::vx,vy,vz
@@ -3006,23 +3039,38 @@ subroutine bns_sn2_fine(ilevel)
      do jgrid=1,numbl(icpu,ilevel)
         npart1=numbp(igrid)
         if(npart1>0)then
+           ! Lower-left corner of the 3x3x3 block of octs around igrid
            do idim=1,ndim
-              x0(idim)=xg(igrid,idim)-dx-skip_loc(idim)
+              x0(idim)=xg(igrid,idim)-3.0d0*dx
            end do
+           nbors_ready=.false.
            ipart=headp(igrid)
            ! Loop over particles
            do jpart=1,npart1
               next_part=nextp(ipart)
               if(is_bns(typep(ipart)) .and. typep(ipart)%tag.eq.0 .and. &
                    & t_sn2(ipart).le.current_time)then
-                 ! Find the host cell
-                 ind_son=1
+                 ! Find the host cell among the 27 neighbouring octs (as in feedbk)
+                 if(.not.nbors_ready)then
+                    ind_father(1)=father(igrid)
+                    call get3cubefather(ind_father,nbors_father_cells,nbors_father_grids,1,ilevel)
+                    nbors_ready=.true.
+                 endif
                  do idim=1,ndim
-                    ind=int((xp(ipart,idim)/scale-x0(idim))/dx)
-                    ind_son=ind_son+ind*2**(idim-1)
+                    id(idim)=int((xp(ipart,idim)/scale+skip_loc(idim)-x0(idim))/dx)
+                    igd(idim)=id(idim)/2
                  end do
-                 iskip=ncoarse+(ind_son-1)*ngridmax
-                 ind_cell=iskip+igrid
+                 kg=1+igd(1)+3*igd(2)+9*igd(3)
+                 igrid_host=son(nbors_father_cells(1,kg))
+                 if(igrid_host>0)then
+                    icell=1+(id(1)-2*igd(1))+2*(id(2)-2*igd(2))+4*(id(3)-2*igd(3))
+                    ind_cell=ncoarse+(icell-1)*ngridmax+igrid_host
+                    vol_dep=vol_loc
+                 else
+                    ! Neighbour region not refined at ilevel: deposit in the coarser cell
+                    ind_cell=nbors_father_cells(1,kg)
+                    vol_dep=vol_loc*2**ndim
+                 endif
                  if(son(ind_cell)==0)then  ! leaf cell only
                     mejecta = max(0d0, mp(ipart) - 2d0*M_ns*2d33/(scale_d*scale_l**3))
                     ! Save pre-kick velocity for gas momentum deposit
@@ -3120,9 +3168,9 @@ subroutine bns_sn2_fine(ilevel)
                        write(ilun,'(A1)') ' '
                     endif
                     ! Deposit ejecta into host cell (thermal path, mirrors feedbk)
-                    mejecta_vol = mejecta / vol_loc
+                    mejecta_vol = mejecta / vol_dep
                     ekinetic    = 0.5d0*(vx**2 + vy**2 + vz**2)
-                    ethermal    = mejecta * ESN / vol_loc
+                    ethermal    = mejecta * ESN / vol_dep
                     uold(ind_cell,1)      = uold(ind_cell,1)      + mejecta_vol
                     uold(ind_cell,2)      = uold(ind_cell,2)      + mejecta_vol*vx
                     uold(ind_cell,3)      = uold(ind_cell,3)      + mejecta_vol*vy
@@ -3183,6 +3231,15 @@ subroutine snIa_fine(ilevel)
   integer::npart1,ind,ind_son,ind_cell,iskip,idim
   real(dp)::current_time,dx,dx_loc,vol_loc,scale,dteff
   real(dp)::skip_loc(1:3),x0(1:3),xc(1:twotondim,1:ndim)
+  ! Host-cell lookup among the 27 neighbouring octs (same as feedbk), so stars
+  ! that drifted out of their oct are deposited in the oct they are really in
+  integer::kg,icell,igrid_host
+  integer,dimension(1:3)::id,igd
+  integer,dimension(1:nvector)::ind_father
+  integer,dimension(1:nvector,1:threetondim)::nbors_father_cells
+  integer,dimension(1:nvector,1:twotondim)::nbors_father_grids
+  real(dp)::vol_dep
+  logical::nbors_ready
   real(dp)::t_ini_code,t_fin_code,age1,age2,lo,hi
   real(dp)::mass_msun,nsnIa_star,mejecta,mejecta_vol,ekinetic,ethermal
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v
@@ -3216,9 +3273,11 @@ subroutine snIa_fine(ilevel)
      do jgrid=1,numbl(icpu,ilevel)
         npart1=numbp(igrid)
         if(npart1>0)then
+           ! Lower-left corner of the 3x3x3 block of octs around igrid
            do idim=1,ndim
-              x0(idim)=xg(igrid,idim)-dx-skip_loc(idim)
+              x0(idim)=xg(igrid,idim)-3.0d0*dx
            end do
+           nbors_ready=.false.
            ipart=headp(igrid)
            ! Loop over particles
            do jpart=1,npart1
@@ -3236,25 +3295,38 @@ subroutine snIa_fine(ilevel)
                     mass_msun=mp(ipart)*(scale_d*scale_l**3)/2d33
                     nsnIa_star=mass_msun*(phi_snIa/1.0d1)*(log(hi)-log(lo))
                     if(nsnIa_star>0d0)then
-                       ! Find the host cell
-                       ind_son=1
+                       ! Find the host cell among the 27 neighbouring octs (as in feedbk)
+                       if(.not.nbors_ready)then
+                          ind_father(1)=father(igrid)
+                          call get3cubefather(ind_father,nbors_father_cells,nbors_father_grids,1,ilevel)
+                          nbors_ready=.true.
+                       endif
                        do idim=1,ndim
-                          ind=int((xp(ipart,idim)/scale-x0(idim))/dx)
-                          ind_son=ind_son+ind*2**(idim-1)
+                          id(idim)=int((xp(ipart,idim)/scale+skip_loc(idim)-x0(idim))/dx)
+                          igd(idim)=id(idim)/2
                        end do
-                       iskip=ncoarse+(ind_son-1)*ngridmax
-                       ind_cell=iskip+igrid
+                       kg=1+igd(1)+3*igd(2)+9*igd(3)
+                       igrid_host=son(nbors_father_cells(1,kg))
+                       if(igrid_host>0)then
+                          icell=1+(id(1)-2*igd(1))+2*(id(2)-2*igd(2))+4*(id(3)-2*igd(3))
+                          ind_cell=ncoarse+(icell-1)*ngridmax+igrid_host
+                          vol_dep=vol_loc
+                       else
+                          ! Neighbour region not refined at ilevel: deposit in the coarser cell
+                          ind_cell=nbors_father_cells(1,kg)
+                          vol_dep=vol_loc*2**ndim
+                       endif
                        if(son(ind_cell)==0)then  ! leaf cell only
                           mejecta = mejecta_Ia/(scale_d*scale_l**3)*2d33*nsnIa_star
                           mejecta = min(mejecta, mp(ipart))
-                          mejecta_vol = mejecta/vol_loc
+                          mejecta_vol = mejecta/vol_dep
                           ekinetic    = 0.5d0*(vp(ipart,1)**2+vp(ipart,2)**2+vp(ipart,3)**2)
                           ! Energy scales with the actual event count, not with mejecta:
                           ! total energy = E_SNIa [erg] * nsnIa_star, converted to code
                           ! energy density (unlike ESN in feedbk/bns_sn2_fine, which scales
                           ! with ejecta mass via a fixed "erg per 10 Msun" reference that
                           ! doesn't apply here).
-                          ethermal    = E_SNIa*nsnIa_star/(scale_d*scale_l**3*scale_v**2)/vol_loc
+                          ethermal    = E_SNIa*nsnIa_star/(scale_d*scale_l**3*scale_v**2)/vol_dep
                           unew(ind_cell,1)      = unew(ind_cell,1)      + mejecta_vol
                           unew(ind_cell,2)      = unew(ind_cell,2)      + mejecta_vol*vp(ipart,1)
                           unew(ind_cell,3)      = unew(ind_cell,3)      + mejecta_vol*vp(ipart,2)
