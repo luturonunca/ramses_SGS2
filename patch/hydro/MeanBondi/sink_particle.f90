@@ -2473,8 +2473,12 @@ subroutine compute_accretion_rate(write_sinks)
         if(use_infall_mass .and. gmbh_dc_sink(isink) > 0d0)then
            dMdc_cold = eps_dc * M_cold_dc * wdc_infall_rate_tot / (M_cold_dc+M_crit+tiny(0.0_dp))
            wdc_infall_rnorm_sink(isink) = wdc_infall_rate_tot
-        else
+        else if(use_travel_time)then
            dMdc_cold = eps_dc * M_cold_dc**2 / (t_travel * (M_cold_dc+M_crit+tiny(0.0_dp)))
+           wdc_infall_rnorm_sink(isink) = 0d0
+        else
+           ! Original freefall rate (pre-c4043c4d): both free-fall channels in parallel
+           dMdc_cold = eps_dc * M_cold_dc * (1.0d0/t_ff_enc + 1.0d0/t_ff_bh)
            wdc_infall_rnorm_sink(isink) = 0d0
         endif
         gmbh_dc_sink(isink)  = factG*M_bh_dc
@@ -3983,7 +3987,7 @@ subroutine read_sink_params()
        T_cold_crit,n_cold_crit,dT_cold,dn_cold,&
        epsilon_freefall,epsilon_fixed,r_crit_dc,delta_dc,tff_include_particles,&
        use_stellar_mass_torque,weighted_depletion,use_infall_mass,R_acc,a1_torque,gamma_gas_rc,use_rinf_gate,use_mcrit_supply,&
-       use_jcirc_mask,use_Vin_gate,use_bound_gate,use_time_gate,&
+       use_travel_time,use_jcirc_mask,use_Vin_gate,use_bound_gate,use_time_gate,&
        drag_gas,boost_drag,d_boost,adfmax,weighted_drag,&
        drag_part,boost_drag_part,DF_ncells
   real(dp)::scale_nH,scale_T2,scale_l,scale_d,scale_t,scale_v

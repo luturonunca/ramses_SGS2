@@ -60,6 +60,7 @@ module pm_parameters
   ! channels' notion of "disc fraction" consistent.
   real(dp)::a1_torque=0.2d0
   logical::use_mcrit_supply=.true.                   ! Apply the Toomre M_crit gas-supply limit M_cold/(M_cold+M_crit) to the freefall cold rate
+  logical::use_travel_time=.true.                    ! Freefall cold rate with HQ11 travel time t_travel; .false. = original eps_dc*M_cold*(1/t_ff_enc+1/t_ff_bh) (only when use_infall_mass is off)
   logical::use_rinf_gate=.true.                      ! Apply the S_rinf_loc sphere-of-influence gate (r<GM_bh/v_turb^2) in the freefall infall mask
   logical::use_jcirc_mask=.false.                    ! Form of the freefall S_inf_loc gate: .true. = j/j_circ(R0) < r_crit_dc (pre-r_p); .false. = (E,j) pericenter r_p < R_acc
   logical::use_Vin_gate=.true.                       ! Apply the S_vin_loc radial-inflow gate (vr<0) in the freefall infall mask
