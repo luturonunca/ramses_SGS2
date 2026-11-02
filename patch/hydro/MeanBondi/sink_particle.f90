@@ -676,8 +676,9 @@ subroutine collect_acczone_avg(ilevel)
      ! r2sink is rebuilt on every level's collection call; keep the value pass 2 uses at this level
      if(freefall_accretion) r2sink_col_lvl(isink,ilevel) = r2sink(isink)
      ! Collisionless sigma from star+DM particles (only when sink_descent active)
+     ! 1D collisionless dispersion (isotropic: sigma_1D^2 = <|dv|^2>/ndim), as in r_inf = G M / sigma_1D^2
      if(sink_descent) &
-          & sigma2_coll_sink(isink) = wsigma2_coll_new(isink) / (wsigma2_coll_w_new(isink) + tiny(0.0_dp))
+          & sigma2_coll_sink(isink) = wsigma2_coll_new(isink) / (wsigma2_coll_w_new(isink) + tiny(0.0_dp)) / dble(ndim)
 
   end do
   
