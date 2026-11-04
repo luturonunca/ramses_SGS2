@@ -1009,7 +1009,7 @@ subroutine output_frame()
               endif
            else
               ! DM particles only
-              if(kk.eq.ipart_start) then
+              if((is_DM(typep(j))).and.(kk.eq.ipart_start)) then
                  if(mass_cut_refine>0d0.and.zoom_only_frame(proj_ind)) then
                     if(mp(j)<mass_cut_refine) data_frame(ii,jj,imap)=data_frame(ii,jj,imap)+mp(j)
                  else
