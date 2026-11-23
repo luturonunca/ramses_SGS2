@@ -34,7 +34,7 @@ mpirun -np <N> ./ramses_MHD3d mochima_MHD.nml
 
 ## Namelist changes vs `mochima_noAGN.nml`
 - `nrestart=0`: hydro outputs cannot be restarted in MHD.
-- `B_ave=6.9d-7`: uniform initial Bz seed in code units, B[G] ≈ 1.45e-6 · B_ave / a² (≈1e-12 G comoving). Placeholder value.
+- `B_ave=2.07d-14`: uniform initial Bz seed of 3e-20 G comoving, as in Martin-Alvarez et al. 2021 (MNRAS, "Towards convergence of turbulent dynamo amplification..."). Code units for this box (25 Mpc/h): B[G] = 1.447e-6 · B_ave / a².
 - `ivar_refine=12`: passive scalars move up by 3 in MHD (was 9).
 - `riemann='hlld'`, `riemann2d='hlld'`: `hllc` does not exist in the MHD solver.
 

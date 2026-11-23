@@ -20,7 +20,7 @@ initfile(2)='../../IC_Mochima/level_008'
 initfile(3)='../../IC_Mochima/level_009'
 initfile(4)='../../IC_Mochima/level_010'
 initfile(5)='../../IC_Mochima/level_011'
-B_ave=6.9d-7          ! uniform Bz seed, code units: B[G]=B_ave*1.45e-6/a^2 -> ~1e-12 G comoving (placeholder)
+B_ave=2.07d-14        ! uniform Bz seed = 3e-20 G comoving (Martin-Alvarez+2021); code units: B[G]=B_ave*1.447e-6/a^2
 /
 
 &OUTPUT_PARAMS
