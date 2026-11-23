@@ -1,0 +1,170 @@
+&RUN_PARAMS
+cosmo=.true.
+pic=.true.
+poisson=.true.
+hydro=.true.
+nrestart=0            ! MHD cannot restart from hydro outputs (different nvar)
+nremap=20
+nsubcycle=1,1,1,1,1,1,2
+ncontrol=1
+verbose=.false.
+clumpfind=.false.
+use_proper_time=.true.
+sink=.true.
+/
+
+&INIT_PARAMS
+filetype='grafic'
+initfile(1)='../../IC_Mochima/level_007'
+initfile(2)='../../IC_Mochima/level_008'
+initfile(3)='../../IC_Mochima/level_009'
+initfile(4)='../../IC_Mochima/level_010'
+initfile(5)='../../IC_Mochima/level_011'
+B_ave=6.9d-7          ! uniform Bz seed, code units: B[G]=B_ave*1.45e-6/a^2 -> ~1e-12 G comoving (placeholder)
+/
+
+&OUTPUT_PARAMS
+delta_aout=0.0025
+aend=1.4
+walltime_hrs=0.4
+minutes_dump=5
+/
+
+&AMR_PARAMS
+levelmin=7
+levelmax=20
+nexpand=6,6,6,1,1
+ngridmax=300000
+npartmax=5000000
+/
+
+&POISSON_PARAMS
+epsilon=1.d-3
+/
+
+&REFINE_PARAMS
+m_refine=0.0,0.0,0.0,11*9.,
+x_refine=14*0.491
+y_refine=14*0.524
+z_refine=14*0.511
+!r_refine=0.20,0.19,0.18,11*0.17,
+r_refine=0.23,0.22,0.21,11*0.20,
+a_refine=14*1.0,
+b_refine=14*1.0,
+exp_refine=14*2.0,
+ivar_refine=12        ! passive scalars shift by +3 in MHD (was 9 in hydro)
+var_cut_refine=0.01
+mass_cut_refine=2.32831e-10
+interpol_var=1
+interpol_type=0
+/
+
+!&MOVIE_PARAMS
+!aendmov=1.
+!imovout=500
+!imov=1
+!movie=.true.
+!nw_frame=1920
+!nh_frame=1080
+!levelmax_frame=19
+!xcentre_frame=0.484244,0.139338,-0.098042,0.029075
+!ycentre_frame=0.534884,-0.102363,0.045096,-0.000368
+!zcentre_frame=0.502929,-0.096247,0.093378,-0.035536
+!deltax_frame=0.0055,0.0085
+!deltay_frame=0.0055,0.0085
+!deltaz_frame=1.0,0.0
+!proj_axis='z'
+!phi_camera=65.0
+!dtheta_camera=360.
+!perspective_camera=.true.
+!shader_frame='cube'
+!zoom_only_frame=.true.
+!movie_vars_txt='dm','dens','stars','temp','var6','var7','vz'
+!/
+
+&COOLING_PARAMS
+metal=.true.
+cooling=.true.
+haardt_madau=.true.
+self_shielding=.true.
+z_reion=8.5
+z_ave=1e-3
+T2max=1e9
+/
+
+&SF_PARAMS
+sf_model=1
+sf_virial=.true.
+sf_log_properties=.true.
+sf_compressive=.false.
+eps_star=0.09
+n_star=1e-3
+del_star=200
+T2_star=0.1 ! isothermal
+g_star=1.0
+m_star=1.
+!M_SNII=10. ! chabrier
+jeans_ncells=-1
+/
+
+&FEEDBACK_PARAMS
+mechanical_feedback=1
+rbubble=110
+delayed_cooling=.true.
+yield=0.05   ! chabrier
+eta_sn=0.313 ! chabrier
+f_w=0.
+f_ek=0.
+t_sne=5.0 ! typical age of SN (between 5 and 10 My  is ok)
+!t_diss=20 
+/
+
+&HYDRO_PARAMS
+gamma=1.6666667
+courant_factor=0.8
+slope_type=1
+scheme='muscl'
+riemann='hlld'        ! hllc not available in the MHD solver
+riemann2d='hlld'
+pressure_fix=.true.
+beta_fix=0.5
+/
+
+
+&SINK_PARAMS
+smbh=.false.                 ! turns sinks into SMBH
+agn=.false.                  ! enables AGN feedback
+create_sinks=.false.         ! enables formation of new sink particles
+sink_descent=.false.         ! Switch for the sink descent
+fudge_graddescent=1.0d0     ! Fudge factor for the for the BB gradient descent
+mass_sink_direct_force=1.0  ! minimum mass of sink to treat it with direct solver, in M_sun
+mass_sink_seed=1.0d6        ! dynamical mass of sink particle
+mass_smbh_seed=1.0d6        ! accretion mass of sink particle
+mass_halo_AGN=5.d7         ! minimum mass of PHEW halo in which a sink is seeded
+mass_clump_AGN=1.d7         ! minimum mass of PHEW clump in which a sink is seeded
+accretion_scheme='bondi'    ! selects Bondi accretion as accretion mode
+eddington_limit=.true.      ! enables Eddington limit on accretion
+mean_bondi=.true.           ! enables Eddington limit on accretion
+use_bondi_exp_weight=.true. ! enables exponential weighting of Mean bondi
+acc_sink_boost=-1           ! boosts accretion according to Booth&Schaye 2009
+boost_threshold_density=0.1 ! threshold density for boosting, typically the same as n_star; in H/cc
+bondi_use_vrel=.false.      ! excludes relative velocity between gas and sink from the accretion calculations 
+mass_merger_vel_check=1e8   ! sum of sinks' masses for which velocities are checked upon merging to determine if the system is bound
+T2_min=0                    ! if feedback can heat the gas to this temperature then deposit it; here deposits at every fine step
+T2_AGN=0.15d12              ! thermal feedback efficiency
+AGN_fbk_frac_ener=1.0       ! controls what fraction of energy goes into thermal feedback, here 100%
+AGN_fbk_frac_mom=0.0        ! controls what fraction of energy goes into momentum feedback, here 0%
+AGN_fbk_mode_switch_threshold=1d-2 ! switches between thermal (above) and momentum modes for this ratio of Bondi-to-Eddington
+epsilon_kin=1.              ! momentum feedback efficiency
+kin_mass_loading=100.       ! mass loading factor of momentum feedback
+cone_opening=90.            ! opening angle of the cone in which momentum feedback is deposited (180. means full sphere)
+/
+
+&CLUMPFIND_PARAMS
+relevance_threshold=3
+density_threshold=8.
+saddle_threshold=20
+mass_threshold=10.
+ivar_clump=0
+clinfo=.false.
+/
