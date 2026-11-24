@@ -155,6 +155,9 @@ write_makefile.o: FORCE
 write_patch.o: FORCE
 	../utils/scripts/cr_write_patch.sh $(PATCH)
 	$(F90) $(FFLAGS) -c write_patch.f90 -o $@
+# MeanBondi/condinit.f90 is hydro-only (no velana): force the MHD version
+condinit.o: ../mhd/condinit.f90
+	$(F90) $(FFLAGS) -c $< -o $@ $(LIBS_OBJ)
 %.o:%.F
 	$(F90) $(FFLAGS) -c $^ -o $@ $(LIBS_OBJ)
 %.o:%.f90
